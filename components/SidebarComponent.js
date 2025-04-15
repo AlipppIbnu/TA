@@ -9,6 +9,7 @@ import Image from "next/image";
 const SidebarComponent = ({ vehicles = [], onSelectVehicle }) => {
   const router = useRouter();
   const [selectedVehicleId, setSelectedVehicleId] = useState(null);
+  const [showHistory, setShowHistory] = useState(false); // State untuk toggle riwayat
 
   const handleLogout = async () => {
     try {
@@ -22,6 +23,7 @@ const SidebarComponent = ({ vehicles = [], onSelectVehicle }) => {
 
   const handleSelectVehicle = (vehicle) => {
     setSelectedVehicleId(vehicle.id);
+    setShowHistory(false); // Reset riwayat saat kendaraan baru dipilih
     onSelectVehicle(vehicle);
   };
 
@@ -31,21 +33,32 @@ const SidebarComponent = ({ vehicles = [], onSelectVehicle }) => {
       return;
     }
 
-    try {
-      const res = await fetch("/api/history");
-      const data = await res.json();
-
-      const riwayat = data.data
-        .filter((item) => item.id === selectedVehicleId)
-        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-        .map((item) => [parseFloat(item.latitude), parseFloat(item.longitude)]);
-
+    if (showHistory) {
+      // Sembunyikan riwayat
       const selected = vehicles.find((v) => v.id === selectedVehicleId);
       if (selected) {
-        onSelectVehicle({ ...selected, path: riwayat }); // 🚀 kirim path ke parent
+        onSelectVehicle({ ...selected, path: [] }); // Kosongkan path
       }
-    } catch (err) {
-      console.error("Gagal ambil riwayat koordinat:", err);
+      setShowHistory(false);
+    } else {
+      // Tampilkan riwayat
+      try {
+        const res = await fetch("/api/history");
+        const data = await res.json();
+
+        const riwayat = data.data
+          .filter((item) => item.id === selectedVehicleId)
+          .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+          .map((item) => [parseFloat(item.latitude), parseFloat(item.longitude)]);
+
+        const selected = vehicles.find((v) => v.id === selectedVehicleId);
+        if (selected) {
+          onSelectVehicle({ ...selected, path: riwayat }); // Kirim path ke parent
+        }
+        setShowHistory(true);
+      } catch (err) {
+        console.error("Gagal ambil riwayat koordinat:", err);
+      }
     }
   };
 
@@ -97,7 +110,7 @@ const SidebarComponent = ({ vehicles = [], onSelectVehicle }) => {
           onClick={handleHistoryClick}
           className="w-full py-2 bg-blue-500 text-white rounded-md"
         >
-          HISTORY
+          {showHistory ? "HIDE HISTORY" : "SHOW HISTORY"}
         </button>
       </div>
 

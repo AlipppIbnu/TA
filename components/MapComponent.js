@@ -103,7 +103,7 @@ const MapComponent = forwardRef(({ vehicles, selectedVehicle }, ref) => {
 
       {/* 🔵 Tampilkan riwayat polyline jika tersedia */}
       {selectedVehicle?.path && selectedVehicle.path.length > 1 && (
-        <Polyline positions={selectedVehicle.path} color="blue" />
+        <Polyline positions={selectedVehicle.path} color="red" />
       )}
     </MapContainer>
   );
