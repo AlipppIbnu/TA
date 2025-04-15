@@ -78,7 +78,7 @@ export default function Login() {
       {/* Konten Halaman */}
       <div className="flex justify-center items-center flex-1 px-16">
         <div className="flex w-full max-w-[1400px] space-x-24 items-center">
-          {/* Gambar Peta */}
+          {/* Gambar logo */}
           <div className="flex-1">
             <Image
               src="/icon/map.png"

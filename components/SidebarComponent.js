@@ -1,91 +1,114 @@
-import { signOut, onAuthStateChanged } from "firebase/auth";
+// components/SidebarComponent.js
+
+import { useState } from "react";
+import { signOut } from "firebase/auth"; 
 import { auth } from "@/lib/firebaseConfig";
-import { useRouter } from "next/router";
-import { useState, useEffect } from "react";
+import { useRouter } from "next/router"; 
+import Image from "next/image"; 
 
-const SidebarComponent = ({ vehicles }) => {
-    const router = useRouter();
-    const [filter, setFilter] = useState("ALL");
+const SidebarComponent = ({ vehicles = [], onSelectVehicle }) => {
+  const router = useRouter();
+  const [selectedVehicleId, setSelectedVehicleId] = useState(null);
 
-    // ✅ Listen perubahan auth state untuk redirect ke login jika user logout
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            if (!user) {
-                router.replace("/auth/login"); // 🔥 Paksa redirect ke login jika user logout
-            }
-        });
-        return () => unsubscribe();
-    }, [router]);
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      localStorage.removeItem("token");
+      router.push("/auth/login");
+    } catch (error) {
+      console.error("Logout Error:", error);
+    }
+  };
 
-    // ✅ Fungsi logout
-    const handleLogout = async () => {
-        try {
-            await signOut(auth);
-            setTimeout(() => {
-                router.replace("/auth/login"); // 🔥 Tambahkan delay agar Firebase sempat update state
-            }, 500);
-        } catch (error) {
-            console.error("Logout gagal:", error);
-        }
-    };
+  const handleSelectVehicle = (vehicle) => {
+    setSelectedVehicleId(vehicle.id);
+    onSelectVehicle(vehicle);
+  };
 
-    // ✅ Filter kendaraan berdasarkan status
-    const filteredVehicles = vehicles.filter(vehicle => {
-        if (filter === "ALL") return true;
-        return vehicle.status.toLowerCase() === filter.toLowerCase();
-    });
+  const handleHistoryClick = async () => {
+    if (!selectedVehicleId) {
+      alert("Pilih kendaraan terlebih dahulu.");
+      return;
+    }
 
-    return (
-        <div className="w-80 bg-white shadow-md h-screen flex flex-col p-4">
-            <h1 className="text-2xl font-bold text-center mb-4">🚗 VehiTrack</h1>
+    try {
+      const res = await fetch("/api/history");
+      const data = await res.json();
 
-            {/* Filter ALL, Online, Offline */}
-            <div className="flex justify-around mb-4">
-                {["ALL", "Online", "Offline"].map((status) => (
-                    <button
-                        key={status}
-                        className={`px-3 py-1 rounded-md ${
-                            filter === status ? "bg-blue-600 text-white" : "bg-gray-200"
-                        }`}
-                        onClick={() => setFilter(status)}
-                    >
-                        {status} ({vehicles.filter(v => v.status.toLowerCase() === status.toLowerCase()).length})
-                    </button>
-                ))}
+      const riwayat = data.data
+        .filter((item) => item.id === selectedVehicleId)
+        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+        .map((item) => [parseFloat(item.latitude), parseFloat(item.longitude)]);
+
+      const selected = vehicles.find((v) => v.id === selectedVehicleId);
+      if (selected) {
+        onSelectVehicle({ ...selected, path: riwayat }); // 🚀 kirim path ke parent
+      }
+    } catch (err) {
+      console.error("Gagal ambil riwayat koordinat:", err);
+    }
+  };
+
+  return (
+    <div className="w-80 bg-white shadow-md h-screen flex flex-col p-4">
+      <div className="flex justify-center mb-6 mt-4">
+        <Image src="/icon/logo_web.png" alt="VehiTrack Logo" width={150} height={50} />
+      </div>
+
+      <h2 className="text-center font-bold text-lg mb-3">Daftar Kendaraan</h2>
+
+      <div className="flex-grow overflow-y-auto">
+        {vehicles.length > 0 ? (
+          vehicles.map((vehicle) => (
+            <div
+              key={vehicle.id}
+              className={`p-3 mb-2 rounded-md cursor-pointer ${
+                selectedVehicleId === vehicle.id
+                  ? "bg-blue-200"
+                  : "bg-gray-100 hover:bg-gray-200"
+              }`}
+              onClick={() => handleSelectVehicle(vehicle)}
+            >
+              <p className="font-bold">
+                {vehicle.merek} {vehicle.model} ({vehicle.nomor_kendaraan})
+              </p>
+              <p className="text-sm text-black">Jenis: {vehicle.jenis_kendaraan}</p>
+              <p className="text-sm text-black">Warna: {vehicle.warna}</p>
+              <p className="text-sm text-black">Pemilik: {vehicle.pemilik}</p>
+              <p className="text-sm text-black">Tahun: {vehicle.tahun_pembuatan}</p>
+              <p className="text-sm text-black">
+                Lokasi:{" "}
+                {vehicle.position
+                  ? `${vehicle.position.lat.toFixed(5)}, ${vehicle.position.lng.toFixed(5)}`
+                  : "Tidak tersedia"}
+              </p>
             </div>
+          ))
+        ) : (
+          <p className="text-center text-gray-500">Tidak ada kendaraan</p>
+        )}
+      </div>
 
-            {/* Daftar Kendaraan */}
-            <div className="flex-grow overflow-y-auto">
-                {filteredVehicles.map((vehicle) => (
-                    <div key={vehicle.id} className="flex items-center justify-between p-2 bg-gray-100 rounded-md mb-2">
-                        <div>
-                            <p className="font-bold">{vehicle.name}</p>
-                            <p className="text-sm text-gray-600">{vehicle.time}</p>
-                        </div>
-                        <span className={`text-sm ${vehicle.status === "online" ? "text-green-500" : "text-red-500"}`}>
-                            {vehicle.status === "online" ? "🟢" : "🔴"}
-                        </span>
-                    </div>
-                ))}
-            </div>
+      <div className="mt-4 space-y-2">
+        <button className="w-full py-2 bg-green-500 text-white rounded-md">ENGINE ON</button>
+        <button className="w-full py-2 bg-red-500 text-white rounded-md">ENGINE OFF</button>
+        <button className="w-full py-2 bg-green-500 text-white rounded-md">SET GEOFENCE</button>
+        <button
+          onClick={handleHistoryClick}
+          className="w-full py-2 bg-blue-500 text-white rounded-md"
+        >
+          HISTORY
+        </button>
+      </div>
 
-            {/* Kontrol Perangkat */}
-            <div className="mt-4">
-                <button className="w-full py-2 bg-green-500 text-white mb-2 rounded-md">ENGINE ON</button>
-                <button className="w-full py-2 bg-red-500 text-white mb-2 rounded-md">ENGINE OFF</button>
-                <button className="w-full py-2 bg-gray-300 mb-2 rounded-md">PLAYBACK</button>
-                <button className="w-full py-2 bg-gray-300 mb-2 rounded-md">SET GEOFENCE</button>
-                <button className="w-full py-2 bg-blue-500 text-white mb-2 rounded-md">FOCUS MODE</button>
-            </div>
-
-            {/* Tombol Logout */}
-            <button 
-                onClick={handleLogout} 
-                className="mt-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-center">
-                Logout
-            </button>
-        </div>
-    );
+      <button
+        onClick={handleLogout}
+        className="mt-4 bg-red-500 hover:bg-red-600 text-white px-6 py-2 text-lg rounded-md w-full"
+      >
+        Logout
+      </button>
+    </div>
+  );
 };
 
 export default SidebarComponent;

@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { auth } from "../lib/firebaseConfig";
 import "../styles/globals.css";
 import "leaflet/dist/leaflet.css";
+import 'leaflet-draw/dist/leaflet.draw.css';
 
 export default function MyApp({ Component, pageProps }) {
   const router = useRouter();
