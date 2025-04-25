@@ -7,26 +7,28 @@ import { FaEye, FaEyeSlash } from "react-icons/fa";
 import Image from "next/image";
 
 export default function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [email, setEmail] = useState("");             // State untuk input email
+  const [password, setPassword] = useState("");       // State untuk input password
+  const [showPassword, setShowPassword] = useState(false); // Tampilkan/sembunyikan password
+  const [rememberMe, setRememberMe] = useState(false);     // State checkbox "remember me"
+  const [error, setError] = useState(null);           // Untuk menampilkan pesan error
+  const [loading, setLoading] = useState(true);       // Untuk menangani loading saat auth
   const router = useRouter();
 
+  // Cek apakah user sudah login
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        router.replace("/dashboard");
+        router.replace("/dashboard");  // Redirect jika sudah login
       } else {
-        setLoading(false);
+        setLoading(false);            // Hentikan loading jika belum login
       }
     });
 
-    return () => unsubscribe();
+    return () => unsubscribe();        // Cleanup listener
   }, [router]);
 
+  // Cek localStorage jika email disimpan (remember me)
   useEffect(() => {
     const savedEmail = localStorage.getItem("rememberedEmail");
     if (savedEmail) {
@@ -35,23 +37,26 @@ export default function Login() {
     }
   }, []);
 
+  // Fungsi login saat submit
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
       await signInWithEmailAndPassword(auth, email, password);
 
+      // Simpan atau hapus email sesuai dengan pilihan "remember me"
       if (rememberMe) {
         localStorage.setItem("rememberedEmail", email);
       } else {
         localStorage.removeItem("rememberedEmail");
       }
 
-      router.push("/dashboard");
+      router.push("/dashboard"); // Redirect ke dashboard setelah login
     } catch (err) {
       setError("Email atau password salah!");
     }
   };
 
+  // Loading screen saat cek autentikasi
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -62,7 +67,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      {/* Navbar */}
+      {/* Navbar Logo */}
       <nav className="w-full h-40 flex items-center px-16 border-b">
         <Link href="/">
           <Image
@@ -75,10 +80,10 @@ export default function Login() {
         </Link>
       </nav>
 
-      {/* Konten Halaman */}
+      {/* Konten Utama */}
       <div className="flex justify-center items-center flex-1 px-16">
         <div className="flex w-full max-w-[1400px] space-x-24 items-center">
-          {/* Gambar logo */}
+          {/* Kiri - Gambar */}
           <div className="flex-1">
             <Image
               src="/icon/map.png"
@@ -89,8 +94,9 @@ export default function Login() {
             />
           </div>
 
-          {/* Form Login */}
+          {/* Kanan - Form Login */}
           <div className="w-[400px] flex flex-col items-center">
+            {/* Logo kecil */}
             <div className="mb-6">
               <Link href="/">
                 <Image
@@ -103,8 +109,10 @@ export default function Login() {
               </Link>
             </div>
 
+            {/* Tampilkan pesan error jika ada */}
             {error && <p className="text-red-500 text-sm text-center">{error}</p>}
 
+            {/* Form Login */}
             <form onSubmit={handleLogin} className="space-y-4 w-full">
               {/* Input Email */}
               <input
@@ -115,7 +123,7 @@ export default function Login() {
                 onChange={(e) => setEmail(e.target.value)}
               />
 
-              {/* Input Password */}
+              {/* Input Password dengan toggle show/hide */}
               <div className="relative w-full">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -150,7 +158,10 @@ export default function Login() {
               </div>
 
               {/* Tombol Login */}
-              <button type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-lg transition font-semibold text-lg">
+              <button
+                type="submit"
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-lg transition font-semibold text-lg"
+              >
                 Log in
               </button>
             </form>
@@ -158,7 +169,7 @@ export default function Login() {
             {/* Link ke Register */}
             <div className="text-center mt-5 text-md">
               <Link href="/auth/register" className="text-blue-500">
-                Create Account
+                Register
               </Link>
             </div>
           </div>

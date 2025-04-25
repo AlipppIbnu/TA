@@ -4,11 +4,12 @@ import { sendPasswordResetEmail } from "firebase/auth";
 import Link from "next/link";
 
 export default function ForgotPassword() {
-  const [email, setEmail] = useState("");
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");           // State input email
+  const [message, setMessage] = useState("");       // Pesan sukses
+  const [error, setError] = useState("");           // Pesan error
+  const [loading, setLoading] = useState(false);    // Status loading
 
+  // Fungsi kirim email reset password
   const handleReset = async (e) => {
     e.preventDefault();
     setMessage("");
@@ -30,23 +31,24 @@ export default function ForgotPassword() {
       {/* Container utama */}
       <div className="bg-white shadow-lg rounded-3xl p-8 flex w-[1920px]">
         
-        {/* Bagian Kiri (Gambar) */}
+        {/* Kiri - Logo & Gambar */}
         <div className="w-1/2 flex flex-col items-center justify-center">
           <img src="/icon/logo_web.png" alt="VehiTrack Logo" className="w-[40%] h-[40%]" />
           <img src="/icon/map.png" alt="Peta" className="w-[300%] rounded-lg shadow-md" />
         </div>
 
-        {/* Bagian Kanan (Form Reset Password) */}
+        {/* Kanan - Form Reset Password */}
         <div className="w-[40%] flex flex-col justify-center mt-20 ml-auto p-20">
           <h1 className="text-4xl font-bold text-gray-800 text-center">Lupa Password</h1>
           <p className="text-lg text-gray-600 mt-1 text-center">
             Masukkan email Anda untuk menerima link reset password
           </p>
 
-          {/* Notifikasi */}
+          {/* Notifikasi Sukses atau Error */}
           {message && <p className="text-green-500 text-lg mt-2 text-center">{message}</p>}
           {error && <p className="text-red-500 text-lg mt-2 text-center">{error}</p>}
 
+          {/* Form Reset */}
           <form onSubmit={handleReset} className="space-y-4 mt-6">
             <input
               type="email"
@@ -65,6 +67,7 @@ export default function ForgotPassword() {
             </button>
           </form>
 
+          {/* Link ke Login */}
           <p className="mt-4 text-lg text-gray-600 text-center">
             <Link href="/auth/login" className="text-blue-500 underline">
               Kembali ke Login
