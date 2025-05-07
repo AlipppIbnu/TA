@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from "react";
 
 export default function ModalTambahKendaraan({ onClose, onSucceed }) {
@@ -11,16 +13,18 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
     pemilik: "",
   });
   const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   // Handle perubahan input form
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Validasi dan kirim data ke API
-  const handleSubmit = async (e) => {
+  // Validasi dan kirim data ke API - menggunakan Promise chain alih-alih async/await
+  const handleSubmit = (e) => {
     e.preventDefault();
     setLoading(true);
+    setSuccessMessage("");
   
     if (
       !formData.nomor_kendaraan ||
@@ -36,34 +40,51 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
       return;
     }
   
-    try {
-      console.log("Mengirim data:", formData); // Debug data yang dikirim
-      const res = await fetch("/api/TambahKendaraan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+    console.log("Mengirim data:", formData); // Debug data yang dikirim
+    
+    fetch("/api/TambahKendaraan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          return res.json().then((errorData) => {
+            throw new Error(`Gagal tambah kendaraan: ${errorData.message || res.statusText}`);
+          });
+        }
+        return res.json();
+      })
+      .then((data) => {
+        console.log("Data berhasil ditambahkan:", data); // Debug jika berhasil
+        setSuccessMessage(`Kendaraan ${formData.merek} ${formData.model} berhasil ditambahkan!`);
+        
+        // Tunggu 2 detik sebelum menutup modal
+        setTimeout(() => {
+          onSucceed();
+        }, 2000);
+      })
+      .catch((err) => {
+        console.error("Error tambah kendaraan:", err); // Debug error
+        alert(`Gagal tambah kendaraan: ${err.message}`);
+      })
+      .finally(() => {
+        setLoading(false);
       });
-
-      if (!res.ok) {
-        throw new Error(`Gagal tambah kendaraan: ${res.statusText}`);
-      }
-
-      const data = await res.json();
-      console.log("Data berhasil ditambahkan:", data); // Debug jika berhasil
-      onSucceed();
-    } catch (err) {
-      console.error("Error tambah kendaraan:", err); // Debug error
-      alert(`Gagal tambah kendaraan: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
   };
-  
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
       <div className="bg-white p-8 rounded-md w-96">
         <h2 className="text-xl font-bold mb-4">Tambah Kendaraan</h2>
+        
+        {/* Menampilkan pesan sukses jika ada */}
+        {successMessage && (
+          <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-md border border-green-300">
+            ✅ {successMessage}
+          </div>
+        )}
+        
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             type="text"
@@ -133,6 +154,7 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
               type="button"
               onClick={onClose}
               className="px-4 py-2 bg-gray-400 text-white rounded"
+              disabled={loading}
             >
               Batal
             </button>

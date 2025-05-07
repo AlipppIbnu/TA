@@ -1,3 +1,5 @@
+'use client';  // Tambahkan direktif ini untuk menandai sebagai Client Component
+
 import { useState } from "react";
 import { signOut } from "firebase/auth";  // Mengimpor fungsi signOut dari Firebase Authentication
 import { auth } from "@/lib/firebaseConfig";  // Mengimpor konfigurasi Firebase dari file khusus
@@ -10,15 +12,16 @@ const SidebarComponent = ({ vehicles = [], onSelectVehicle, onTambahKendaraan })
   const [selectedVehicleId, setSelectedVehicleId] = useState(null);  // State untuk menyimpan id kendaraan yang dipilih
   const [showHistory, setShowHistory] = useState(false);  // State untuk toggle tampilan riwayat kendaraan
 
-  // Fungsi untuk logout dari aplikasi
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);  // Logout dari Firebase
-      localStorage.removeItem("token");  // Menghapus token login dari localStorage
-      router.push("/auth/login");  // Mengarahkan pengguna ke halaman login setelah logout
-    } catch (error) {
-      console.error("Logout Error:", error);  // Menangani jika terjadi error saat logout
-    }
+  // Fungsi untuk logout dari aplikasi - menggunakan Promise chain alih-alih async/await
+  const handleLogout = () => {
+    signOut(auth)
+      .then(() => {
+        localStorage.removeItem("token");  // Menghapus token login dari localStorage
+        router.push("/auth/login");  // Mengarahkan pengguna ke halaman login setelah logout
+      })
+      .catch((error) => {
+        console.error("Logout Error:", error);  // Menangani jika terjadi error saat logout
+      });
   };
 
   // Fungsi untuk memilih kendaraan dan reset riwayat
@@ -28,8 +31,8 @@ const SidebarComponent = ({ vehicles = [], onSelectVehicle, onTambahKendaraan })
     onSelectVehicle(vehicle);  // Memanggil fungsi onSelectVehicle dari parent
   };
 
-  // Fungsi untuk menampilkan atau menyembunyikan riwayat kendaraan
-  const handleHistoryClick = async () => {
+  // Fungsi untuk menampilkan atau menyembunyikan riwayat kendaraan - menggunakan Promise chain
+  const handleHistoryClick = () => {
     if (!selectedVehicleId) {
       alert("Pilih kendaraan terlebih dahulu.");  // Menampilkan peringatan jika kendaraan belum dipilih
       return;
@@ -43,24 +46,24 @@ const SidebarComponent = ({ vehicles = [], onSelectVehicle, onTambahKendaraan })
       }
       setShowHistory(false);  // Menyembunyikan riwayat
     } else {
-      // Menampilkan riwayat
-      try {
-        const res = await fetch("/api/history");  // Mengambil data riwayat kendaraan dari API
-        const data = await res.json();  // Mengubah data menjadi format JSON
+      // Menampilkan riwayat - menggunakan Promise chain alih-alih async/await
+      fetch("/api/history")
+        .then((res) => res.json())
+        .then((data) => {
+          const riwayat = data.data
+            .filter((item) => item.id === selectedVehicleId)  // Menyaring data riwayat berdasarkan id kendaraan
+            .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))  // Mengurutkan berdasarkan waktu
+            .map((item) => [parseFloat(item.latitude), parseFloat(item.longitude)]);  // Membuat array koordinat
 
-        const riwayat = data.data
-          .filter((item) => item.id === selectedVehicleId)  // Menyaring data riwayat berdasarkan id kendaraan
-          .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))  // Mengurutkan berdasarkan waktu
-          .map((item) => [parseFloat(item.latitude), parseFloat(item.longitude)]);  // Membuat array koordinat
-
-        const selected = vehicles.find((v) => v.id === selectedVehicleId);  // Mencari kendaraan yang dipilih
-        if (selected) {
-          onSelectVehicle({ ...selected, path: riwayat });  // Mengirimkan kendaraan dengan riwayat perjalanan ke parent
-        }
-        setShowHistory(true);  // Menampilkan riwayat
-      } catch (err) {
-        console.error("Gagal ambil riwayat koordinat:", err);  // Menangani error jika gagal mengambil riwayat
-      }
+          const selected = vehicles.find((v) => v.id === selectedVehicleId);  // Mencari kendaraan yang dipilih
+          if (selected) {
+            onSelectVehicle({ ...selected, path: riwayat });  // Mengirimkan kendaraan dengan riwayat perjalanan ke parent
+          }
+          setShowHistory(true);  // Menampilkan riwayat
+        })
+        .catch((err) => {
+          console.error("Gagal ambil riwayat koordinat:", err);  // Menangani error jika gagal mengambil riwayat
+        });
     }
   };
 
