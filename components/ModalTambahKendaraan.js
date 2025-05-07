@@ -20,7 +20,7 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Validasi dan kirim data ke API - menggunakan Promise chain alih-alih async/await
+  // Validasi dan kirim data ke API - menggunakan Promise chain 
   const handleSubmit = (e) => {
     e.preventDefault();
     setLoading(true);
@@ -62,7 +62,7 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
         // Tunggu 2 detik sebelum menutup modal
         setTimeout(() => {
           onSucceed();
-        }, 2000);
+        }, 1000);
       })
       .catch((err) => {
         console.error("Error tambah kendaraan:", err); // Debug error

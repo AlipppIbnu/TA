@@ -4,7 +4,7 @@ import { useRouter } from "next/router";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebaseConfig";
 import SidebarComponent from "../components/SidebarComponent";
-import ModalTambahKendaraan from "@/components/ModalTambahKendaraan"; // ⬅️ Import Modal
+import ModalTambahKendaraan from "@/components/ModalTambahKendaraan"; 
 
 const MapComponent = dynamic(() => import("../components/MapComponent"), { ssr: false });
 
@@ -16,7 +16,7 @@ export default function Dashboard({ vehicles }) {
   const [loading, setLoading] = useState(true);
   const [selectedVehicle, setSelectedVehicle] = useState(vehicles[0] || null);
   const [vehicleHistories, setVehicleHistories] = useState([]);
-  const [showTambahModal, setShowTambahModal] = useState(false); // ⬅️ State untuk modal tambah kendaraan
+  const [showTambahModal, setShowTambahModal] = useState(false); 
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -35,7 +35,6 @@ export default function Dashboard({ vehicles }) {
     if (!vehicleId) return;
   
     try {
-      const res = await fetch("/api/history");
       const data = await res.json();
   
       const filteredCoords = data.data
