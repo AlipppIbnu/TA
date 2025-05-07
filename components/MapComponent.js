@@ -41,14 +41,12 @@ const MapComponent = forwardRef(({ vehicles, selectedVehicle }, ref) => {
 
   // Efek saat kendaraan dipilih atau path kendaraan berubah
   useEffect(() => {
-    if (selectedVehicle?.path?.length > 0) {
-      // Jika ada path riwayat perjalanan, terbang ke titik awal path
-      setFlyPosition(selectedVehicle.path[0]);
-    } else if (selectedVehicle?.position) {
-      // Jika ada posisi kendaraan, terbang ke posisi tersebut
+    if (selectedVehicle?.position) {
+      // Selalu terbang ke posisi terakhir kendaraan
       setFlyPosition([selectedVehicle.position.lat, selectedVehicle.position.lng]);
     }
-  }, [selectedVehicle]);  // Efek akan dijalankan jika selectedVehicle berubah
+  }, [selectedVehicle]);
+    // Efek akan dijalankan jika selectedVehicle berubah
 
   return (
     <MapContainer
@@ -106,7 +104,7 @@ const MapComponent = forwardRef(({ vehicles, selectedVehicle }, ref) => {
 
       {/* Jika kendaraan yang dipilih memiliki path (riwayat perjalanan), tampilkan Polyline */}
       {selectedVehicle?.path && selectedVehicle.path.length > 1 && (
-        <Polyline positions={selectedVehicle.path} color="red" />  /* Menggambar path riwayat kendaraan */
+        <Polyline positions={selectedVehicle.path} color="blue" />  /* Menggambar path riwayat kendaraan */
       )}
     </MapContainer>
   );

@@ -1,4 +1,3 @@
-// components/ModalTambahKendaraan.jsx
 import { useState } from "react";
 
 export default function ModalTambahKendaraan({ onClose, onSucceed }) {
@@ -39,24 +38,22 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
   
     try {
       console.log("Mengirim data:", formData); // Debug data yang dikirim
-      const res = await fetch("http://ec2-13-239-62-109.ap-southeast-2.compute.amazonaws.com/items/daftar_kendaraan", {
+      const res = await fetch("/api/TambahKendaraan", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_DIRECTUS_TOKEN}`,
-        },
-        body: JSON.stringify({ ...formData }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
       });
-  
+
       if (!res.ok) {
-        throw new Error("Gagal tambah kendaraan");
+        throw new Error(`Gagal tambah kendaraan: ${res.statusText}`);
       }
-  
-      console.log("Data berhasil ditambahkan!"); // Debug jika berhasil
+
+      const data = await res.json();
+      console.log("Data berhasil ditambahkan:", data); // Debug jika berhasil
       onSucceed();
     } catch (err) {
       console.error("Error tambah kendaraan:", err); // Debug error
-      alert("Gagal tambah kendaraan.");
+      alert(`Gagal tambah kendaraan: ${err.message}`);
     } finally {
       setLoading(false);
     }
