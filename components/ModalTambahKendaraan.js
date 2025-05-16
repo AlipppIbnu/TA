@@ -1,3 +1,4 @@
+//Tambah Kendaraan
 'use client';
 
 import { useState } from "react";
@@ -59,7 +60,7 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
         console.log("Data berhasil ditambahkan:", data); // Debug jika berhasil
         setSuccessMessage(`Kendaraan ${formData.merek} ${formData.model} berhasil ditambahkan!`);
         
-        // Tunggu 2 detik sebelum menutup modal
+        // Tunggu 1 detik sebelum menutup modal
         setTimeout(() => {
           onSucceed();
         }, 1000);
@@ -85,7 +86,8 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
           </div>
         )}
         
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Form dengan autoComplete disabled */}
+        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
           <input
             type="text"
             name="nomor_kendaraan"
@@ -93,6 +95,7 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
             value={formData.nomor_kendaraan}
             onChange={handleChange}
             className="w-full border p-2 rounded"
+            autoComplete="off"
             required
           />
           <input
@@ -102,6 +105,7 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
             value={formData.merek}
             onChange={handleChange}
             className="w-full border p-2 rounded"
+            autoComplete="off"
             required
           />
           <input
@@ -111,6 +115,7 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
             value={formData.model}
             onChange={handleChange}
             className="w-full border p-2 rounded"
+            autoComplete="off"
             required
           />
           <input
@@ -120,6 +125,7 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
             value={formData.tahun_pembuatan}
             onChange={handleChange}
             className="w-full border p-2 rounded"
+            autoComplete="off"
             required
           />
           <input
@@ -129,6 +135,7 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
             value={formData.warna}
             onChange={handleChange}
             className="w-full border p-2 rounded"
+            autoComplete="off"
             required
           />
           <input
@@ -138,6 +145,7 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
             value={formData.jenis_kendaraan}
             onChange={handleChange}
             className="w-full border p-2 rounded"
+            autoComplete="off"
             required
           />
           <input
@@ -147,13 +155,14 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
             value={formData.pemilik}
             onChange={handleChange}
             className="w-full border p-2 rounded"
+            autoComplete="off"
             required
           />
           <div className="flex justify-end space-x-2 mt-4">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-gray-400 text-white rounded"
+              className="px-4 py-2 bg-gray-400 text-white rounded hover:bg-gray-500"
               disabled={loading}
             >
               Batal
@@ -161,12 +170,13 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 bg-green-500 text-white rounded"
+              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
             >
               {loading ? "Menyimpan..." : "Simpan"}
             </button>
           </div>
         </form>
+
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebaseConfig";
 import { useRouter } from "next/router";
@@ -22,38 +23,8 @@ const SidebarComponent = ({
   const [showSuccessNotification, setShowSuccessNotification] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   
-  // TAMBAHAN dari code 2: State untuk relay
-  const [relays, setRelays] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  
   // State untuk modal notifikasi "tidak ada history"
   const [showNoHistoryAlert, setShowNoHistoryAlert] = useState(false);
-  
-  // TAMBAHAN dari code 2: State untuk notifikasi relay
-  const [showRelayNotification, setShowRelayNotification] = useState(false);
-  const [relayMessage, setRelayMessage] = useState('');
-  const [relayNotifStatus, setRelayNotifStatus] = useState('success');
-
-  // TAMBAHAN dari code 2: Fungsi untuk mengambil data relay melalui proxy API
-  useEffect(() => {
-    fetchRelays();
-  }, []);
-
-  const fetchRelays = async () => {
-    try {
-      // Use local Next.js API route instead of direct EC2 endpoint
-      const response = await fetch("/api/relays");
-      if (!response.ok) {
-        throw new Error(`Failed to fetch relays: ${response.status}`);
-      }
-      const data = await response.json();
-      setRelays(data.data || []);
-    } catch (error) {
-      console.error("Error fetching relays:", error);
-      // Silently fail but log the error - prevent component from crashing
-      setRelays([]);
-    }
-  };
 
   // Fungsi untuk logout dari aplikasi
   const handleLogout = () => {
@@ -129,120 +100,6 @@ const SidebarComponent = ({
     }
   };
 
-  // TAMBAHAN dari code 2: Fungsi untuk mengontrol relay (ENGINE ON)
-  const handleEngineOn = async () => {
-    if (!selectedVehicleId) {
-      showRelayNotif("Pilih kendaraan terlebih dahulu.", "error");
-      return;
-    }
-
-    const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId);
-    if (!selectedVehicle.relay_id) {
-      showRelayNotif(`Kendaraan ${selectedVehicle.model} (${selectedVehicle.nomor_kendaraan}) tidak memiliki relay terpasang.`, "error");
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const relayId = selectedVehicle.relay_id;
-      const relay = relays.find(r => r.id === relayId);
-      
-      if (!relay) {
-        showRelayNotif(`Relay dengan ID ${relayId} tidak ditemukan.`, "error");
-        setIsLoading(false);
-        return;
-      }
-      
-      // Use local Next.js API route instead of direct EC2 endpoint
-      const response = await fetch(`/api/relays/${relayId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          is_active: 1,
-          last_updated: new Date().toISOString()
-        }),
-      });
-      
-      if (response.ok) {
-        await fetchRelays();
-        showRelayNotif(`Mesin kendaraan ${selectedVehicle.model} (${selectedVehicle.nomor_kendaraan}) berhasil dinyalakan!`, "success");
-      } else {
-        const errorData = await response.json();
-        showRelayNotif(`Gagal menyalakan mesin: ${errorData.errors?.[0]?.message || 'Unknown error'}`, "error");
-      }
-    } catch (error) {
-      console.error("Error turning on engine:", error);
-      showRelayNotif(`Terjadi kesalahan: ${error.message}`, "error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // TAMBAHAN dari code 2: Fungsi untuk mengontrol relay (ENGINE OFF)
-  const handleEngineOff = async () => {
-    if (!selectedVehicleId) {
-      showRelayNotif("Pilih kendaraan terlebih dahulu.", "error");
-      return;
-    }
-
-    const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId);
-    if (!selectedVehicle.relay_id) {
-      showRelayNotif(`Kendaraan ${selectedVehicle.model} (${selectedVehicle.nomor_kendaraan}) tidak memiliki relay terpasang.`, "error");
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const relayId = selectedVehicle.relay_id;
-      const relay = relays.find(r => r.id === relayId);
-      
-      if (!relay) {
-        showRelayNotif(`Relay dengan ID ${relayId} tidak ditemukan.`, "error");
-        setIsLoading(false);
-        return;
-      }
-      
-      // Use local Next.js API route
-      const response = await fetch(`/api/relays/${relayId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          is_active: 0,
-          last_updated: new Date().toISOString()
-        }),
-      });
-      
-      if (response.ok) {
-        await fetchRelays();
-        showRelayNotif(`Mesin kendaraan ${selectedVehicle.model} (${selectedVehicle.nomor_kendaraan}) berhasil dimatikan!`, "success");
-      } else {
-        const errorData = await response.json();
-        showRelayNotif(`Gagal mematikan mesin: ${errorData.errors?.[0]?.message || 'Unknown error'}`, "error");
-      }
-    } catch (error) {
-      console.error("Error turning off engine:", error);
-      showRelayNotif(`Terjadi kesalahan: ${error.message}`, "error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // TAMBAHAN dari code 2: Fungsi untuk menampilkan notifikasi relay
-  const showRelayNotif = (message, status) => {
-    setRelayMessage(message);
-    setRelayNotifStatus(status);
-    setShowRelayNotification(true);
-
-    setTimeout(() => {
-      setShowRelayNotification(false);
-      setRelayMessage('');
-    }, 3000);
-  };
-
   // Fungsi untuk menampilkan konfirmasi hapus kendaraan
   const handleShowDeleteConfirm = (vehicle, e) => {
     e.stopPropagation();
@@ -274,12 +131,6 @@ const SidebarComponent = ({
     setSuccessMessage('');
   };
 
-  // TAMBAHAN dari code 2: Fungsi untuk menutup notifikasi relay
-  const handleCloseRelayNotification = () => {
-    setShowRelayNotification(false);
-    setRelayMessage('');
-  };
-
   // Fungsi untuk menghapus kendaraan
   const handleConfirmDelete = () => {
     if (vehicleToDelete) {
@@ -298,19 +149,6 @@ const SidebarComponent = ({
       showSuccessMessage(`Kendaraan ${deletedVehicle.model} (${deletedVehicle.nomor_kendaraan}) berhasil dihapus!`);
     }
   };
-
-  // TAMBAHAN dari code 2: Mendapatkan status relay untuk kendaraan yang dipilih
-  const getSelectedVehicleRelayStatus = () => {
-    if (!selectedVehicleId) return null;
-
-    const selectedVehicle = vehicles.find(v => v.id === selectedVehicleId);
-    if (!selectedVehicle || !selectedVehicle.relay_id) return null;
-
-    const relay = relays.find(r => r.id === selectedVehicle.relay_id);
-    return relay ? relay.is_active : null;
-  };
-
-  const selectedRelayStatus = getSelectedVehicleRelayStatus();
 
   return (
     <div className="w-80 bg-white shadow-md h-screen flex flex-col p-4">
@@ -351,16 +189,6 @@ const SidebarComponent = ({
                         ? `${vehicle.position.lat.toFixed(5)}, ${vehicle.position.lng.toFixed(5)}` 
                         : "Tidak tersedia"}
                     </p>
-                    {/* TAMBAHAN dari code 2: Tampilkan status mesin */}
-                    {vehicle.relay_id && (
-                      <p className="text-sm text-black">
-                        Status Mesin: {
-                          relays.find(r => r.id === vehicle.relay_id)?.is_active === 1
-                             ? <span className="text-green-600 font-semibold">ON</span>
-                             : <span className="text-red-600 font-semibold">OFF</span>
-                        }
-                      </p>
-                    )}
                   </div>
                   {/* Tombol hapus untuk setiap kendaraan */}
                   <button 
@@ -380,48 +208,12 @@ const SidebarComponent = ({
       </div>
 
       <div className="mt-4 space-y-2">
-        {/* TAMBAHAN dari code 2: Button ENGINE ON dengan loading state */}
-        <button 
-          onClick={handleEngineOn}
-          disabled={isLoading || !selectedVehicleId}
-          className={`w-full py-2 ${
-            isLoading ? 'bg-gray-400' : 'bg-green-500 hover:bg-green-600'
-          } text-white rounded-md transition-colors duration-200 flex justify-center items-center`}
-        >
-          {isLoading ? (
-            <>
-              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              LOADING...
-            </>
-          ) : (
-            'ENGINE ON'
-          )}
+        <button className="w-full py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200">
+          ENGINE ON
         </button>
-        
-        {/* TAMBAHAN dari code 2: Button ENGINE OFF dengan loading state */}
-        <button 
-          onClick={handleEngineOff}
-          disabled={isLoading || !selectedVehicleId}
-          className={`w-full py-2 ${
-            isLoading ? 'bg-gray-400' : 'bg-red-500 hover:bg-red-600'
-          } text-white rounded-md transition-colors duration-200 flex justify-center items-center`}
-        >
-          {isLoading ? (
-            <>
-              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              LOADING...
-            </>
-          ) : (
-            'ENGINE OFF'
-          )}
+        <button className="w-full py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200">
+          ENGINE OFF
         </button>
-        
         <button 
           onClick={onTambahKendaraan} 
           className="w-full py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200"
@@ -510,28 +302,6 @@ const SidebarComponent = ({
               <button 
                 onClick={handleCloseSuccessNotification}
                 className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200"
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAMBAHAN dari code 2: Modal notifikasi relay */}
-      {showRelayNotification && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-md shadow-lg max-w-md">
-            <h3 className={`text-lg font-bold mb-4 ${relayNotifStatus === 'success' ? 'text-green-600' : 'text-red-500'}`}>
-              {relayNotifStatus === 'success' ? '✅ Berhasil' : '⚠️ Gagal'}
-            </h3>
-            <p className="mb-4">{relayMessage}</p>
-            <div className="flex justify-end mt-6">
-              <button 
-                onClick={handleCloseRelayNotification}
-                className={`px-4 py-2 ${
-                  relayNotifStatus === 'success' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'
-                } text-white rounded-md transition-colors duration-200`}
               >
                 OK
               </button>
