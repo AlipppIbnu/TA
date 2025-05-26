@@ -1,4 +1,4 @@
-// pages/api/DeleteKendaraan.js (tanpa folder, seperti TambahKendaraan.js)
+// pages/api/DeleteKendaraan.js
 export default async function handler(req, res) {
   if (req.method !== 'DELETE') {
     return res.status(405).json({ message: 'Method not allowed' });
@@ -20,8 +20,11 @@ export default async function handler(req, res) {
 
     console.log(`Mencoba menghapus kendaraan dengan ID: ${id}`);
 
+    // URL Directus API
+    const directusUrl = 'http://ec2-13-239-62-109.ap-southeast-2.compute.amazonaws.com/items/daftar_kendaraan';
+    
     // Kirim request DELETE ke Directus API
-    const response = await fetch(`http://ec2-13-239-62-109.ap-southeast-2.compute.amazonaws.com/items/daftar_kendaraan/${id}`, {
+    const response = await fetch(`${directusUrl}/${id}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -57,14 +60,14 @@ export default async function handler(req, res) {
 
     // Respons sukses
     console.log(`Kendaraan dengan ID ${id} berhasil dihapus!`);
-    res.status(200).json({ 
+    return res.status(200).json({ 
       message: `Kendaraan dengan ID ${id} berhasil dihapus!`,
       data 
     });
 
   } catch (error) {
     console.error("API error:", error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       message: 'Internal Server Error', 
       error: error.message 
     });

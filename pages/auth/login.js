@@ -1,3 +1,4 @@
+// pages/auth/login.js
 import { useState, useEffect } from "react";
 import { auth } from "../../lib/firebaseConfig";
 import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
@@ -7,12 +8,14 @@ import { FaEye, FaEyeSlash } from "react-icons/fa";
 import Image from "next/image";
 
 export default function Login() {
+  // State management
   const [email, setEmail] = useState("");             // State untuk input email
   const [password, setPassword] = useState("");       // State untuk input password
   const [showPassword, setShowPassword] = useState(false); // Tampilkan/sembunyikan password
   const [rememberMe, setRememberMe] = useState(false);     // State checkbox "remember me"
   const [error, setError] = useState(null);           // Untuk menampilkan pesan error
   const [loading, setLoading] = useState(true);       // Untuk menangani loading saat auth
+  
   const router = useRouter();
 
   // Cek apakah user sudah login
@@ -37,10 +40,14 @@ export default function Login() {
     }
   }, []);
 
-  // Fungsi login saat submit
+  /**
+   * Fungsi login saat submit
+   */
   const handleLogin = async (e) => {
     e.preventDefault();
+    
     try {
+      // Proses autentikasi dengan Firebase
       await signInWithEmailAndPassword(auth, email, password);
 
       // Simpan atau hapus email sesuai dengan pilihan "remember me"
@@ -69,7 +76,7 @@ export default function Login() {
     <div className="min-h-screen bg-white flex flex-col">
       {/* Navbar Logo */}
       <nav className="w-full h-40 flex items-center px-16 border-b">
-        <Link href="/">
+        <Link href="/auth/login">
           <Image
             src="/icon/logo_web.png"
             alt="Vehitrack Logo"
@@ -98,7 +105,7 @@ export default function Login() {
           <div className="w-[400px] flex flex-col items-center">
             {/* Logo kecil */}
             <div className="mb-6">
-              <Link href="/">
+              <Link href="/auth/login">
                 <Image
                   src="/icon/logo_web.png"
                   alt="Vehitrack Logo"
@@ -110,14 +117,16 @@ export default function Login() {
             </div>
 
             {/* Tampilkan pesan error jika ada */}
-            {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+            {error && (
+              <p className="text-red-500 text-sm text-center">{error}</p>
+            )}
 
             {/* Form Login */}
             <form onSubmit={handleLogin} className="space-y-4 w-full">
               {/* Input Email */}
               <input
                 type="email"
-                placeholder="Enter Username"
+                placeholder="Enter Email"
                 className="w-full border border-gray-300 p-4 rounded-lg focus:outline-none focus:border-blue-500 text-lg"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}

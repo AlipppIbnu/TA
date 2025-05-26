@@ -1,22 +1,29 @@
+// pages/auth/forgot-password.js
 import { useState } from "react";
 import { auth } from "../../lib/firebaseConfig";
 import { sendPasswordResetEmail } from "firebase/auth";
 import Link from "next/link";
 
 export default function ForgotPassword() {
+  // State management
   const [email, setEmail] = useState("");           // State input email
   const [message, setMessage] = useState("");       // Pesan sukses
   const [error, setError] = useState("");           // Pesan error
   const [loading, setLoading] = useState(false);    // Status loading
 
-  // Fungsi kirim email reset password
+  /**
+   * Fungsi kirim email reset password
+   */
   const handleReset = async (e) => {
     e.preventDefault();
+    
+    // Reset pesan dan set status loading
     setMessage("");
     setError("");
     setLoading(true);
 
     try {
+      // Kirim email reset password
       await sendPasswordResetEmail(auth, email);
       setMessage("✅ Link reset password telah dikirim ke email Anda.");
     } catch (error) {
@@ -45,8 +52,13 @@ export default function ForgotPassword() {
           </p>
 
           {/* Notifikasi Sukses atau Error */}
-          {message && <p className="text-green-500 text-lg mt-2 text-center">{message}</p>}
-          {error && <p className="text-red-500 text-lg mt-2 text-center">{error}</p>}
+          {message && (
+            <p className="text-green-500 text-lg mt-2 text-center">{message}</p>
+          )}
+          
+          {error && (
+            <p className="text-red-500 text-lg mt-2 text-center">{error}</p>
+          )}
 
           {/* Form Reset */}
           <form onSubmit={handleReset} className="space-y-4 mt-6">
@@ -58,6 +70,7 @@ export default function ForgotPassword() {
               onChange={(e) => setEmail(e.target.value)}
               required
             />
+            
             <button
               type="submit"
               className="w-full bg-blue-600 text-white py-3 text-lg rounded-lg hover:bg-blue-700 disabled:bg-gray-400"

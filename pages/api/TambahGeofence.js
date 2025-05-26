@@ -1,5 +1,6 @@
 // pages/api/TambahGeofence.js 
 export default async function handler(req, res) {
+  // Verifikasi method request
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
@@ -7,7 +8,7 @@ export default async function handler(req, res) {
   try {
     const { kota, geofencing } = req.body;
     
-    // Validasi input
+    // Validasi input kota
     if (!kota) {
       return res.status(400).json({ 
         message: 'Nama kota harus diisi',
@@ -15,6 +16,7 @@ export default async function handler(req, res) {
       });
     }
     
+    // Validasi data geofencing
     if (!geofencing || !geofencing.geometry || !geofencing.geometry.coordinates) {
       return res.status(400).json({ 
         message: 'Data geofencing tidak valid',
@@ -25,8 +27,8 @@ export default async function handler(req, res) {
     // Extract coordinates dari geofencing
     let coordinates = geofencing.geometry.coordinates;
     
+    // Normalisasi format koordinat untuk Directus
     // Pastikan format koordinat sesuai dengan yang diharapkan Directus
-    // Jika koordinat tidak dalam format array 3 level, sesuaikan
     if (!Array.isArray(coordinates[0][0])) {
       coordinates = [coordinates];
     }
@@ -42,7 +44,7 @@ export default async function handler(req, res) {
       }
     }
     
-    // Format data sesuai dengan format Directus yang benar
+    // Format data sesuai dengan skema Directus
     const directusData = {
       Kota: kota,
       Geofence: {
@@ -51,7 +53,7 @@ export default async function handler(req, res) {
       }
     };
 
-    // Kirim ke Directus
+    // Kirim data ke API Directus
     const response = await fetch('http://ec2-13-239-62-109.ap-southeast-2.compute.amazonaws.com/items/Geofence', {
       method: 'POST',
       headers: {
@@ -61,7 +63,9 @@ export default async function handler(req, res) {
       body: JSON.stringify(directusData),
     });
 
+    // Proses response dari API
     if (response.ok) {
+      // Response sukses
       const data = await response.json();
       return res.status(200).json({
         message: `Geofence "${kota}" berhasil dibuat!`,
@@ -69,8 +73,10 @@ export default async function handler(req, res) {
         success: true
       });
     } else {
+      // Response error dari API
       const responseText = await response.text();
       let errorData;
+      
       try {
         errorData = JSON.parse(responseText);
       } catch (e) {
@@ -85,6 +91,7 @@ export default async function handler(req, res) {
       });
     }
   } catch (error) {
+    // Error handling untuk kasus lainnya
     return res.status(500).json({ 
       message: 'Internal Server Error', 
       error: error.message,

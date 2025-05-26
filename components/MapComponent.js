@@ -1,4 +1,4 @@
-// components/MapComponent.js - Final version with geofence drawing and working history
+// components/MapComponent.js
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Polygon, useMap, useMapEvents } from "react-leaflet";
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef } from "react";
 import L from "leaflet";
@@ -22,18 +22,21 @@ const polygonPointIcon = new L.Icon({
   iconAnchor: [6, 6],
 });
 
-// Component to fly to position
-const FlyToVehicle = ({ position }) => {
+// FlyToPosition component
+const FlyToPosition = ({ position }) => {
   const map = useMap();
+
   useEffect(() => {
     if (position) {
+      console.log("FlyToPosition: Flying to position:", position);
       map.flyTo(position, 16);
     }
   }, [position, map]);
+
   return null;
 };
 
-// Drawing handler component
+// DrawingHandler component
 const DrawingHandler = ({ isDrawingMode, onPolygonComplete }) => {
   const map = useMap();
   const [currentPolygon, setCurrentPolygon] = useState([]);
@@ -41,12 +44,9 @@ const DrawingHandler = ({ isDrawingMode, onPolygonComplete }) => {
   const [tempMarkers, setTempMarkers] = useState([]);
   const [tempPolyline, setTempPolyline] = useState(null);
 
-  // Handle map clicks for drawing
   useMapEvents({
     click: (e) => {
       if (!isDrawingMode) return;
-      
-      console.log('Map clicked in drawing mode:', e.latlng);
       
       const newPoint = [e.latlng.lat, e.latlng.lng];
       const newPolygon = [...currentPolygon, newPoint];
@@ -54,7 +54,6 @@ const DrawingHandler = ({ isDrawingMode, onPolygonComplete }) => {
       setCurrentPolygon(newPolygon);
       setIsDrawing(true);
       
-      // Add marker for each point
       const marker = L.marker(e.latlng, {
         icon: polygonPointIcon,
         zIndexOffset: 1000
@@ -62,7 +61,6 @@ const DrawingHandler = ({ isDrawingMode, onPolygonComplete }) => {
       
       setTempMarkers(prev => [...prev, marker]);
       
-      // Create temporary polyline
       if (newPolygon.length > 1) {
         if (tempPolyline) {
           map.removeLayer(tempPolyline);
@@ -79,19 +77,12 @@ const DrawingHandler = ({ isDrawingMode, onPolygonComplete }) => {
     },
     
     contextmenu: (e) => {
-      // Right click to complete polygon
       if (!isDrawingMode || currentPolygon.length < 3) return;
       
-      console.log('Right click - completing polygon:', currentPolygon);
-      
-      // Send coordinates to parent
       onPolygonComplete(currentPolygon);
-      
-      // Reset state
       setCurrentPolygon([]);
       setIsDrawing(false);
       
-      // Clear temporary markers and polyline
       tempMarkers.forEach(marker => map.removeLayer(marker));
       setTempMarkers([]);
       
@@ -102,28 +93,19 @@ const DrawingHandler = ({ isDrawingMode, onPolygonComplete }) => {
     }
   });
 
-  // Reset when drawing mode is disabled
   useEffect(() => {
     if (!isDrawingMode) {
-      console.log('Drawing mode disabled, cleaning up...');
       setCurrentPolygon([]);
       setIsDrawing(false);
-      
-      // Clear temporary markers
       tempMarkers.forEach(marker => map.removeLayer(marker));
       setTempMarkers([]);
-      
-      // Clear temporary polyline
       if (tempPolyline) {
         map.removeLayer(tempPolyline);
         setTempPolyline(null);
       }
-    } else {
-      console.log('Drawing mode enabled!');
     }
   }, [isDrawingMode, map, tempMarkers, tempPolyline]);
 
-  // Render temporary polygon while drawing
   return isDrawing && currentPolygon.length >= 3 ? (
     <Polygon 
       positions={currentPolygon} 
@@ -142,92 +124,70 @@ const MapComponent = forwardRef(({
   selectedVehicle, 
   isDrawingMode = false,
   onPolygonComplete,
-  onMapReady,
   geofences = []
 }, ref) => {
-  const [selected, setSelected] = useState(null);
-  const [flyPosition, setFlyPosition] = useState(null);
-  const [historyPolyline, setHistoryPolyline] = useState(null); // Add state for history polyline
+  const [selectedVehicleId, setSelectedVehicleId] = useState(null);
+  const [flyToPositionWhenSelected, setFlyToPositionWhenSelected] = useState(null);
+  
+  const lastFlyEventRef = useRef('');
   const mapRef = useRef(null);
+  const mapReadyRef = useRef(false);
 
   // Initial map center
-  const initialCenter =
-    vehicles.length > 0 && vehicles[0].position
-      ? [vehicles[0].position.lat, vehicles[0].position.lng]
-      : [-6.914744, 107.609810]; // Bandung coordinates
+  const initialCenter = vehicles.length > 0 && vehicles[0].position
+    ? [vehicles[0].position.lat, vehicles[0].position.lng]
+    : [-6.914744, 107.609810];
 
-  // Debug: Log when component mounts
+  // Expose functions to parent
+  useImperativeHandle(ref, () => ({
+    flyToVehicle: (position) => {
+      console.log("Manual flyToVehicle called with position:", position);
+      setFlyToPositionWhenSelected(position);
+      lastFlyEventRef.current = 'manual_api_call';
+    }
+  }));
+
+  // Handle selectedVehicle changes
   useEffect(() => {
-    console.log('MapComponent mounted/updated');
-    console.log('Vehicles:', vehicles);
-    console.log('Props received:', { isDrawingMode, onPolygonComplete, onMapReady });
-  }, [vehicles, isDrawingMode, onPolygonComplete, onMapReady]);
-
-  // PENTING: Expose functions to parent - ini yang hilang di versi sebelumnya!
-  useImperativeHandle(ref, () => {
-    console.log('🔧 MapComponent: useImperativeHandle called');
-    const methods = {
-      flyToVehicle: (position) => {
-        console.log('🚀 MapComponent: flyToVehicle called with', position);
-        setFlyPosition(position);
-      },
-      // TAMBAHAN: Method drawHistoryPolyline yang hilang!
-      drawHistoryPolyline: (coords) => {
-        console.log('📍 MapComponent: drawHistoryPolyline called with coords:', coords);
-        
-        if (!coords || coords.length === 0) {
-          console.log('⚠️ MapComponent: No coordinates provided for history polyline');
-          setHistoryPolyline(null);
-          return;
-        }
-
-        // Convert coordinates to the format expected by react-leaflet
-        let positions = [];
-        
-        if (Array.isArray(coords)) {
-          positions = coords.map(coord => {
-            if (coord.lat && coord.lng) {
-              return [coord.lat, coord.lng];
-            } else if (Array.isArray(coord) && coord.length >= 2) {
-              return [coord[0], coord[1]];
-            }
-            return null;
-          }).filter(pos => pos !== null);
-        }
-
-        console.log('📊 MapComponent: Processed positions for polyline:', positions);
-        
-        if (positions.length > 0) {
-          setHistoryPolyline(positions);
-          // Fly to the first position
-          setFlyPosition([positions[0][0], positions[0][1]]);
-          console.log('✅ MapComponent: History polyline set successfully');
-        } else {
-          console.error('❌ MapComponent: Unable to process coordinates for history polyline');
-          setHistoryPolyline(null);
-        }
-      },
-      clearHistoryPolyline: () => {
-        console.log('🧹 MapComponent: clearHistoryPolyline called');
-        setHistoryPolyline(null);
-      }
-    };
+    if (!selectedVehicle) {
+      return;
+    }
     
-    console.log('🎯 MapComponent: Returning methods:', Object.keys(methods));
-    console.log('🔍 MapComponent: drawHistoryPolyline type:', typeof methods.drawHistoryPolyline);
-    return methods;
+    console.log("selectedVehicle changed:", {
+      id: selectedVehicle.id,
+      prev: selectedVehicleId,
+      hasPosition: !!selectedVehicle.position
+    });
+    
+    // Check if ID changed (new vehicle selected from sidebar)
+    const isNewVehicleSelected = selectedVehicle.id !== selectedVehicleId;
+    
+    if (isNewVehicleSelected && selectedVehicle.position) {
+      console.log(" NEW VEHICLE SELECTED FROM SIDEBAR - flying to position");
+      
+      setSelectedVehicleId(selectedVehicle.id);
+      setFlyToPositionWhenSelected([selectedVehicle.position.lat, selectedVehicle.position.lng]);
+      
+      lastFlyEventRef.current = 'sidebar_selection';
+    } 
+    else if (isNewVehicleSelected) {
+      console.log("Vehicle selected but has no position");
+      setSelectedVehicleId(selectedVehicle.id);
+      setFlyToPositionWhenSelected(null);
+    }
+    else {
+      console.log("Only position updated, not flying");
+    }
+  }, [selectedVehicle, selectedVehicleId]);
+  
+  // Mark map as ready
+  useEffect(() => {
+    mapReadyRef.current = true;
+    console.log("Map ready");
   }, []);
 
-  // Effect when vehicle is selected
-  useEffect(() => {
-    if (selectedVehicle?.position) {
-      setFlyPosition([selectedVehicle.position.lat, selectedVehicle.position.lng]);
-    }
-  }, [selectedVehicle]);
-
-  // Handle polygon completion from drawing
+  // Handle polygon completion
   const handlePolygonComplete = (coordinates) => {
-    console.log('Polygon completed with coordinates:', coordinates);
     if (onPolygonComplete) {
       onPolygonComplete(coordinates);
     }
@@ -239,14 +199,6 @@ const MapComponent = forwardRef(({
       center={initialCenter}
       zoom={12}
       style={{ width: "100%", height: "100vh" }}
-      whenReady={() => {
-        console.log('🗺️ MapContainer is ready!');
-        setFlyPosition(initialCenter);
-        if (onMapReady) {
-          console.log('📢 Calling onMapReady callback');
-          onMapReady();
-        }
-      }}
       className="map-container"
       dragging={!isDrawingMode}
       scrollWheelZoom={!isDrawingMode}
@@ -257,72 +209,54 @@ const MapComponent = forwardRef(({
         attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
       />
 
-      {/* Fly to position component */}
-      {flyPosition && <FlyToVehicle position={flyPosition} />}
+      {/* Fly to position when vehicle selected */}
+      {flyToPositionWhenSelected && (
+        <FlyToPosition position={flyToPositionWhenSelected} />
+      )}
 
-      {/* Drawing handler component */}
       <DrawingHandler 
         isDrawingMode={isDrawingMode}
         onPolygonComplete={handlePolygonComplete}
       />
 
-      {/* Vehicle markers - hidden during drawing */}
+      {/* Vehicles markers */}
       {!isDrawingMode && vehicles.map((vehicle) =>
         vehicle.position ? (
           <Marker
-            key={vehicle.id}
+            key={`vehicle-${vehicle.id}`}
             position={[vehicle.position.lat, vehicle.position.lng]}
             icon={vehicleIcon}
-            eventHandlers={{
-              click: () => setSelected(vehicle),
-            }}
-          />
+          >
+            <Popup>
+              <div>
+                <h3 className="font-bold">
+                  {vehicle.merek} {vehicle.model} ({vehicle.nomor_kendaraan})
+                </h3>
+                <p>
+                  <strong>Lokasi:</strong> {vehicle.position.lat.toFixed(6)}, {vehicle.position.lng.toFixed(6)}
+                </p>
+                <p>
+                  <strong>Update:</strong>{" "}
+                  {new Date(vehicle.position.timestamp).toLocaleString()}
+                </p>
+              </div>
+            </Popup>
+          </Marker>
         ) : null
       )}
 
-      {/* Vehicle popup */}
-      {selected && !isDrawingMode && (
-        <Popup
-          position={[selected.position.lat, selected.position.lng]}
-          onClose={() => setSelected(null)}
-        >
-          <div>
-            <h3>
-              {selected.merek} {selected.model} ({selected.nomor_kendaraan})
-            </h3>
-            <p>
-              <strong>Status:</strong> {selected.status || "Tidak diketahui"}
-            </p>
-            <p>
-              <strong>Koordinat:</strong> {selected.position.lat}, {selected.position.lng}
-            </p>
-            <p>
-              <strong>Update:</strong>{" "}
-              {new Date(selected.position.timestamp).toLocaleString()}
-            </p>
-          </div>
-        </Popup>
-      )}
-
-      {/* Vehicle path/history - hidden during drawing */}
+      {/* Vehicle path/history */}
       {!isDrawingMode && selectedVehicle?.path && selectedVehicle.path.length > 1 && (
-        <Polyline positions={selectedVehicle.path} color="blue" weight={4} />
-      )}
-
-      {/* History polyline - shown when drawHistoryPolyline is called */}
-      {!isDrawingMode && historyPolyline && historyPolyline.length > 1 && (
         <Polyline 
-          positions={historyPolyline} 
-          color="red" 
+          positions={selectedVehicle.path} 
+          color="blue" 
           weight={3}
           opacity={0.8}
-          dashArray="10, 5"
         />
       )}
 
-      {/* Existing geofences - hidden during drawing */}
+      {/* Geofences */}
       {!isDrawingMode && geofences.map((geofence) => {
-        // Parse geofencing data
         let coordinates = [];
         if (geofence.geofencing) {
           try {
@@ -331,7 +265,6 @@ const MapComponent = forwardRef(({
               : geofence.geofencing;
             
             if (geoData.geometry && geoData.geometry.coordinates) {
-              // Convert from GeoJSON format [lng, lat] to [lat, lng]
               coordinates = geoData.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
             }
           } catch (e) {
@@ -375,6 +308,28 @@ const MapComponent = forwardRef(({
           <span style={{ display: 'flex', alignItems: 'center' }}>
             Mode Drawing Aktif - klik kiri untuk titik, klik kanan untuk selesai (min 3 titik)
           </span>
+        </div>
+      )}
+      
+      {/* Debug Overlay - hapus di production */}
+      {false && (
+        <div 
+          style={{
+            position: 'absolute',
+            bottom: '10px',
+            right: '10px',
+            background: 'rgba(0,0,0,0.7)',
+            color: 'white',
+            padding: '10px',
+            borderRadius: '4px',
+            zIndex: 1000,
+            maxWidth: '300px',
+            fontSize: '12px'
+          }}
+        >
+          <p>selectedVehicleId: {selectedVehicleId}</p>
+          <p>Last fly event: {lastFlyEventRef.current}</p>
+          <p>flyToPositionWhenSelected: {flyToPositionWhenSelected ? 'set' : 'null'}</p>
         </div>
       )}
     </MapContainer>

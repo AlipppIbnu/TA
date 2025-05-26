@@ -4,6 +4,7 @@
 import { useState } from "react";
 
 export default function ModalTambahKendaraan({ onClose, onSucceed }) {
+  // State untuk form data
   const [formData, setFormData] = useState({
     nomor_kendaraan: "",
     merek: "",
@@ -13,6 +14,8 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
     jenis_kendaraan: "",
     pemilik: "",
   });
+  
+  // State untuk loading dan pesan sukses
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -21,12 +24,13 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Validasi dan kirim data ke API - menggunakan Promise chain 
+  // Validasi dan kirim data ke API 
   const handleSubmit = (e) => {
     e.preventDefault();
     setLoading(true);
     setSuccessMessage("");
   
+    // Validasi form
     if (
       !formData.nomor_kendaraan ||
       !formData.merek ||
@@ -41,7 +45,7 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
       return;
     }
   
-    console.log("Mengirim data:", formData); // Debug data yang dikirim
+    console.log("Mengirim data:", formData);
     
     fetch("/api/TambahKendaraan", {
       method: "POST",
@@ -57,7 +61,7 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
         return res.json();
       })
       .then((data) => {
-        console.log("Data berhasil ditambahkan:", data); // Debug jika berhasil
+        console.log("Data berhasil ditambahkan:", data);
         setSuccessMessage(`Kendaraan ${formData.merek} ${formData.model} berhasil ditambahkan!`);
         
         // Tunggu 1 detik sebelum menutup modal
@@ -66,7 +70,7 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
         }, 1000);
       })
       .catch((err) => {
-        console.error("Error tambah kendaraan:", err); // Debug error
+        console.error("Error tambah kendaraan:", err);
         alert(`Gagal tambah kendaraan: ${err.message}`);
       })
       .finally(() => {
@@ -86,7 +90,7 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
           </div>
         )}
         
-        {/* Form dengan autoComplete disabled */}
+        {/* Form tambah kendaraan */}
         <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
           <input
             type="text"
@@ -98,6 +102,7 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
             autoComplete="off"
             required
           />
+          
           <input
             type="text"
             name="merek"
@@ -108,6 +113,7 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
             autoComplete="off"
             required
           />
+          
           <input
             type="text"
             name="model"
@@ -118,6 +124,7 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
             autoComplete="off"
             required
           />
+          
           <input
             type="text"
             name="tahun_pembuatan"
@@ -128,6 +135,7 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
             autoComplete="off"
             required
           />
+          
           <input
             type="text"
             name="warna"
@@ -138,6 +146,7 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
             autoComplete="off"
             required
           />
+          
           <input
             type="text"
             name="jenis_kendaraan"
@@ -148,6 +157,7 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
             autoComplete="off"
             required
           />
+          
           <input
             type="text"
             name="pemilik"
@@ -158,6 +168,8 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
             autoComplete="off"
             required
           />
+          
+          {/* Tombol aksi */}
           <div className="flex justify-end space-x-2 mt-4">
             <button
               type="button"
@@ -167,6 +179,7 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
             >
               Batal
             </button>
+            
             <button
               type="submit"
               disabled={loading}
@@ -176,7 +189,6 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
             </button>
           </div>
         </form>
-
       </div>
     </div>
   );

@@ -1,9 +1,13 @@
-// components/ModalSetGeofence.js - Final version with correct data format
+// components/ModalSetGeofence.js - Modal untuk menggambar dan menyimpan geofence
 'use client';
 
 import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
 
+/**
+ * Modal untuk menambahkan dan mengatur geofence
+ */
 const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing }, ref) => {
+  // State management
   const [formData, setFormData] = useState({
     kota: "",
   });
@@ -54,6 +58,7 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing }, ref
     setLoading(true);
     setSuccessMessage("");
 
+    // Validasi form
     if (!formData.kota) {
       alert("Nama kota/area harus diisi!");
       setLoading(false);
@@ -66,8 +71,7 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing }, ref
       return;
     }
 
-    // Format data untuk Directus - SESUAI FORMAT DIRECTUS
-    // Field "kota" (string) dan "geofencing" (JSON)
+    // Format data untuk Directus sesuai format yang diharapkan
     const geofenceData = {
       kota: formData.kota,
       geofencing: {
@@ -88,6 +92,7 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing }, ref
 
     console.log("Mengirim data geofence:", geofenceData);
 
+    // Kirim data ke API
     fetch("/api/TambahGeofence", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -137,6 +142,7 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing }, ref
       >
         <h2 className="text-xl font-bold mb-4">Set Geofence</h2>
         
+        {/* Pesan sukses */}
         {successMessage && (
           <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-md border border-green-300">
             ✅ {successMessage}
@@ -144,6 +150,7 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing }, ref
         )}
         
         <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
+          {/* Input nama kota/area */}
           <input
             type="text"
             name="kota"
@@ -156,9 +163,11 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing }, ref
             disabled={isDrawing}
           />
 
+          {/* Area geofence */}
           <div className="border-t pt-4">
             <h3 className="font-semibold mb-2">Area Geofence</h3>
             
+            {/* Status: Belum digambar */}
             {!isDrawing && polygonCoordinates.length === 0 && (
               <div className="text-center">
                 <button
@@ -167,7 +176,7 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing }, ref
                   className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
                   disabled={loading}
                 >
-                   Gambar Area Geofence
+                  Gambar Area Geofence
                 </button>
                 <p className="text-sm text-gray-500 mt-2">
                   Klik tombol untuk mulai menggambar area geofence di peta
@@ -175,10 +184,11 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing }, ref
               </div>
             )}
 
+            {/* Status: Sedang menggambar */}
             {isDrawing && (
               <div className="text-center">
                 <p className="text-blue-600 font-semibold mb-2">
-                    Mode Drawing Aktif
+                  Mode Drawing Aktif
                 </p>
                 <p className="text-sm text-gray-600 mb-2">
                   <strong>klik kiri </strong> di peta untuk menambah titik.<br/>
@@ -192,11 +202,12 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing }, ref
                   onClick={handleResetPolygon}
                   className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
                 >
-                   Batal Drawing
+                  Batal Drawing
                 </button>
               </div>
             )}
 
+            {/* Status: Sudah digambar */}
             {polygonCoordinates.length > 0 && !isDrawing && (
               <div className="bg-gray-50 p-3 rounded">
                 <p className="text-green-600 font-semibold mb-2">
@@ -211,20 +222,21 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing }, ref
                     onClick={handleStartDrawing}
                     className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
                   >
-                     Edit Area
+                    Edit Area
                   </button>
                   <button
                     type="button"
                     onClick={handleResetPolygon}
                     className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
                   >
-                     Hapus Area
+                    Hapus Area
                   </button>
                 </div>
               </div>
             )}
           </div>
 
+          {/* Tombol aksi */}
           <div className="flex justify-end space-x-2 mt-6">
             <button
               type="button"
