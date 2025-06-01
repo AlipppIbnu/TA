@@ -1,4 +1,6 @@
 // pages/api/TambahGeofence.js 
+import directusConfig from '@/lib/directusConfig';
+
 export default async function handler(req, res) {
   // Verifikasi method request
   if (req.method !== 'POST') {
@@ -6,96 +8,84 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { kota, geofencing } = req.body;
-    
-    // Validasi input kota
-    if (!kota) {
-      return res.status(400).json({ 
-        message: 'Nama kota harus diisi',
-        success: false 
-      });
-    }
-    
-    // Validasi data geofencing
-    if (!geofencing || !geofencing.geometry || !geofencing.geometry.coordinates) {
-      return res.status(400).json({ 
-        message: 'Data geofencing tidak valid',
-        success: false 
+    const { name, type, definition, rule_type, status, vehicle_id } = req.body;
+
+    // Validasi input
+    if (!name || !type || !definition) {
+      return res.status(400).json({
+        success: false,
+        message: 'Field name, type, dan definition wajib diisi'
       });
     }
 
-    // Extract coordinates dari geofencing
-    let coordinates = geofencing.geometry.coordinates;
-    
-    // Normalisasi format koordinat untuk Directus
-    // Pastikan format koordinat sesuai dengan yang diharapkan Directus
-    if (!Array.isArray(coordinates[0][0])) {
-      coordinates = [coordinates];
+    // Validasi definition sebagai object
+    if (typeof definition !== 'object') {
+      return res.status(400).json({
+        success: false,
+        message: 'Definition harus berupa object GeoJSON'
+      });
     }
-    
-    // Pastikan polygon tertutup (koordinat pertama dan terakhir sama)
-    const firstRing = coordinates[0];
-    if (firstRing.length > 0) {
-      const firstPoint = firstRing[0];
-      const lastPoint = firstRing[firstRing.length - 1];
-      
-      if (firstPoint[0] !== lastPoint[0] || firstPoint[1] !== lastPoint[1]) {
-        firstRing.push([...firstPoint]);
-      }
-    }
-    
-    // Format data sesuai dengan skema Directus
+
+    // Siapkan data untuk Directus
     const directusData = {
-      Kota: kota,
-      Geofence: {
-        type: "Polygon",
-        coordinates: coordinates
-      }
+      name: name,
+      type: type, 
+      definition: JSON.stringify(definition),
+      rule_type: rule_type || 'exit',
+      status: status || 'active',
+      vehicle_id: vehicle_id || null,
+      date_created: new Date().toISOString()
     };
 
-    // Kirim data ke API Directus
-    const response = await fetch('http://ec2-13-239-62-109.ap-southeast-2.compute.amazonaws.com/items/Geofence', {
+    // Kirim ke Directus
+    const response = await fetch(`${directusConfig.baseURL}/items/geofences`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        ...directusConfig.headers,
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify(directusData),
+      body: JSON.stringify(directusData)
     });
 
-    // Proses response dari API
     if (response.ok) {
-      // Response sukses
       const data = await response.json();
+      
       return res.status(200).json({
-        message: `Geofence "${kota}" berhasil dibuat!`,
-        data: data,
-        success: true
+        success: true,
+        message: `Geofence "${name}" berhasil dibuat`,
+        data: data.data
       });
     } else {
-      // Response error dari API
+      // Handle error response
       const responseText = await response.text();
-      let errorData;
       
+      console.error("❌ Directus error response:", responseText);
+      console.error("❌ Response status:", response.status);
+      console.error("❌ Response headers:", [...response.headers.entries()]);
+      
+      let errorData;
       try {
         errorData = JSON.parse(responseText);
+        console.error("❌ Parsed error data:", errorData);
       } catch (e) {
-        errorData = responseText;
+        console.error("❌ Could not parse error response as JSON");
+        errorData = { message: responseText };
       }
-      
-      return res.status(500).json({
-        message: 'Gagal menyimpan geofence ke database',
-        error: errorData,
-        requestData: directusData,
-        success: false
+
+      return res.status(response.status).json({
+        success: false,
+        message: errorData.message || 'Gagal membuat geofence',
+        detail: errorData
       });
     }
+
   } catch (error) {
-    // Error handling untuk kasus lainnya
-    return res.status(500).json({ 
-      message: 'Internal Server Error', 
-      error: error.message,
-      success: false
+    console.error("❌ API Error:", error);
+    
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
     });
   }
 }

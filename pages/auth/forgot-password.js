@@ -1,8 +1,8 @@
 // pages/auth/forgot-password.js
 import { useState } from "react";
-import { auth } from "../../lib/firebaseConfig";
-import { sendPasswordResetEmail } from "firebase/auth";
 import Link from "next/link";
+import Image from "next/image";
+import directusConfig from "../../lib/directusConfig";
 
 export default function ForgotPassword() {
   // State management
@@ -16,74 +16,113 @@ export default function ForgotPassword() {
    */
   const handleReset = async (e) => {
     e.preventDefault();
-    
+
     // Reset pesan dan set status loading
     setMessage("");
     setError("");
     setLoading(true);
 
     try {
-      // Kirim email reset password
-      await sendPasswordResetEmail(auth, email);
+      // Cek apakah email terdaftar
+      const checkResponse = await fetch(
+        `${directusConfig.endpoints.users}?filter[email][_eq]=${encodeURIComponent(email)}`,
+        {
+          headers: directusConfig.headers,
+        }
+      );
+
+      const checkResult = await checkResponse.json();
+      
+      if (!checkResult.data || checkResult.data.length === 0) {
+        throw new Error("Email tidak terdaftar");
+      }
+
+      // Kirim request reset password ke endpoint Directus
+      const response = await fetch(`${directusConfig.baseURL}/auth/password/request`, {
+        method: 'POST',
+        headers: directusConfig.headers,
+        body: JSON.stringify({ email })
+      });
+
+      if (!response.ok) {
+        throw new Error("Gagal mengirim email reset password");
+      }
+
       setMessage("✅ Link reset password telah dikirim ke email Anda.");
     } catch (error) {
-      setError("❌ Gagal mengirim email reset: " + error.message);
+      setError("❌ " + error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="h-screen flex items-center justify-center bg-blue-600">
-      {/* Container utama */}
-      <div className="bg-white shadow-lg rounded-3xl p-8 flex w-[1920px]">
-        
-        {/* Kiri - Logo & Gambar */}
-        <div className="w-1/2 flex flex-col items-center justify-center">
-          <img src="/icon/logo_web.png" alt="VehiTrack Logo" className="w-[40%] h-[40%]" />
-          <img src="/icon/map.png" alt="Peta" className="w-[300%] rounded-lg shadow-md" />
-        </div>
+    <div className="min-h-screen bg-white flex flex-col">
+      {/* Navbar Logo */}
+      <nav className="w-full h-40 flex items-center px-16 border-b">
+        <Link href="/auth/login">
+          <Image
+            src="/icon/logo_web.png"
+            alt="Vehitrack Logo"
+            width={300}
+            height={0}
+            className="cursor-pointer"
+          />
+        </Link>
+      </nav>
 
-        {/* Kanan - Form Reset Password */}
-        <div className="w-[40%] flex flex-col justify-center mt-20 ml-auto p-20">
-          <h1 className="text-4xl font-bold text-gray-800 text-center">Lupa Password</h1>
-          <p className="text-lg text-gray-600 mt-1 text-center">
-            Masukkan email Anda untuk menerima link reset password
+      {/* Main Content */}
+      <div className="flex justify-center items-center flex-1 px-16">
+        <div className="w-full max-w-[400px]">
+          <h1 className="text-3xl font-bold text-center mb-6">Reset Password</h1>
+          <p className="text-gray-600 text-center mb-8">
+            Enter your email address and we'll send you instructions to reset your password.
           </p>
 
-          {/* Notifikasi Sukses atau Error */}
-          {message && (
-            <p className="text-green-500 text-lg mt-2 text-center">{message}</p>
-          )}
-          
+          {/* Error Message */}
           {error && (
-            <p className="text-red-500 text-lg mt-2 text-center">{error}</p>
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              {error}
+            </div>
           )}
 
-          {/* Form Reset */}
-          <form onSubmit={handleReset} className="space-y-4 mt-6">
+          {/* Success Message */}
+          {message && (
+            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+              {message}
+            </div>
+          )}
+
+          {/* Reset Password Form */}
+          <form onSubmit={handleReset} className="space-y-4">
+            <div>
+              <label className="block text-gray-700 mb-2">Email Address</label>
             <input
               type="email"
-              placeholder="Masukkan email"
-              className="w-full px-5 py-3 border rounded-lg text-lg text-gray-800"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+                className="w-full border border-gray-300 p-4 rounded-lg focus:outline-none focus:border-blue-500"
+                placeholder="Enter your email"
               required
             />
-            
+            </div>
+
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white py-3 text-lg rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
               disabled={loading}
+              className={`w-full bg-blue-500 text-white p-4 rounded-lg font-semibold text-lg ${
+                loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'
+              }`}
             >
-              {loading ? "Mengirim..." : "Kirim Link Reset"}
+              {loading ? 'Sending...' : 'Send Reset Instructions'}
             </button>
           </form>
 
-          {/* Link ke Login */}
-          <p className="mt-4 text-lg text-gray-600 text-center">
-            <Link href="/auth/login" className="text-blue-500 underline">
-              Kembali ke Login
+          {/* Back to Login Link */}
+          <p className="text-center mt-6">
+            Remember your password?{' '}
+            <Link href="/auth/login" className="text-blue-500 hover:text-blue-600">
+              Back to Login
             </Link>
           </p>
         </div>

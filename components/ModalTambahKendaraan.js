@@ -2,190 +2,294 @@
 'use client';
 
 import { useState } from "react";
+import { addVehicle } from "../lib/vehicleService";
 
 export default function ModalTambahKendaraan({ onClose, onSucceed }) {
   // State untuk form data
   const [formData, setFormData] = useState({
-    nomor_kendaraan: "",
-    merek: "",
+    vehicle_id: "",
+    license_plate: "",
+    name: "",
+    make: "",
     model: "",
-    tahun_pembuatan: "",
-    warna: "",
-    jenis_kendaraan: "",
-    pemilik: "",
+    year: "",
+    sim_card_number: "",
+    gps_id: ""
   });
   
-  // State untuk loading dan pesan sukses
+  // State untuk loading dan pesan
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [error, setError] = useState("");
+  const [isCheckingGps, setIsCheckingGps] = useState(false);
+  const [gpsError, setGpsError] = useState("");
+  const [vehicleIdError, setVehicleIdError] = useState("");
 
   // Handle perubahan input form
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+
+    // Reset error messages when user types
+    if (name === 'gps_id') {
+      setGpsError('');
+    }
+    if (name === 'vehicle_id') {
+      setVehicleIdError('');
+    }
+    setError('');
+  };
+
+  // Fungsi untuk memeriksa Vehicle ID
+  const checkVehicleId = async (vehicleId) => {
+    try {
+      const response = await fetch(`/api/CheckVehicle?vehicle_id=${vehicleId}`);
+      const data = await response.json();
+
+      if (data.exists) {
+        setVehicleIdError('Vehicle ID sudah digunakan');
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error('Error checking Vehicle ID:', err);
+      setVehicleIdError('Gagal memeriksa Vehicle ID');
+      return false;
+    }
+  };
+
+  // Fungsi untuk memeriksa GPS device ID
+  const checkGpsDeviceId = async (gpsId) => {
+    try {
+      setIsCheckingGps(true);
+      const response = await fetch(`/api/CheckGpsDevice?gps_id=${gpsId}`);
+      const data = await response.json();
+
+      if (data.exists) {
+        setGpsError('GPS Device ID sudah digunakan oleh kendaraan lain');
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error('Error checking GPS device ID:', err);
+      setGpsError('Gagal memeriksa GPS Device ID');
+      return false;
+    } finally {
+      setIsCheckingGps(false);
+    }
   };
 
   // Validasi dan kirim data ke API 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError("");
     setSuccessMessage("");
   
+    try {
     // Validasi form
-    if (
-      !formData.nomor_kendaraan ||
-      !formData.merek ||
-      !formData.model ||
-      !formData.warna ||
-      !formData.jenis_kendaraan ||
-      !formData.tahun_pembuatan ||
-      !formData.pemilik
-    ) {
-      alert("Semua field harus diisi!");
+      if (!formData.vehicle_id || !formData.license_plate || !formData.name || 
+          !formData.make || !formData.model || !formData.year) {
+        throw new Error("Mohon isi semua field yang wajib!");
+      }
+
+      // Validasi Vehicle ID
+      const isVehicleIdAvailable = await checkVehicleId(formData.vehicle_id);
+      if (!isVehicleIdAvailable) {
+        setLoading(false);
+        return;
+      }
+
+      // Validasi GPS device ID jika diisi
+      if (formData.gps_id) {
+        const isGpsAvailable = await checkGpsDeviceId(formData.gps_id);
+        if (!isGpsAvailable) {
       setLoading(false);
       return;
     }
-  
-    console.log("Mengirim data:", formData);
-    
-    fetch("/api/TambahKendaraan", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(formData),
-    })
-      .then((res) => {
-        if (!res.ok) {
-          return res.json().then((errorData) => {
-            throw new Error(`Gagal tambah kendaraan: ${errorData.message || res.statusText}`);
-          });
-        }
-        return res.json();
-      })
-      .then((data) => {
-        console.log("Data berhasil ditambahkan:", data);
-        setSuccessMessage(`Kendaraan ${formData.merek} ${formData.model} berhasil ditambahkan!`);
+      }
+
+      // Add vehicle through API
+      const newVehicle = await addVehicle(formData);
+      
+      setSuccessMessage(`Kendaraan ${formData.make} ${formData.model} berhasil ditambahkan!`);
         
         // Tunggu 1 detik sebelum menutup modal
         setTimeout(() => {
-          onSucceed();
+        onSucceed(newVehicle); // Pass the new vehicle data to parent
         }, 1000);
-      })
-      .catch((err) => {
-        console.error("Error tambah kendaraan:", err);
-        alert(`Gagal tambah kendaraan: ${err.message}`);
-      })
-      .finally(() => {
+    } catch (err) {
+      setError(err.message);
+    } finally {
         setLoading(false);
-      });
+    }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-      <div className="bg-white p-8 rounded-md w-96">
-        <h2 className="text-xl font-bold mb-4">Tambah Kendaraan</h2>
-        
-        {/* Menampilkan pesan sukses jika ada */}
-        {successMessage && (
-          <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-md border border-green-300">
-            ✅ {successMessage}
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg w-[400px] overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-black">
+          <h2 className="text-lg font-semibold">Tambah Kendaraan Baru</h2>
           </div>
-        )}
-        
-        {/* Form tambah kendaraan */}
-        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
+
+        <form onSubmit={handleSubmit}>
+          <div className="px-6 py-4 space-y-4">
+            {/* Vehicle ID */}
+            <div>
+              <label className="block text-sm mb-1"> Vehicle ID </label>
+              <input
+                type="text"
+                name="vehicle_id"
+                value={formData.vehicle_id}
+                onChange={handleChange}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                  vehicleIdError ? 'border-red-500' : 'border-gray-300'
+                }`}
+                required
+              />
+              {vehicleIdError && (
+                <p className="mt-1 text-sm text-red-600">{vehicleIdError}</p>
+              )}
+            </div>
+            
+            {/* Nomor Plat */}
+            <div>
+              <label className="block text-sm mb-1"> Nomor Plat </label>
           <input
             type="text"
-            name="nomor_kendaraan"
-            placeholder="Nomor Kendaraan"
-            value={formData.nomor_kendaraan}
+                name="license_plate"
+                value={formData.license_plate}
             onChange={handleChange}
-            className="w-full border p-2 rounded"
-            autoComplete="off"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
             required
           />
+            </div>
           
+            {/* Nama Kendaraan */}
+            <div>
+              <label className="block text-sm mb-1"> Nama Kendaraan </label>
           <input
             type="text"
-            name="merek"
-            placeholder="Merek"
-            value={formData.merek}
+                name="name"
+                value={formData.name}
             onChange={handleChange}
-            className="w-full border p-2 rounded"
-            autoComplete="off"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
             required
           />
+            </div>
           
+            {/* Merek */}
+            <div>
+              <label className="block text-sm mb-1"> Merek </label>
           <input
             type="text"
-            name="model"
-            placeholder="Model"
-            value={formData.model}
+                name="make"
+                value={formData.make}
             onChange={handleChange}
-            className="w-full border p-2 rounded"
-            autoComplete="off"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
             required
           />
+            </div>
           
+            {/* Model */}
+            <div>
+              <label className="block text-sm mb-1"> Model </label>
           <input
             type="text"
-            name="tahun_pembuatan"
-            placeholder="Tahun Pembuatan"
-            value={formData.tahun_pembuatan}
+                name="model"
+                value={formData.model}
             onChange={handleChange}
-            className="w-full border p-2 rounded"
-            autoComplete="off"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
             required
           />
+            </div>
           
+            {/* Tahun */}
+            <div>
+              <label className="block text-sm mb-1"> Tahun </label>
+          <input
+                type="number"
+                name="year"
+                value={formData.year}
+            onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+            required
+          />
+            </div>
+          
+            {/* Nomor SIM Card */}
+            <div>
+              <label className="block text-sm mb-1"> Nomor SIM Card </label>
           <input
             type="text"
-            name="warna"
-            placeholder="Warna"
-            value={formData.warna}
+                name="sim_card_number"
+                value={formData.sim_card_number}
             onChange={handleChange}
-            className="w-full border p-2 rounded"
-            autoComplete="off"
-            required
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
+            </div>
           
-          <input
-            type="text"
-            name="jenis_kendaraan"
-            placeholder="Jenis Kendaraan"
-            value={formData.jenis_kendaraan}
-            onChange={handleChange}
-            className="w-full border p-2 rounded"
-            autoComplete="off"
-            required
-          />
+            {/* GPS Device ID */}
+            <div>
+              <label className="block text-sm mb-1"> GPS Device ID </label>
+              <input
+                type="text"
+                name="gps_id"
+                value={formData.gps_id}
+                onChange={handleChange}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                  gpsError ? 'border-red-500' : 'border-gray-300'
+                }`}
+              />
+              {gpsError && (
+                <p className="mt-1 text-sm text-red-600">{gpsError}</p>
+              )}
+            </div>
+
+            {/* Error message */}
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
+                {error}
+              </div>
+            )}
+
+            {/* Success message */}
+            {successMessage && (
+              <div className="p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm">
+                {successMessage}
+              </div>
+            )}
+          </div>
           
-          <input
-            type="text"
-            name="pemilik"
-            placeholder="Pemilik"
-            value={formData.pemilik}
-            onChange={handleChange}
-            className="w-full border p-2 rounded"
-            autoComplete="off"
-            required
-          />
-          
-          {/* Tombol aksi */}
-          <div className="flex justify-end space-x-2 mt-4">
+          {/* Footer with buttons */}
+          <div className="px-6 py-4 bg-gray-50 border-t border-black flex justify-end space-x-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-gray-400 text-white rounded hover:bg-gray-500"
+              className="px-4 py-2 text-sm font-medium text-white bg-red-500 border border-gray-300 rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               disabled={loading}
             >
               Batal
             </button>
-            
             <button
               type="submit"
-              disabled={loading}
-              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
+              className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center justify-center min-w-[100px] ${
+                (loading || isCheckingGps) ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+              disabled={loading || isCheckingGps}
             >
-              {loading ? "Menyimpan..." : "Simpan"}
+              {loading || isCheckingGps ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  {isCheckingGps ? 'Memeriksa GPS...' : 'Menyimpan...'}
+                </>
+              ) : (
+                'Simpan'
+              )}
             </button>
           </div>
         </form>

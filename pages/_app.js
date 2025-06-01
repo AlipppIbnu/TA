@@ -1,8 +1,9 @@
-// pages/_app.js - Next.js App Component
+// pages/_app.js - Next.js App Component dengan SWR Provider
 import { useState, useEffect } from "react";
 import "../styles/globals.css";
 import "leaflet/dist/leaflet.css";
 import "leaflet-draw/dist/leaflet.draw.css";
+import SWRProvider from "../components/SWRProvider";
 
 /**
  * MyApp - Komponen utama Next.js yang membungkus seluruh aplikasi
@@ -31,6 +32,10 @@ export default function MyApp({ Component, pageProps }) {
     );
   }
 
-  // Render komponen halaman yang aktif
-  return <Component {...pageProps} />;
+  // Render komponen halaman yang aktif dengan SWR Provider
+  return (
+    <SWRProvider>
+      <Component {...pageProps} />
+    </SWRProvider>
+  );
 }

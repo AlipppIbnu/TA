@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from "react";
@@ -150,6 +149,100 @@ const SidebarComponent = ({
     }
   };
 
+  // Fungsi untuk menyalakan mesin (ENGINE ON)
+  const handleEngineOn = async () => {
+    if (!selectedVehicleId) {
+      alert("Pilih kendaraan terlebih dahulu.");
+      return;
+    }
+
+    const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId);
+    if (!selectedVehicle) {
+      alert("Kendaraan tidak ditemukan.");
+      return;
+    }
+
+    // Validasi: Cek apakah mesin sudah nyala
+    if (selectedVehicle.relay_status === 'ON') {
+      alert(`Mesin kendaraan ${selectedVehicle.model} sudah dalam keadaan menyala.`);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/vehicles/${selectedVehicle.vehicle_id || selectedVehicle.id}/relay`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          relay_status: 'ON'
+        }),
+      });
+      
+      if (response.ok) {
+        alert(`Mesin kendaraan ${selectedVehicle.model} berhasil dinyalakan`);
+        
+        // Update data kendaraan di state lokal tanpa refresh
+        if (onSelectVehicle && selectedVehicle) {
+          const updatedVehicle = { ...selectedVehicle, relay_status: 'ON' };
+          onSelectVehicle(updatedVehicle);
+        }
+      } else {
+        const errorData = await response.json();
+        alert(`Gagal menyalakan mesin: ${errorData.error || 'Terjadi kesalahan'}`);
+      }
+    } catch (error) {
+      alert(`Koneksi terputus. Silakan coba lagi`);
+    }
+  };
+
+  // Fungsi untuk mematikan mesin (ENGINE OFF)
+  const handleEngineOff = async () => {
+    if (!selectedVehicleId) {
+      alert("Pilih kendaraan terlebih dahulu.");
+      return;
+    }
+
+    const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId);
+    if (!selectedVehicle) {
+      alert("Kendaraan tidak ditemukan.");
+      return;
+    }
+
+    // Validasi: Cek apakah mesin sudah mati
+    if (selectedVehicle.relay_status === 'OFF') {
+      alert(`Mesin kendaraan ${selectedVehicle.model} sudah dalam keadaan mati`);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/vehicles/${selectedVehicle.vehicle_id || selectedVehicle.id}/relay`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          relay_status: 'OFF'
+        }),
+      });
+      
+      if (response.ok) {
+        alert(`Mesin kendaraan ${selectedVehicle.model} berhasil dimatikan`);
+        
+        // Update data kendaraan di state lokal tanpa refresh
+        if (onSelectVehicle && selectedVehicle) {
+          const updatedVehicle = { ...selectedVehicle, relay_status: 'OFF' };
+          onSelectVehicle(updatedVehicle);
+        }
+      } else {
+        const errorData = await response.json();
+        alert(`Gagal mematikan mesin: ${errorData.error || 'Terjadi kesalahan'}`);
+      }
+    } catch (error) {
+      alert(`Koneksi terputus. Silakan coba lagi`);
+    }
+  };
+
   return (
     <div className="w-80 bg-white shadow-md h-screen flex flex-col p-4">
       {/* Logo aplikasi */}
@@ -184,6 +277,16 @@ const SidebarComponent = ({
                     <p className="text-sm text-black">Warna: {vehicle.warna || "Tidak tersedia"}</p>
                     <p className="text-sm text-black">Pemilik: {vehicle.pemilik || "Tidak tersedia"}</p>
                     <p className="text-sm text-black">Tahun: {vehicle.tahun_pembuatan || "Tidak tersedia"}</p>
+                    {/* Menampilkan status relay/mesin */}
+                    {vehicle.relay_status && (
+                      <p className="text-sm text-black">
+                        Status Mesin: {
+                          vehicle.relay_status === 'ON'
+                            ? <span className="text-green-600 font-semibold">ON</span>
+                            : <span className="text-red-600 font-semibold">OFF</span>
+                        }
+                      </p>
+                    )}
                     <p className="text-sm text-black">
                       Lokasi: {vehicle.position 
                         ? `${vehicle.position.lat.toFixed(5)}, ${vehicle.position.lng.toFixed(5)}` 
@@ -208,10 +311,16 @@ const SidebarComponent = ({
       </div>
 
       <div className="mt-4 space-y-2">
-        <button className="w-full py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200">
+        <button 
+          onClick={handleEngineOn}
+          className="w-full py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200"
+        >
           ENGINE ON
         </button>
-        <button className="w-full py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200">
+        <button 
+          onClick={handleEngineOff}
+          className="w-full py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200"
+        >
           ENGINE OFF
         </button>
         <button 
@@ -220,7 +329,6 @@ const SidebarComponent = ({
         >
           TAMBAH KENDARAAN
         </button>
-        {/* UPDATED: Button SET GEOFENCE dengan handler */}
         <button 
           onClick={handleSetGeofence}
           className="w-full py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 transition-colors duration-200"

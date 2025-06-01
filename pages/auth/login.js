@@ -1,18 +1,16 @@
 // pages/auth/login.js
 import { useState, useEffect } from "react";
-import { auth } from "../../lib/firebaseConfig";
-import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import Image from "next/image";
+import { login, getCurrentUser } from "../../lib/authService";
 
 export default function Login() {
   // State management
   const [email, setEmail] = useState("");             // State untuk input email
   const [password, setPassword] = useState("");       // State untuk input password
   const [showPassword, setShowPassword] = useState(false); // Tampilkan/sembunyikan password
-  const [rememberMe, setRememberMe] = useState(false);     // State checkbox "remember me"
   const [error, setError] = useState(null);           // Untuk menampilkan pesan error
   const [loading, setLoading] = useState(true);       // Untuk menangani loading saat auth
   
@@ -20,44 +18,24 @@ export default function Login() {
 
   // Cek apakah user sudah login
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const user = getCurrentUser();
       if (user) {
-        router.replace("/dashboard");  // Redirect jika sudah login
-      } else {
-        setLoading(false);            // Hentikan loading jika belum login
+      router.replace("/dashboard");
       }
-    });
-
-    return () => unsubscribe();        // Cleanup listener
+    setLoading(false);
   }, [router]);
-
-  // Cek localStorage jika email disimpan (remember me)
-  useEffect(() => {
-    const savedEmail = localStorage.getItem("rememberedEmail");
-    if (savedEmail) {
-      setEmail(savedEmail);
-      setRememberMe(true);
-    }
-  }, []);
 
   /**
    * Fungsi login saat submit
    */
   const handleLogin = async (e) => {
     e.preventDefault();
+    setError(null);
     
     try {
-      // Proses autentikasi dengan Firebase
-      await signInWithEmailAndPassword(auth, email, password);
-
-      // Simpan atau hapus email sesuai dengan pilihan "remember me"
-      if (rememberMe) {
-        localStorage.setItem("rememberedEmail", email);
-      } else {
-        localStorage.removeItem("rememberedEmail");
-      }
-
-      router.push("/dashboard"); // Redirect ke dashboard setelah login
+      // Proses login dengan Directus
+      await login(email, password);
+      router.push("/dashboard");
     } catch (err) {
       setError("Email atau password salah!");
     }
@@ -150,17 +128,8 @@ export default function Login() {
                 </button>
               </div>
 
-              {/* Remember Me & Forgot Password */}
-              <div className="flex justify-between items-center text-md">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="w-5 h-5 accent-blue-500"
-                    checked={rememberMe}
-                    onChange={() => setRememberMe(!rememberMe)}
-                  />
-                  Remember me
-                </label>
+              {/* Forgot Password */}
+              <div className="flex justify-end text-md">
                 <Link href="/auth/forgot-password" className="text-blue-500">
                   Forgot Password?
                 </Link>

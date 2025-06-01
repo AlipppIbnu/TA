@@ -3,10 +3,28 @@
 'use client';
 
 import { useState, useEffect } from "react";
-import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebaseConfig";
 import { useRouter } from "next/router";
 import Image from "next/image";
+import { logout } from "@/lib/authService";
+import { deleteVehicle } from "@/lib/vehicleService";
+import { getGeofenceStatus } from "@/utils/geofenceUtils";
+import useSWR from 'swr';
+
+// SWR fetcher for vehicle data
+const vehicleDataFetcher = async (url) => {
+  const response = await fetch(url, {
+    headers: {
+      'Cache-Control': 'no-cache'
+    }
+  });
+  
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  }
+  
+  const data = await response.json();
+  return data.data || [];
+};
 
 const SidebarComponent = ({ 
   vehicles = [], 
@@ -14,7 +32,12 @@ const SidebarComponent = ({
   onTambahKendaraan, 
   onDeleteVehicle,
   onSetGeofence,
-  onHistoryClick
+  onHistoryClick,
+  onHideHistory,
+  selectedVehicle,
+  geofences = [],
+  onToggleGeofence,
+  onUpdateVehicle
 }) => {
   const router = useRouter();
   
@@ -23,6 +46,7 @@ const SidebarComponent = ({
   const [showHistory, setShowHistory] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [vehicleToDelete, setVehicleToDelete] = useState(null);
+  const [vehicleGeofenceVisibility, setVehicleGeofenceVisibility] = useState({});
   
   // State untuk notifikasi
   const [showSuccessNotification, setShowSuccessNotification] = useState(false);
@@ -32,97 +56,92 @@ const SidebarComponent = ({
   const [showRelayNotification, setShowRelayNotification] = useState(false);
   const [relayMessage, setRelayMessage] = useState('');
   const [relayNotifStatus, setRelayNotifStatus] = useState('success');
+  const [error, setError] = useState('');
+  const [showErrorAlert, setShowErrorAlert] = useState(false);
   
   // State untuk relay
   const [relays, setRelays] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [loadingVehicles, setLoadingVehicles] = useState({});
+  
+  // State baru untuk loading modal relay
+  const [showRelayLoadingModal, setShowRelayLoadingModal] = useState(false);
+  const [relayLoadingVehicleId, setRelayLoadingVehicleId] = useState(null);
+  const [relayLoadingAction, setRelayLoadingAction] = useState(''); // 'ON' atau 'OFF'
+  const [relayLoadingVehicleName, setRelayLoadingVehicleName] = useState('');
+  const [relayLoadingVehiclePlate, setRelayLoadingVehiclePlate] = useState('');
+  const [relayStatusChanged, setRelayStatusChanged] = useState(false);
+  const [initialRelayStatus, setInitialRelayStatus] = useState('');
 
-  // Fetch data relay
-  useEffect(() => {
-    fetchRelays();
-  }, []);
-
-  const fetchRelays = async () => {
-    try {
-      const response = await fetch("/api/relays");
-      if (!response.ok) {
-        throw new Error(`Failed to fetch relays: ${response.status}`);
-      }
-      const data = await response.json();
-      setRelays(data.data || []);
-    } catch (error) {
-      console.error("Error fetching relays:", error);
-      setRelays([]);
+  // SWR untuk mengambil data kendaraan real-time (speed, RPM, dll)
+  const { 
+    data: vehicleData, 
+    error: vehicleDataError 
+  } = useSWR(
+    'http://ec2-13-229-83-7.ap-southeast-1.compute.amazonaws.com:8055/items/vehicle_datas',
+    vehicleDataFetcher,
+    {
+      refreshInterval: 5000,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
     }
-  };
+  );
+
+  // Monitor perubahan status relay
+  useEffect(() => {
+    if (showRelayLoadingModal && relayLoadingVehicleId) {
+      const currentVehicle = vehicles.find(v => v.vehicle_id === relayLoadingVehicleId);
+      if (currentVehicle && currentVehicle.relay_status !== initialRelayStatus) {
+        // Status sudah berubah
+        setRelayStatusChanged(true);
+      }
+    }
+  }, [vehicles, relayLoadingVehicleId, initialRelayStatus, showRelayLoadingModal]);
 
   // Fungsi untuk logout
-  const handleLogout = () => {
-    setIsLoading(true);
-    
-    signOut(auth)
-      .then(() => {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        sessionStorage.clear();
-        console.log("Logout berhasil");
+  const handleLogout = async () => {
+    try {
+      await logout();
+      // Pastikan redirect terjadi setelah logout selesai
         window.location.href = "/auth/login";
-      })
-      .catch((error) => {
+    } catch (error) {
         console.error("Logout Error:", error);
-        setIsLoading(false);
-        alert("Gagal logout: " + error.message);
-      });
+    }
   };
 
   // Fungsi untuk memilih kendaraan
   const handleSelectVehicle = (vehicle) => {
-    setSelectedVehicleId(vehicle.id);
-    setShowHistory(false);
-    onSelectVehicle(vehicle);
-  };
-
-  // Fungsi untuk melihat history kendaraan
-  const handleHistoryClick = () => {
-    if (!selectedVehicleId) {
-      setShowSelectVehicleAlert(true);
+    // Verifikasi kendaraan masih ada dalam daftar
+    const existingVehicle = vehicles.find((v) => v.vehicle_id === vehicle.vehicle_id);
+    if (!existingVehicle) {
+      showErrorMessage("Kendaraan tidak ditemukan atau telah dihapus");
       return;
     }
 
-    const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId);
-    if (!selectedVehicle || !selectedVehicle.position) {
-      setShowNoHistoryAlert(true);
+    setSelectedVehicleId(vehicle.vehicle_id);
+    setShowHistory(false);
+    onSelectVehicle(existingVehicle);
+  };
+
+  // Fungsi untuk menampilkan riwayat kendaraan
+  const handleHistoryClick = () => {
+    if (!selectedVehicleId) {
+      showErrorMessage("Pilih kendaraan terlebih dahulu.");
       return;
     }
 
     if (showHistory) {
-      const selected = vehicles.find((v) => v.id === selectedVehicleId);
-      if (selected) {
-        onSelectVehicle({ ...selected, path: [] });
+      // Hide history - use parent's onHideHistory function
+      if (onHideHistory) {
+        onHideHistory();
       }
       setShowHistory(false);
     } else {
+      // Show history - use the parent's onHistoryClick function
       if (onHistoryClick) {
         onHistoryClick(selectedVehicleId);
         setShowHistory(true);
       } else {
-        fetch("/api/history")
-          .then((res) => res.json())
-          .then((data) => {
-            const riwayat = data.data
-              .filter((item) => item.id === selectedVehicleId)
-              .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-              .map((item) => [parseFloat(item.latitude), parseFloat(item.longitude)]);
-
-            const selected = vehicles.find((v) => v.id === selectedVehicleId);
-            if (selected) {
-              onSelectVehicle({ ...selected, path: riwayat });
-            }
-            setShowHistory(true);
-          })
-          .catch((err) => {
-            console.error("Gagal ambil riwayat koordinat:", err);
-          });
+        showErrorMessage("Fungsi history tidak tersedia");
       }
     }
   };
@@ -131,106 +150,6 @@ const SidebarComponent = ({
   const handleSetGeofence = () => {
     if (onSetGeofence) {
       onSetGeofence();
-    }
-  };
-
-  // Fungsi untuk menyalakan mesin
-  const handleEngineOn = async () => {
-    if (!selectedVehicleId) {
-      showRelayNotif("Pilih kendaraan terlebih dahulu.", "error");
-      return;
-    }
-
-    const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId);
-    if (!selectedVehicle.relay_id) {
-      showRelayNotif(`Kendaraan ${selectedVehicle.model} (${selectedVehicle.nomor_kendaraan}) tidak memiliki relay terpasang.`, "error");
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const relayId = selectedVehicle.relay_id;
-      const relay = relays.find(r => r.id === relayId);
-      
-      if (!relay) {
-        showRelayNotif(`Relay dengan ID ${relayId} tidak ditemukan.`, "error");
-        setIsLoading(false);
-        return;
-      }
-      
-      const response = await fetch(`/api/relays/${relayId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          is_active: 1,
-          last_updated: new Date().toISOString()
-        }),
-      });
-      
-      if (response.ok) {
-        await fetchRelays();
-        showRelayNotif(`Mesin kendaraan ${selectedVehicle.model} (${selectedVehicle.nomor_kendaraan}) berhasil dinyalakan!`, "success");
-      } else {
-        const errorData = await response.json();
-        showRelayNotif(`Gagal menyalakan mesin: ${errorData.errors?.[0]?.message || 'Unknown error'}`, "error");
-      }
-    } catch (error) {
-      console.error("Error turning on engine:", error);
-      showRelayNotif(`Terjadi kesalahan: ${error.message}`, "error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Fungsi untuk mematikan mesin
-  const handleEngineOff = async () => {
-    if (!selectedVehicleId) {
-      showRelayNotif("Pilih kendaraan terlebih dahulu.", "error");
-      return;
-    }
-
-    const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId);
-    if (!selectedVehicle.relay_id) {
-      showRelayNotif(`Kendaraan ${selectedVehicle.model} (${selectedVehicle.nomor_kendaraan}) tidak memiliki relay terpasang.`, "error");
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const relayId = selectedVehicle.relay_id;
-      const relay = relays.find(r => r.id === relayId);
-      
-      if (!relay) {
-        showRelayNotif(`Relay dengan ID ${relayId} tidak ditemukan.`, "error");
-        setIsLoading(false);
-        return;
-      }
-      
-      const response = await fetch(`/api/relays/${relayId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          is_active: 0,
-          last_updated: new Date().toISOString()
-        }),
-      });
-      
-      if (response.ok) {
-        await fetchRelays();
-        showRelayNotif(`Mesin kendaraan ${selectedVehicle.model} (${selectedVehicle.nomor_kendaraan}) berhasil dimatikan!`, "success");
-      } else {
-        const errorData = await response.json();
-        showRelayNotif(`Gagal mematikan mesin: ${errorData.errors?.[0]?.message || 'Unknown error'}`, "error");
-      }
-    } catch (error) {
-      console.error("Error turning off engine:", error);
-      showRelayNotif(`Terjadi kesalahan: ${error.message}`, "error");
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -246,7 +165,150 @@ const SidebarComponent = ({
     }, 3000);
   };
 
-  // Fungsi untuk menampilkan konfirmasi delete
+  // Fungsi untuk menyalakan mesin
+  const handleEngineOn = async (vehicleId) => {
+    const selectedVehicle = vehicles.find((v) => v.vehicle_id === vehicleId);
+    if (!selectedVehicle) {
+      showRelayNotif("Kendaraan tidak ditemukan.", "error");
+      return;
+    }
+
+    // Validasi: Cek apakah mesin sudah nyala
+    if (selectedVehicle.relay_status === 'ON') {
+      showRelayNotif(`Mesin kendaraan ${selectedVehicle.name} sudah dalam keadaan menyala`, "error");
+      return;
+    }
+
+    // Setup loading modal
+    setRelayLoadingVehicleId(vehicleId);
+    setRelayLoadingAction('ON');
+    setRelayLoadingVehicleName(selectedVehicle.name);
+    setRelayLoadingVehiclePlate(selectedVehicle.license_plate);
+    setInitialRelayStatus(selectedVehicle.relay_status);
+    setRelayStatusChanged(false);
+    setShowRelayLoadingModal(true);
+
+    setLoadingVehicles(prev => ({ ...prev, [vehicleId]: true }));
+    try {
+      const response = await fetch(`/api/vehicles/${selectedVehicle.vehicle_id}/relay`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          relay_status: 'ON'
+        }),
+      });
+      
+      const responseData = await response.json();
+      
+      if (response.ok) {
+        // Update state kendaraan secara manual tanpa refresh
+        const updatedVehicle = { ...selectedVehicle, relay_status: 'ON' };
+        if (onSelectVehicle && selectedVehicleId === vehicleId) {
+          onSelectVehicle(updatedVehicle);
+        }
+        if (onUpdateVehicle) {
+          onUpdateVehicle(selectedVehicle.vehicle_id, { relay_status: 'ON' });
+        }
+        
+      } else {
+        // Tutup loading modal jika gagal
+        setShowRelayLoadingModal(false);
+        
+        if (responseData.details && responseData.details.includes('relay fisik')) {
+          showRelayNotif(`Gagal menghubungi relay kendaraan. Silakan coba lagi`, "error");
+        } else {
+          showRelayNotif(`Gagal menyalakan mesin: ${responseData.error || 'Terjadi kesalahan'}`, "error");
+        }
+      }
+    } catch (error) {
+      // Tutup loading modal jika error
+      setShowRelayLoadingModal(false);
+      showRelayNotif(`Koneksi terputus. Silakan coba lagi`, "error");
+    } finally {
+      setLoadingVehicles(prev => ({ ...prev, [vehicleId]: false }));
+    }
+  };
+
+  // Fungsi untuk mematikan mesin
+  const handleEngineOff = async (vehicleId) => {
+    const selectedVehicle = vehicles.find((v) => v.vehicle_id === vehicleId);
+    if (!selectedVehicle) {
+      showRelayNotif("Kendaraan tidak ditemukan.", "error");
+      return;
+    }
+
+    // Validasi: Cek apakah mesin sudah mati
+    if (selectedVehicle.relay_status === 'OFF') {
+      showRelayNotif(`Mesin kendaraan ${selectedVehicle.name} sudah dalam keadaan mati`, "error");
+      return;
+    }
+
+    // Setup loading modal
+    setRelayLoadingVehicleId(vehicleId);
+    setRelayLoadingAction('OFF');
+    setRelayLoadingVehicleName(selectedVehicle.name);
+    setRelayLoadingVehiclePlate(selectedVehicle.license_plate);
+    setInitialRelayStatus(selectedVehicle.relay_status);
+    setRelayStatusChanged(false);
+    setShowRelayLoadingModal(true);
+
+    setLoadingVehicles(prev => ({ ...prev, [vehicleId]: true }));
+    try {
+      const response = await fetch(`/api/vehicles/${selectedVehicle.vehicle_id}/relay`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          relay_status: 'OFF'
+        }),
+      });
+      
+      const responseData = await response.json();
+      
+      if (response.ok) {
+        // Update state kendaraan secara manual tanpa refresh
+        const updatedVehicle = { ...selectedVehicle, relay_status: 'OFF' };
+        if (onSelectVehicle && selectedVehicleId === vehicleId) {
+          onSelectVehicle(updatedVehicle);
+        }
+        if (onUpdateVehicle) {
+          onUpdateVehicle(selectedVehicle.vehicle_id, { relay_status: 'OFF' });
+        }
+        
+      } else {
+        // Tutup loading modal jika gagal
+        setShowRelayLoadingModal(false);
+        
+        if (responseData.details && responseData.details.includes('relay fisik')) {
+          showRelayNotif(`Gagal menghubungi relay kendaraan. Silakan coba lagi`, "error");
+        } else {
+          showRelayNotif(`Gagal mematikan mesin: ${responseData.error || 'Terjadi kesalahan'}`, "error");
+        }
+      }
+    } catch (error) {
+      // Tutup loading modal jika error
+      setShowRelayLoadingModal(false);
+      showRelayNotif(`Koneksi terputus. Silakan coba lagi`, "error");
+    } finally {
+      setLoadingVehicles(prev => ({ ...prev, [vehicleId]: false }));
+    }
+  };
+
+  // Fungsi untuk menutup loading modal setelah status berubah
+  const handleRelayLoadingComplete = () => {
+    setShowRelayLoadingModal(false);
+    setRelayLoadingVehicleId(null);
+    setRelayLoadingAction('');
+    setRelayLoadingVehicleName('');
+    setRelayLoadingVehiclePlate('');
+    setRelayStatusChanged(false);
+    setInitialRelayStatus('');
+  };
+
+  // Fungsi untuk menampilkan konfirmasi hapus
   const handleShowDeleteConfirm = (vehicle, e) => {
     e.stopPropagation();
     setVehicleToDelete(vehicle);
@@ -263,56 +325,52 @@ const SidebarComponent = ({
   const showSuccessMessage = (message) => {
     setSuccessMessage(message);
     setShowSuccessNotification(true);
-    
     setTimeout(() => {
       setShowSuccessNotification(false);
       setSuccessMessage('');
     }, 3000);
   };
 
-  // Fungsi untuk menutup notifikasi sukses
-  const handleCloseSuccessNotification = () => {
-    setShowSuccessNotification(false);
-    setSuccessMessage('');
+  // Fungsi untuk menampilkan pesan error
+  const showErrorMessage = (message) => {
+    setError(message);
+    setShowErrorAlert(true);
+    setTimeout(() => {
+      setShowErrorAlert(false);
+      setError('');
+    }, 3000);
   };
 
-  // Fungsi untuk menutup notifikasi relay
-  const handleCloseRelayNotification = () => {
-    setShowRelayNotification(false);
-    setRelayMessage('');
-  };
-
-  // Fungsi untuk konfirmasi delete
-  const handleConfirmDelete = () => {
-    if (vehicleToDelete) {
-      console.log('Deleting vehicle:', vehicleToDelete);
+  // Fungsi untuk menghapus kendaraan
+  const handleDeleteVehicle = async (vehicleToDelete) => {
+    try {
+      // console.log('Deleting vehicle:', vehicleToDelete); // Removed debugging log
       
-      if (selectedVehicleId === vehicleToDelete.id) {
-        setSelectedVehicleId(null);
-        setShowHistory(false);
+      const result = await onDeleteVehicle(vehicleToDelete.vehicle_id);
+      
+      if (result) {
+        // Reset selected vehicle if it was the one being deleted
+        if (selectedVehicle?.vehicle_id === vehicleToDelete.vehicle_id) {
+          onSelectVehicle(null);
+        }
+        
+        setSuccessMessage(`Kendaraan ${vehicleToDelete.name} berhasil dihapus!`);
+        setShowSuccessAlert(true);
+        
+        // Hide success alert after 3 seconds
+        setTimeout(() => {
+          setShowSuccessAlert(false);
+        }, 3000);
       }
-      
-      const deletedVehicle = vehicleToDelete;
-      onDeleteVehicle(vehicleToDelete.id);
+    } catch (error) {
+      console.error('Error deleting vehicle:', error);
+      setErrorMessage(`Gagal menghapus kendaraan: ${error.message}`);
+      setShowErrorAlert(true);
+    } finally {
       setShowDeleteConfirm(false);
       setVehicleToDelete(null);
-      
-      showSuccessMessage(`Kendaraan ${deletedVehicle.model} (${deletedVehicle.nomor_kendaraan}) berhasil dihapus!`);
     }
   };
-
-  // Fungsi untuk mendapatkan status relay kendaraan terpilih
-  const getSelectedVehicleRelayStatus = () => {
-    if (!selectedVehicleId) return null;
-
-    const selectedVehicle = vehicles.find(v => v.id === selectedVehicleId);
-    if (!selectedVehicle || !selectedVehicle.relay_id) return null;
-
-    const relay = relays.find(r => r.id === selectedVehicle.relay_id);
-    return relay ? relay.is_active : null;
-  };
-
-  const selectedRelayStatus = getSelectedVehicleRelayStatus();
 
   // Komponen loading spinner
   const LoadingSpinner = () => (
@@ -324,6 +382,45 @@ const SidebarComponent = ({
       LOADING...
     </>
   );
+
+  // Fungsi untuk mendapatkan status relay kendaraan terpilih
+  const getSelectedVehicleRelayStatus = () => {
+    if (!selectedVehicleId) return null;
+
+    const selectedVehicle = vehicles.find(v => v.vehicle_id === selectedVehicleId);
+    if (!selectedVehicle) return null;
+
+    return selectedVehicle.relay_status;
+  };
+
+  const selectedRelayStatus = getSelectedVehicleRelayStatus();
+
+  // Fungsi untuk toggle geofence visibility
+  const handleToggleGeofence = (vehicleId) => {
+    // Default state adalah false (hidden), toggle sesuai dengan state saat ini
+    const currentVisibility = vehicleGeofenceVisibility[vehicleId] || false;
+    const newVisibility = !currentVisibility;
+    
+    setVehicleGeofenceVisibility(prev => ({
+      ...prev,
+      [vehicleId]: newVisibility
+    }));
+    
+    // Notify parent component
+    if (onToggleGeofence) {
+      onToggleGeofence(vehicleId, newVisibility);
+    }
+  };
+
+  // Fungsi untuk mendapatkan geofences untuk kendaraan tertentu
+  const getVehicleGeofences = (vehicleId) => {
+    return geofences.filter(geofence => geofence.vehicle_id === vehicleId);
+  };
+
+  // Fungsi untuk cek apakah kendaraan memiliki geofence
+  const hasGeofence = (vehicleId) => {
+    return getVehicleGeofences(vehicleId).length > 0;
+  };
 
   return (
     <div className="w-80 bg-white shadow-md h-screen flex flex-col p-4">
@@ -337,49 +434,132 @@ const SidebarComponent = ({
       {/* Daftar kendaraan */}
       <div className="flex-grow overflow-y-auto">
         {vehicles.length > 0 ? (
-          vehicles.map((vehicle) => (
+          vehicles.map((vehicle) => {
+            const geofenceStatus = getGeofenceStatus(vehicle, geofences);
+            
+            // Find matching vehicle data for speed and RPM
+            const latestVehicleData = vehicleData?.find(data => data.gps_id === vehicle.gps_id);
+            
+            return (
             <div
-              key={vehicle.id}
+              key={vehicle.vehicle_id}
               className={`p-3 mb-2 rounded-md cursor-pointer relative ${
-                selectedVehicleId === vehicle.id ? "bg-blue-200" : "bg-gray-200 hover:bg-gray-300"
+                selectedVehicleId === vehicle.vehicle_id ? "bg-blue-200" : "bg-gray-200 hover:bg-gray-300"
               }`}
               onClick={() => handleSelectVehicle(vehicle)}
             >
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="font-bold">{vehicle.model} ({vehicle.nomor_kendaraan})</p>
-                  <p className="text-sm text-black">
-                    Jenis: {vehicle.jenis_kendaraan || vehicle.Jenis_Kendaraan || vehicle.jenis || "Tidak tersedia"}
-                  </p>
-                  <p className="text-sm text-black">Merek: {vehicle.merek || "Tidak tersedia"}</p>
-                  <p className="text-sm text-black">Warna: {vehicle.warna || "Tidak tersedia"}</p>
-                  <p className="text-sm text-black">Pemilik: {vehicle.pemilik || "Tidak tersedia"}</p>
-                  <p className="text-sm text-black">Tahun: {vehicle.tahun_pembuatan || "Tidak tersedia"}</p>
-                  <p className="text-sm text-black">
-                    Koordinat: {vehicle.position 
-                      ? `${vehicle.position.lat.toFixed(5)}, ${vehicle.position.lng.toFixed(5)}` 
-                      : "Tidak tersedia"}
-                  </p>
-                  {vehicle.relay_id && (
-                    <p className="text-sm text-black">
+                  <p className="font-bold mb-1">{vehicle.name || 'Tidak ada nama'}</p>
+                  <p className="text-sm text-black mb-1">{vehicle.license_plate}</p>
+                  <p className="text-sm text-black mb-1">{vehicle.make} {vehicle.model}</p>
+                  <p className="text-sm text-black mb-2">Tahun {vehicle.year}</p>
+                  
+                  {vehicle.sim_card_number && (
+                    <p className="text-sm text-black mb-1">SIM Card: {vehicle.sim_card_number}</p>
+                  )}
+                  {vehicle.gps_device_id && (
+                    <p className="text-sm text-black mb-1">GPS Device: {vehicle.gps_device_id}</p>
+                  )}
+                  {vehicle.position && (
+                    <p className="text-sm text-black mb-2">
+                      Koordinat: {`${vehicle.position.lat.toFixed(5)}, ${vehicle.position.lng.toFixed(5)}`}
+                    </p>
+                  )}
+                  
+                  {vehicle.relay_status && (
+                    <p className="text-sm text-black mb-2">
                       Status Mesin: {
-                        relays.find(r => r.id === vehicle.relay_id)?.is_active === 1
+                        vehicle.relay_status === 'ON'
                           ? <span className="text-green-600 font-semibold">ON</span>
                           : <span className="text-red-600 font-semibold">OFF</span>
                       }
                     </p>
                   )}
+                  
+                  {/* Data kendaraan real-time (speed) - selalu tampil */}
+                  <div className="text-sm text-black mt-2 mb-2">
+                    <p className="mb-1">
+                      Kecepatan: <span className="text-blue-600 font-semibold">{latestVehicleData?.speed || 0} km/h</span>
+                    </p>
+                    {latestVehicleData?.fuel_level && (
+                      <p className="mb-1">
+                        Bahan Bakar: <span className="text-orange-600 font-semibold">{latestVehicleData.fuel_level}%</span>
+                      </p>
+                    )}
+                  </div>
+                  
+                  {/* Button controls - GEO, ENGINE ON/OFF */}
+                  <div className="flex gap-1 mt-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleGeofence(vehicle.vehicle_id);
+                      }}
+                      className={`${
+                      vehicleGeofenceVisibility[vehicle.vehicle_id] === true
+                        ? 'bg-green-600 hover:bg-green-700' 
+                        : 'bg-blue-400 hover:bg-blue-500'
+                    } text-white rounded text-center font-bold transition-colors duration-200 w-10 h-6 text-[10px] flex items-center justify-center`}
+                    title={`${vehicleGeofenceVisibility[vehicle.vehicle_id] === true ? 'Sembunyikan' : 'Tampilkan'} geofence untuk ${vehicle.name}`}
+                    >
+                    GEO
+                    </button>
+
+                    {/* Engine ON Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEngineOn(vehicle.vehicle_id);
+                      }}
+                      disabled={loadingVehicles[vehicle.vehicle_id] || vehicle.relay_status === 'ON'}
+                      className={`${
+                        loadingVehicles[vehicle.vehicle_id] ? 'bg-gray-400' : 
+                        vehicle.relay_status === 'ON' ? 'bg-gray-500' :
+                        'bg-green-500 hover:bg-green-600'
+                      } text-white rounded text-center font-bold transition-colors duration-200 w-10 h-6 text-[10px] flex items-center justify-center`}
+                      title={vehicle.relay_status === 'ON' ? 'Mesin sudah menyala' : 'Nyalakan mesin'}
+                    >
+                      {loadingVehicles[vehicle.vehicle_id] ? '...' : 'ON'}
+                    </button>
+
+                    {/* Engine OFF Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEngineOff(vehicle.vehicle_id);
+                      }}
+                      disabled={loadingVehicles[vehicle.vehicle_id] || vehicle.relay_status === 'OFF'}
+                      className={`${
+                        loadingVehicles[vehicle.vehicle_id] ? 'bg-gray-400' : 
+                        vehicle.relay_status === 'OFF' ? 'bg-gray-500' :
+                        'bg-red-500 hover:bg-red-600'
+                      } text-white rounded text-center font-bold transition-colors duration-200 w-12 h-6 text-[10px] flex items-center justify-center`}
+                      title={vehicle.relay_status === 'OFF' ? 'Mesin sudah mati' : 'Matikan mesin'}
+                    >
+                      {loadingVehicles[vehicle.vehicle_id] ? '...' : 'OFF'}
+                    </button>
+                  </div>
+
+                  {/* Debug info untuk geofence - tampil sementara untuk debugging */}
+                  {getVehicleGeofences(vehicle.vehicle_id).length > 0 && (
+                    <p className="text-xs text-green-600 mt-1">
+                      Geofence: {getVehicleGeofences(vehicle.vehicle_id).length} area
+                    </p>
+                  )}
                 </div>
-                <button 
-                  onClick={(e) => handleShowDeleteConfirm(vehicle, e)}
-                  className="bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold transition-colors duration-200"
-                  title={`Hapus kendaraan ${vehicle.model}`}
-                >
-                  ×
-                </button>
+                  
+                {/* Button hapus kendaraan - tetap di pojok kanan */}
+                  <button 
+                    onClick={(e) => handleShowDeleteConfirm(vehicle, e)}
+                    className="bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold transition-colors duration-200"
+                    title={`Hapus kendaraan ${vehicle.name}`}
+                  >
+                    ×
+                  </button>
               </div>
             </div>
-          ))
+          )})
         ) : (
           <p className="text-center text-gray-500">Tidak ada kendaraan</p>
         )}
@@ -387,26 +567,6 @@ const SidebarComponent = ({
 
       {/* Tombol aksi */}
       <div className="mt-4 space-y-2">
-        <button 
-          onClick={handleEngineOn}
-          disabled={isLoading || !selectedVehicleId}
-          className={`w-full py-2 ${
-            isLoading ? 'bg-gray-400' : 'bg-green-500 hover:bg-green-600'
-          } text-white rounded-md transition-colors duration-200 flex justify-center items-center`}
-        >
-          {isLoading ? <LoadingSpinner /> : 'ENGINE ON'}
-        </button>
-        
-        <button 
-          onClick={handleEngineOff}
-          disabled={isLoading || !selectedVehicleId}
-          className={`w-full py-2 ${
-            isLoading ? 'bg-gray-400' : 'bg-red-500 hover:bg-red-600'
-          } text-white rounded-md transition-colors duration-200 flex justify-center items-center`}
-        >
-          {isLoading ? <LoadingSpinner /> : 'ENGINE OFF'}
-        </button>
-        
         <button 
           onClick={onTambahKendaraan} 
           className="w-full py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200"
@@ -464,8 +624,8 @@ const SidebarComponent = ({
             <h3 className="text-lg font-bold mb-4 text-red-500">⚠️ Tidak Ada History</h3>
             <p className="mb-4">
               Kendaraan <strong>
-                {vehicles.find(v => v.id === selectedVehicleId)?.model} (
-                {vehicles.find(v => v.id === selectedVehicleId)?.nomor_kendaraan})
+                {vehicles.find(v => v.vehicle_id === selectedVehicleId)?.name} (
+                {vehicles.find(v => v.vehicle_id === selectedVehicleId)?.license_plate})
               </strong> tidak memiliki data lokasi. History perjalanan tidak tersedia.
             </p>
             <div className="flex justify-end mt-6">
@@ -486,7 +646,7 @@ const SidebarComponent = ({
           <div className="bg-white p-6 rounded-md shadow-lg max-w-md">
             <h3 className="text-lg font-bold mb-4 text-center">Konfirmasi Hapus</h3>
             <p className="mb-4 text-center">
-              Apakah Anda yakin ingin menghapus kendaraan <strong>{vehicleToDelete.model}</strong> dengan nomor <strong>{vehicleToDelete.nomor_kendaraan}</strong>?
+              Apakah Anda yakin ingin menghapus kendaraan <strong>{vehicleToDelete.name}</strong> dengan nomor <strong>{vehicleToDelete.license_plate}</strong>?
             </p>
             <div className="flex justify-end mt-6 space-x-2">
               <button 
@@ -496,7 +656,7 @@ const SidebarComponent = ({
                 Batal
               </button>
               <button 
-                onClick={handleConfirmDelete}
+                onClick={handleDeleteVehicle}
                 className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200"
               >
                 Hapus
@@ -514,7 +674,7 @@ const SidebarComponent = ({
             <p className="mb-4">{successMessage}</p>
             <div className="flex justify-end mt-6">
               <button 
-                onClick={handleCloseSuccessNotification}
+                onClick={() => setShowSuccessNotification(false)}
                 className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200"
               >
                 OK
@@ -528,19 +688,91 @@ const SidebarComponent = ({
       {showRelayNotification && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-md shadow-lg max-w-md">
-            <h3 className={`text-lg font-bold mb-4 ${relayNotifStatus === 'success' ? 'text-green-600' : 'text-red-500'}`}>
-              {relayNotifStatus === 'success' ? '✅ Berhasil' : '⚠️ Gagal'}
+            <h3 className={`text-lg font-bold mb-4 ${
+              relayNotifStatus === 'success' ? 'text-green-600' : 'text-red-500'
+            }`}>
+              {relayNotifStatus === 'success' ? 'Berhasil' : 'Gagal'}
             </h3>
-            <p className="mb-4">{relayMessage}</p>
+            <p className="mb-4 whitespace-pre-line">{relayMessage}</p>
             <div className="flex justify-end mt-6">
               <button 
-                onClick={handleCloseRelayNotification}
+                onClick={() => setShowRelayNotification(false)}
                 className={`px-4 py-2 ${
                   relayNotifStatus === 'success' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'
                 } text-white rounded-md transition-colors duration-200`}
               >
                 OK
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notifikasi Error */}
+      {showErrorAlert && (
+        <div className="fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          ❌ {error}
+        </div>
+      )}
+
+      {/* Modal Loading Relay - Menunggu Status Berubah */}
+      {showRelayLoadingModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-md shadow-lg max-w-md">
+            <div className="text-center">
+              <div className="mb-4">
+                {relayStatusChanged ? (
+                  // Icon sukses ketika status sudah berubah
+                  <div className="mx-auto h-12 w-12 text-green-500 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-12 h-12">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                ) : (
+                  // Spinner loading ketika masih menunggu
+                  <svg className="animate-spin mx-auto h-12 w-12 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                )}
+              </div>
+              
+              <h3 className={`text-lg font-bold mb-4 ${relayStatusChanged ? 'text-green-600' : 'text-blue-600'}`}>
+                {relayStatusChanged ? 'Berhasil!' : 'Mohon Tunggu...'}
+              </h3>
+              
+              <p className="mb-4 text-gray-700">
+                {relayStatusChanged 
+                  ? `Status mesin kendaraan ${relayLoadingVehicleName} ${relayLoadingVehiclePlate} sudah ${relayLoadingAction}`
+                  : (
+                      <span>
+                        Sedang {relayLoadingAction === 'ON' ? 'menyalakan' : 'mematikan'} mesin kendaraan {relayLoadingVehicleName}
+                        <br />
+                        <strong>{relayLoadingVehiclePlate}</strong>
+                      </span>
+                    )
+                }
+              </p>
+              
+              {!relayStatusChanged && (
+                <div className="text-sm text-gray-500 mb-4">
+                  Menunggu konfirmasi dari relay
+                </div>
+              )}
+              
+              <div className="flex justify-center mt-6">
+                <button 
+                  onClick={handleRelayLoadingComplete}
+                  disabled={!relayStatusChanged}
+                  className={`px-6 py-2 rounded-md transition-colors duration-200 ${
+                    relayStatusChanged 
+                      ? 'bg-green-500 hover:bg-green-600 text-white cursor-pointer'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  {relayStatusChanged ? 'OK' : 'Menunggu...'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

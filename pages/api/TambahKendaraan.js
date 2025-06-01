@@ -1,5 +1,6 @@
 // pages/api/TambahKendaraan.js
-import { getUserIdFromToken } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/authService';
+import directusConfig from '@/lib/directusConfig';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -7,9 +8,13 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Verifikasi autentikasi dan dapatkan user ID
-    const userId = await getUserIdFromToken(req);
-    console.log('Adding vehicle for user:', userId);
+    // Get current user
+    const user = getCurrentUser();
+    if (!user) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    const userId = user.userId;
 
     const { 
       nomor_kendaraan, 
@@ -34,25 +39,24 @@ export default async function handler(req, res) {
       model: model,
       tahun_pembuatan: tahun_pembuatan,
       warna: warna,
-      jenis_kendaraan: jenis_kendaraan,  
-      Jenis_Kendaraan: jenis_kendaraan,  
+      jenis_kendaraan: jenis_kendaraan,
+      Jenis_Kendaraan: jenis_kendaraan,
       pemilik: pemilik,
-      user_id: userId  // TAMBAHKAN USER_ID
+      user_id: userId, // Pastikan user_id selalu ada
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
 
-    console.log("Data yang dikirim ke Directus:", JSON.stringify(directusData, null, 2));
-
-    const response = await fetch('http://ec2-13-239-62-109.ap-southeast-2.compute.amazonaws.com/items/daftar_kendaraan', {
+    const response = await fetch(directusConfig.endpoints.vehicles, {
       method: 'POST',
       headers: {
+        ...directusConfig.headers,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(directusData),
     });
 
     const text = await response.text();
-    console.log("Status code:", response.status);
-    console.log("Response body:", text);
 
     if (!response.ok) {
       console.error("API Error:", {
@@ -71,7 +75,6 @@ export default async function handler(req, res) {
     let data;
     try {
       data = JSON.parse(text);
-      console.log("Parsed response data:", data);
     } catch (parseError) {
       console.error("Error parsing JSON:", parseError);
       

@@ -1,40 +1,45 @@
-// pages/Dashboard.js - Kode lengkap dengan polling realtime
+// pages/Dashboard.js - Simplified version using SWR in MapComponent
 import dynamic from "next/dynamic";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/lib/firebaseConfig";
 import SidebarComponent from "../components/SidebarComponent";
 import ModalTambahKendaraan from "@/components/ModalTambahKendaraan"; 
 import ModalSetGeofence from "@/components/ModalSetGeofence";
+import GeofenceNotification from "@/components/GeofenceNotification";
+import useGeofenceNotifications from "@/components/hooks/useGeofenceNotifications";
+import { getCurrentUser, isAuthenticated } from "@/lib/authService";
+import { getUserVehicles } from "@/lib/vehicleService";
+import directusConfig from "@/lib/directusConfig";
+import { deleteVehicle } from "@/lib/vehicleService";
+import { getGeofenceStatus } from "@/utils/geofenceUtils";
 
 // Import dinamis untuk MapComponent (tanpa SSR)
 const MapComponent = dynamic(() => import("../components/MapComponent"), { ssr: false });
 
-// Polling interval dalam milidetik (3 detik)
-const POLLING_INTERVAL = 3000;
-// Jumlah maksimum percobaan ulang
-const MAX_RETRY_COUNT = 3;
-
-export default function Dashboard({ vehicles: initialVehicles }) {
+export default function Dashboard() {
   const router = useRouter();
   
   // Refs
   const mapRef = useRef(null);
   const geofenceModalRef = useRef(null);
-  const pollingTimerRef = useRef(null);
-  const lastFetchTimestampRef = useRef(null);
-  const retryCountRef = useRef(0);
+  const lastGeofenceStatusRef = useRef({});
+
+  // Geofence notifications hook
+  const {
+    notifications: geofenceNotifications,
+    addNotification: addGeofenceNotification,
+    removeNotification: removeGeofenceNotification,
+    removeAllNotifications: removeAllGeofenceNotifications
+  } = useGeofenceNotifications(5, 8000); // Max 5 notifications, auto-remove after 8 seconds
 
   // State untuk user dan loading
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   
   // State untuk kendaraan
-  const [vehicles, setVehicles] = useState(initialVehicles || []);
-  const [selectedVehicle, setSelectedVehicle] = useState(initialVehicles[0] || null);
+  const [vehicles, setVehicles] = useState([]);
+  const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [vehicleHistories, setVehicleHistories] = useState([]);
-  const [lastUpdateTime, setLastUpdateTime] = useState(null);
   
   // State untuk modal dan notifikasi
   const [showTambahModal, setShowTambahModal] = useState(false); 
@@ -44,24 +49,199 @@ export default function Dashboard({ vehicles: initialVehicles }) {
   // State untuk geofence
   const [showGeofenceModal, setShowGeofenceModal] = useState(false);
   const [isDrawingMode, setIsDrawingMode] = useState(false);
+  const [isMultiPolygon, setIsMultiPolygon] = useState(false);
+  const [geofences, setGeofences] = useState([]);
+  const [vehicleGeofenceVisibility, setVehicleGeofenceVisibility] = useState({});
+  const [finishMultiPolygonCallback, setFinishMultiPolygonCallback] = useState(null);
 
-  // Effect untuk cek autentikasi
+  // Load user data dan kendaraan
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-      } else {
-        router.replace("/");
+    const loadUserAndVehicles = async () => {
+      try {
+        // Check if user is authenticated
+        if (!isAuthenticated()) {
+          router.push("/auth/login");
+          return;
+        }
+
+        // Get current user data
+        const userData = getCurrentUser();
+        if (!userData) {
+          router.push("/auth/login");
+          return;
+        }
+
+        setUser(userData);
+
+        // Load vehicles for current user - this will get fresh data including positions
+        const userVehicles = await getUserVehicles();
+        
+        setVehicles(userVehicles);
+        if (userVehicles.length > 0) {
+          setSelectedVehicle(userVehicles[0]);
+        }
+
+        // Load geofences
+        await loadGeofences();
+      } catch (error) {
+        console.error('Error loading data:', error);
+        setErrorMessage('Gagal memuat data kendaraan');
+        setShowErrorAlert(true);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    });
-    return () => unsubscribe();
+    };
+
+    loadUserAndVehicles();
   }, [router]);
 
-  // Effect untuk update vehicles dari props
+  // Load geofences from API
+  const loadGeofences = async () => {
+    try {
+      const response = await fetch('/api/geofences');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch geofences');
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        const geofencesData = data.data || [];
+        
+        setGeofences(geofencesData);
+      } else {
+        throw new Error(data.message || 'Failed to load geofences');
+      }
+    } catch (error) {
+      console.error('Error loading geofences:', error);
+      setGeofences([]);
+      // Don't show error alert for geofences as it's not critical for dashboard functionality
+    }
+  };
+
+  // Monitor geofence status changes for notifications
   useEffect(() => {
-    setVehicles(initialVehicles);
-  }, [initialVehicles]);
+    if (!vehicles.length || !geofences.length) {
+      return;
+    }
+    
+    // Function to check geofence status
+    const checkGeofenceStatus = () => {
+    vehicles.forEach(vehicle => {
+        if (!vehicle.position) {
+          return;
+        }
+      
+        try {
+      const currentVehicleId = vehicle.vehicle_id;
+          const geofenceStatus = getGeofenceStatus(vehicle, getVisibleGeofences());
+          
+          // Generate key unik untuk kendaraan ini
+          const statusKey = `${currentVehicleId}`;
+      
+      // Bandingkan dengan status sebelumnya
+      const prevStatus = lastGeofenceStatusRef.current[statusKey];
+          
+          // Determine current status
+          const currentInside = geofenceStatus && geofenceStatus.inside;
+          
+          // Jika ini adalah pengecekan pertama, set status dan trigger notifikasi jika di luar
+          if (prevStatus === undefined) {
+            lastGeofenceStatusRef.current[statusKey] = currentInside;
+            
+            // Jika kendaraan berada di luar geofence saat pertama kali dimonitor, buat notifikasi
+            if (!currentInside && geofenceStatus) {
+              const vehicleName = `${vehicle.make || ''} ${vehicle.model || ''} (${vehicle.license_plate || vehicle.name || 'Unknown'})`.trim();
+              
+              const notificationData = {
+                event_id: Date.now(),
+                vehicle_id: currentVehicleId,
+                vehicle_name: vehicleName,
+                geofence_id: geofenceStatus?.id || 'unknown',
+                geofence_name: geofenceStatus?.name || 'area yang ditentukan',
+                event_type: 'exit',
+                timestamp: new Date().toISOString()
+              };
+              
+              addGeofenceNotification(notificationData);
+            }
+            return;
+          }
+      
+      // Jika status berubah, buat notifikasi
+          if (prevStatus !== currentInside) {
+            const vehicleName = `${vehicle.make || ''} ${vehicle.model || ''} (${vehicle.license_plate || vehicle.name || 'Unknown'})`.trim();
+            
+            const notificationData = {
+              event_id: Date.now(),
+              vehicle_id: currentVehicleId,
+              vehicle_name: vehicleName,
+              geofence_id: geofenceStatus?.id || 'unknown',
+              geofence_name: geofenceStatus?.name || 'area yang ditentukan',
+              event_type: currentInside ? 'enter' : 'exit',
+              timestamp: new Date().toISOString()
+            };
+            
+            addGeofenceNotification(notificationData);
+      }
+      
+      // Update status untuk pengecekan berikutnya
+          lastGeofenceStatusRef.current[statusKey] = currentInside;
+        } catch (error) {
+          console.error(`Error checking geofence status for vehicle ${vehicle.vehicle_id}:`, error);
+        }
+      });
+    };
+
+    // Initial check
+    checkGeofenceStatus();
+
+    // Set up interval for real-time monitoring (every 10 seconds)
+    const monitoringInterval = setInterval(checkGeofenceStatus, 10000);
+
+    // Cleanup interval on unmount or dependency change
+    return () => {
+      clearInterval(monitoringInterval);
+    };
+  }, [vehicles, geofences, addGeofenceNotification, vehicleGeofenceVisibility]);
+
+  // Monitor untuk reload vehicle positions secara berkala
+  useEffect(() => {
+    const reloadVehiclePositions = async () => {
+      try {
+        const userVehicles = await getUserVehicles();
+        setVehicles(userVehicles);
+        
+        // Update selected vehicle if it exists in new data
+        if (selectedVehicle) {
+          const updatedSelectedVehicle = userVehicles.find(v => v.vehicle_id === selectedVehicle.vehicle_id);
+          if (updatedSelectedVehicle) {
+            setSelectedVehicle(prev => ({
+              ...updatedSelectedVehicle,
+              path: prev.path // Keep existing path if any
+            }));
+          }
+        }
+      } catch (error) {
+        console.error('Error reloading vehicle positions:', error);
+      }
+    };
+
+    // Reload positions every 60 seconds for fresh data
+    const positionInterval = setInterval(reloadVehiclePositions, 60000);
+
+    return () => {
+      clearInterval(positionInterval);
+    };
+  }, [selectedVehicle]);
+
+  // Monitor geofence notifications untuk production
+  useEffect(() => {
+    // if (geofenceNotifications.length > 0) {
+    //   console.log(`📱 Active geofence notifications: ${geofenceNotifications.length}`);
+    // }
+  }, [geofenceNotifications]);
 
   // Fungsi untuk menampilkan error alert
   const showErrorMessage = (message) => {
@@ -80,196 +260,79 @@ export default function Dashboard({ vehicles: initialVehicles }) {
     setErrorMessage('');
   };
 
-  // Fungsi polling data koordinat realtime
-  const fetchRealTimeCoordinates = useCallback(async () => {
-    try {
-      // Build the API URL with appropriate parameters
-      let apiUrl = "/api/KoordinatKendaraan?last_only=true";
-      
-      // If we have a last timestamp, only get newer data
-      if (lastFetchTimestampRef.current) {
-        apiUrl += `&since=${encodeURIComponent(lastFetchTimestampRef.current)}`;
-      }
-      
-      console.log("Fetching coordinates from:", apiUrl);
-      
-      // Tambahkan timeout untuk mencegah request menggantung
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 detik timeout
-      
-      const response = await fetch(apiUrl, {
-        signal: controller.signal,
-        headers: {
-          'Cache-Control': 'no-cache'
-        }
-      });
-      
-      clearTimeout(timeoutId);
-
-      // Log response status untuk debugging
-      console.log("Response status:", response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`API response error: ${response.status} - ${errorText}`);
-        throw new Error(`Gagal mengambil data koordinat realtime (${response.status})`);
-      }
-
-      // Reset retry counter on successful request
-      retryCountRef.current = 0;
-
-      const result = await response.json();
-      console.log("API response data structure:", Object.keys(result));
-      
-      // Validasi data lebih ketat
-      if (!result || !result.success) {
-        console.error("API returned unsuccessful response:", result);
-        throw new Error("API returned unsuccessful response");
-      }
-      
-      if (!result.data || !Array.isArray(result.data)) {
-        console.error("Invalid data format in API response:", result);
-        throw new Error("Invalid data format in API response");
-      }
-      
-      if (result.data.length === 0) {
-        console.log("Tidak ada data koordinat baru yang diterima");
-        return;
-      }
-
-      // Update the last fetch timestamp
-      lastFetchTimestampRef.current = result.timestamp;
-
-      // Process the coordinate data
-      const coordinateUpdates = {};
-      result.data.forEach(coord => {
-        if (coord && coord.id) {
-          coordinateUpdates[coord.id] = coord;
-        }
-      });
-
-      // Update vehicles with new coordinates
-      const updatedVehicles = vehicles.map(vehicle => {
-        const update = coordinateUpdates[vehicle.id];
-        
-        if (update) {
-          // Parse new coordinates with validation
-          const newLat = parseFloat(update.latitude);
-          const newLng = parseFloat(update.longitude);
-          
-          if (isNaN(newLat) || isNaN(newLng)) {
-            console.error("Invalid coordinates for vehicle:", vehicle.id, update);
-            return vehicle;
-          }
-          
-          // Return vehicle with updated position
-          return {
-            ...vehicle,
-            position: {
-              lat: newLat,
-              lng: newLng,
-              timestamp: update.timestamp
-            }
-          };
-        }
-        
-        return vehicle;
-      });
-
-      setVehicles(updatedVehicles);
-      setLastUpdateTime(new Date());
-      
-      // Update selected vehicle if it's one of the updated ones
-      if (selectedVehicle) {
-        const updatedSelectedVehicle = updatedVehicles.find(v => v.id === selectedVehicle.id);
-        if (updatedSelectedVehicle && 
-            JSON.stringify(updatedSelectedVehicle.position) !== JSON.stringify(selectedVehicle.position)) {
-          
-          // Preserve path data if exists
-          if (selectedVehicle.path) {
-            updatedSelectedVehicle.path = selectedVehicle.path;
-          }
-          
-          setSelectedVehicle(updatedSelectedVehicle);
-        }
-      }
-    } catch (error) {
-      console.error("Error polling koordinat realtime:", error);
-      
-      // Increment retry counter
-      retryCountRef.current += 1;
-      
-      if (retryCountRef.current >= MAX_RETRY_COUNT) {
-        // Setelah beberapa kali retry, tampilkan pesan error
-        console.error(`Failed after ${MAX_RETRY_COUNT} retries`);
-        
-        // Optional: tampilkan error ke user
-        // showErrorMessage("Gagal mengambil data koordinat realtime. Mencoba ulang...");
-        
-        // Reset counter dan tunggu lebih lama sebelum mencoba lagi
-        retryCountRef.current = 0;
-        
-        if (pollingTimerRef.current) {
-          clearInterval(pollingTimerRef.current);
-          
-          // Coba lagi dalam 10 detik
-          setTimeout(() => {
-            console.log("Retrying after timeout");
-            pollingTimerRef.current = setInterval(fetchRealTimeCoordinates, POLLING_INTERVAL);
-          }, 10000); // Tunggu 10 detik sebelum mencoba lagi
-        }
-      }
-    }
-  }, [vehicles, selectedVehicle]);
-
-  // Setup polling interval
-  useEffect(() => {
-    // First fetch immediately
-    fetchRealTimeCoordinates();
-    
-    // Then set up interval
-    pollingTimerRef.current = setInterval(() => {
-      fetchRealTimeCoordinates();
-    }, POLLING_INTERVAL);
-    
-    // Clean up on unmount
-    return () => {
-      if (pollingTimerRef.current) {
-        clearInterval(pollingTimerRef.current);
-      }
-    };
-  }, [fetchRealTimeCoordinates]);
-
   // Fungsi untuk handle klik riwayat kendaraan
   const handleHistoryClick = async (vehicleId) => {
     if (!vehicleId) return;
   
     try {
-      const res = await fetch("/api/history");
-      if (!res.ok) {
+      // Pastikan kendaraan masih ada dalam daftar
+      const existingVehicle = vehicles.find(v => v.vehicle_id === vehicleId);
+      if (!existingVehicle) {
+        showErrorMessage("Kendaraan tidak ditemukan atau telah dihapus");
+        return;
+      }
+
+      // Check if gps_id exists
+      if (!existingVehicle.gps_id) {
+        showErrorMessage(`Kendaraan ${existingVehicle.name} belum memiliki GPS ID. Tidak bisa menampilkan history.`);
+        return;
+      }
+
+      // Option 1: Use dedicated history API (cleaner)
+      const historyUrl = `/api/history?gps_id=${encodeURIComponent(existingVehicle.gps_id)}`;
+
+      const response = await fetch(historyUrl);
+
+      if (!response.ok) {
+        console.error(`HTTP Error ${response.status}: ${response.statusText}`);
         throw new Error("Gagal mengambil data riwayat");
       }
       
-      const data = await res.json();
-  
-      const filteredCoords = data.data
-        .filter(coord => coord.id === vehicleId)
-        .map(coord => ({
-          lat: parseFloat(coord.latitude),
-          lng: parseFloat(coord.longitude),
-        }));
+      const data = await response.json();
 
-      // Set selectedVehicle dengan path
-      const vehicleWithHistory = {
-        ...vehicles.find(v => v.id === vehicleId),
-        path: filteredCoords
-      };
-      
-      setSelectedVehicle(vehicleWithHistory);
+      if (!data.success || !data.data || data.data.length === 0) {
+        showErrorMessage(`Tidak ada data history untuk kendaraan ${existingVehicle.name} dengan GPS ID ${existingVehicle.gps_id}`);
+        return;
+      }
+
+      // Data sudah difilter di API, tinggal transform ke format yang dibutuhkan map
+      const pathCoords = data.data.map(coord => ({
+        lat: parseFloat(coord.latitude),
+        lng: parseFloat(coord.longitude),
+        timestamp: coord.timestamp
+      }));
+
+      // Gunakan existingVehicle yang sudah diverifikasi
+      setSelectedVehicle({
+        ...existingVehicle,
+        path: pathCoords
+      });
   
     } catch (err) {
       console.error("Gagal ambil riwayat koordinat:", err);
-      showErrorMessage("Gagal memuat riwayat kendaraan");
+      showErrorMessage("Gagal memuat riwayat kendaraan: " + err.message);
+    }
+  };
+
+  // Fungsi untuk handle vehicle selection dari sidebar
+  const handleSelectVehicle = (vehicle) => {
+    // Pastikan kendaraan masih ada dalam daftar sebelum memilihnya
+    const existingVehicle = vehicles.find(v => v.vehicle_id === vehicle.vehicle_id);
+    if (!existingVehicle) {
+      showErrorMessage("Kendaraan tidak ditemukan atau telah dihapus");
+      return;
+    }
+    setSelectedVehicle(existingVehicle);
+  };
+
+  // Fungsi untuk hide history
+  const handleHideHistory = () => {
+    if (selectedVehicle) {
+      // Remove path to hide history lines
+      setSelectedVehicle({
+        ...selectedVehicle,
+        path: undefined
+      });
     }
   };
 
@@ -279,19 +342,42 @@ export default function Dashboard({ vehicles: initialVehicles }) {
   };
 
   // Fungsi untuk ketika kendaraan berhasil ditambah
-  const handleTambahSukses = () => {
+  const handleTambahSukses = (newVehicle) => {
+    // Add the new vehicle to the vehicles state
+    setVehicles(prevVehicles => [...prevVehicles, {
+      ...newVehicle,
+      position: null // Set initial position as null
+    }]);
+    
+    // Close the modal
     setShowTambahModal(false);
-    router.reload();
   };
 
   // Handler untuk SET GEOFENCE
   const handleSetGeofence = () => {
+    // Cek apakah ada kendaraan tersedia
+    if (vehicles.length === 0) {
+      setErrorMessage('Tidak ada kendaraan tersedia! Tambahkan kendaraan terlebih dahulu.');
+      setShowErrorAlert(true);
+      return;
+    }
+    
     setShowGeofenceModal(true);
   };
 
   // Handler untuk drawing mode
-  const handleStartDrawing = (start = true) => {
+  const handleStartDrawing = (start = true, isMultiPolygon = false) => {
     setIsDrawingMode(start);
+    setIsMultiPolygon(isMultiPolygon);
+  };
+
+  // Handler untuk finish multipolygon
+  const handleFinishMultiPolygon = () => {
+    if (finishMultiPolygonCallback) {
+      finishMultiPolygonCallback();
+    } else {
+      console.error("Dashboard: finishMultiPolygonCallback is null");
+    }
   };
 
   // Handler untuk polygon completion
@@ -305,7 +391,22 @@ export default function Dashboard({ vehicles: initialVehicles }) {
   const handleGeofenceSukses = () => {
     setShowGeofenceModal(false);
     setIsDrawingMode(false);
-    router.reload();
+    setIsMultiPolygon(false);
+    
+    // Reload geofences
+    loadGeofences().then(() => {
+      // Auto-enable geofence visibility untuk semua kendaraan yang memiliki geofence
+      setTimeout(() => {
+        const newVisibility = { ...vehicleGeofenceVisibility };
+        
+        vehicles.forEach(vehicle => {
+          // Enable geofence visibility untuk kendaraan ini
+          newVisibility[vehicle.vehicle_id] = true;
+        });
+        
+        setVehicleGeofenceVisibility(newVisibility);
+      }, 1000);
+    });
   };
 
   // Handler untuk menutup modal geofence
@@ -314,10 +415,47 @@ export default function Dashboard({ vehicles: initialVehicles }) {
     setIsDrawingMode(false);
   };
 
+  // Handler untuk toggle geofence visibility
+  const handleToggleGeofence = (vehicleId, isVisible) => {
+    setVehicleGeofenceVisibility(prev => ({
+      ...prev,
+      [vehicleId]: isVisible
+    }));
+  };
+
+  // Filter geofences berdasarkan visibility
+  const getVisibleGeofences = () => {
+    const filtered = geofences.filter(geofence => {
+      // Prioritas vehicle_id field langsung
+      let vehicleId = geofence.vehicle_id;
+      
+      // Fallback ke extraction dari type jika vehicle_id kosong
+      if (!vehicleId) {
+        const typeMatch = geofence.type.match(/^(\w+)_vehicle_(\w+)$/);
+        if (typeMatch) {
+          vehicleId = typeMatch[2];
+        }
+      }
+      
+      // Jika tidak ada vehicle_id, skip geofence ini
+      if (!vehicleId) {
+        return false;
+      }
+      
+      // Convert ke string untuk matching
+      const vehicleIdStr = String(vehicleId);
+      const isVisible = vehicleGeofenceVisibility[vehicleIdStr] === true;
+      
+      return isVisible;
+    });
+    
+    return filtered;
+  };
+
   // Fungsi untuk menghapus kendaraan
   const handleDeleteVehicle = async (vehicleId) => {
     try {
-      console.log(`Menghapus kendaraan dengan ID: ${vehicleId}`);
+      // console.log(`Menghapus kendaraan dengan ID: ${vehicleId}`); // Removed debugging log
       
       const response = await fetch(`/api/HapusKendaraan?id=${vehicleId}`, {
         method: 'DELETE',
@@ -326,44 +464,26 @@ export default function Dashboard({ vehicles: initialVehicles }) {
         }
       });
       
-      console.log('Response status:', response.status);
-      
-      const text = await response.text();
-      console.log('Response text:', text);
+      const data = await response.json();
       
       if (!response.ok) {
-        let errorMessage = 'Terjadi kesalahan';
-        
-        try {
-          const errorData = JSON.parse(text);
-          errorMessage = errorData.message || 'Terjadi kesalahan';
-        } catch (e) {
-          errorMessage = text || 'Terjadi kesalahan';
-        }
-        
-        showErrorMessage(`Gagal menghapus kendaraan: ${errorMessage}`);
-        return;
+        throw new Error(data.message || 'Gagal menghapus kendaraan');
       }
       
-      let data = null;
-      if (text && text.trim()) {
-        try {
-          data = JSON.parse(text);
-        } catch (parseError) {
-          console.error("Error parsing JSON:", parseError);
-        }
-      }
-      
-      const updatedVehicles = vehicles.filter(vehicle => vehicle.id !== vehicleId);
+      // Update local state after successful deletion
+      const updatedVehicles = vehicles.filter(vehicle => vehicle.vehicle_id !== vehicleId);
       setVehicles(updatedVehicles);
       
-      if (selectedVehicle && selectedVehicle.id === vehicleId) {
+      // Update selected vehicle if needed
+      if (selectedVehicle && selectedVehicle.vehicle_id === vehicleId) {
         setSelectedVehicle(updatedVehicles.length > 0 ? updatedVehicles[0] : null);
       }
       
+      return true; // Return true to indicate successful deletion
+      
     } catch (error) {
       console.error('Error menghapus kendaraan:', error);
-      showErrorMessage(`Terjadi kesalahan saat menghapus kendaraan: ${error.message}`);
+      throw error; // Re-throw error to be handled by the caller
     }
   };
 
@@ -379,11 +499,15 @@ export default function Dashboard({ vehicles: initialVehicles }) {
       {/* Sidebar */}
       <SidebarComponent 
         vehicles={vehicles}
-        onSelectVehicle={vehicle => setSelectedVehicle(vehicle)}
+        onSelectVehicle={handleSelectVehicle}
         onHistoryClick={handleHistoryClick}
         onTambahKendaraan={handleTambahKendaraan}
         onDeleteVehicle={handleDeleteVehicle}
         onSetGeofence={handleSetGeofence}
+        selectedVehicle={selectedVehicle}
+        geofences={geofences}
+        onToggleGeofence={handleToggleGeofence}
+        onHideHistory={handleHideHistory}
       />
 
       {/* Main Content */}
@@ -393,22 +517,19 @@ export default function Dashboard({ vehicles: initialVehicles }) {
           vehicles={vehicles}
           selectedVehicle={selectedVehicle}
           isDrawingMode={isDrawingMode}
+          isMultiPolygon={isMultiPolygon}
           onPolygonComplete={handlePolygonComplete}
-          geofences={[]}
+          onSetFinishMultiPolygonCallback={setFinishMultiPolygonCallback}
+          geofences={getVisibleGeofences()}
         />
-        
-        {/* Status update indicator */}
-        {lastUpdateTime && (
-          <div className="absolute bottom-4 right-4 bg-white p-2 rounded-md shadow-md text-sm z-10">
-            <div className="flex items-center">
-              <div className="w-3 h-3 rounded-full mr-2 bg-green-500"></div>
-              <span className="text-gray-600">
-                Update terakhir: {lastUpdateTime.toLocaleTimeString()}
-              </span>
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Geofence Notifications */}
+      <GeofenceNotification
+        notifications={geofenceNotifications}
+        onDismiss={removeGeofenceNotification}
+        onDismissAll={removeAllGeofenceNotifications}
+      />
 
       {/* Modal Tambah Kendaraan */}
       {showTambahModal && (
@@ -425,6 +546,9 @@ export default function Dashboard({ vehicles: initialVehicles }) {
           onClose={handleCloseGeofenceModal}
           onSucceed={handleGeofenceSukses}
           onStartDrawing={handleStartDrawing}
+          vehicles={vehicles}
+          selectedVehicle={selectedVehicle}
+          onFinishMultiPolygon={handleFinishMultiPolygon}
         />
       )}
 
@@ -452,60 +576,85 @@ export default function Dashboard({ vehicles: initialVehicles }) {
 // Ambil data kendaraan + posisi terakhir
 export async function getServerSideProps() {
   try {
+    // console.log("=== getServerSideProps STARTING ==="); // Removed debugging log
+    
     // Tambahkan timeout untuk request
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
     
-    const [resKendaraan, resKoordinat] = await Promise.all([
-      fetch("http://ec2-13-239-62-109.ap-southeast-2.compute.amazonaws.com/items/daftar_kendaraan", {
-        signal: controller.signal
+    // Fetch vehicles and their latest coordinates using directusConfig
+    const [resVehicles, resVehicleData] = await Promise.all([
+      fetch(`${directusConfig.baseURL}/items/vehicle`, {
+        signal: controller.signal,
+        headers: directusConfig.headers
       }),
-      fetch("http://ec2-13-239-62-109.ap-southeast-2.compute.amazonaws.com/items/koordinat_kendaraan?limit=-1", {
-        signal: controller.signal
-      }),
+      fetch(`${directusConfig.baseURL}/items/vehicle_datas?sort=-timestamp&limit=1000`, {
+        signal: controller.signal,
+        headers: directusConfig.headers
+      })
     ]);
     
     clearTimeout(timeoutId);
 
-    if (!resKendaraan.ok || !resKoordinat.ok) {
-      console.error(`Fetch error: Kendaraan status: ${resKendaraan.status}, Koordinat status: ${resKoordinat.status}`);
-      throw new Error("Gagal fetch dari API eksternal.");
+    if (!resVehicles.ok || !resVehicleData.ok) {
+      console.error("Fetch failed:", { 
+        vehiclesStatus: resVehicles.status, 
+        vehicleDataStatus: resVehicleData.status 
+      });
+      throw new Error("Gagal fetch dari Directus.");
     }
 
-    const kendaraan = await resKendaraan.json();
-    const koordinat = await resKoordinat.json();
+    const vehiclesData = await resVehicles.json();
+    const vehicleDataResponse = await resVehicleData.json();
 
-    // Validasi data
-    if (!kendaraan || !kendaraan.data || !Array.isArray(kendaraan.data)) {
-      console.error("Invalid kendaraan data format:", kendaraan);
-      throw new Error("Format data kendaraan tidak valid");
-    }
-    
-    if (!koordinat || !koordinat.data || !Array.isArray(koordinat.data)) {
-      console.error("Invalid koordinat data format:", koordinat);
-      throw new Error("Format data koordinat tidak valid");
-    }
+    // console.log("Vehicles from DB:", vehiclesData.data?.length || 0, "vehicles"); // Removed debugging log
+    // console.log("Vehicle data from DB:", vehicleDataResponse.data?.length || 0, "data points"); // Removed debugging log
 
-    const combined = kendaraan.data.map((vehicle) => {
-      const vehicleCoords = koordinat.data
-        .filter((coord) => coord.id === vehicle.id)
-        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    // Group vehicle_datas by gps_id and get latest position
+    const latestPositions = {};
+    vehicleDataResponse.data.forEach(data => {
+      if (!data.gps_id) {
+        console.warn("Vehicle data without gps_id:", data);
+        return;
+      }
+      
+      if (!latestPositions[data.gps_id] || new Date(data.timestamp) > new Date(latestPositions[data.gps_id].timestamp)) {
+        latestPositions[data.gps_id] = {
+          lat: parseFloat(data.latitude),
+          lng: parseFloat(data.longitude),
+          timestamp: data.timestamp
+        };
+      }
+    });
 
-      const latest = vehicleCoords[0];
+    // console.log("Latest positions by gps_id:", Object.keys(latestPositions).length, "positions"); // Removed debugging log
 
+    // Combine vehicle data with their latest positions using gps_id
+    const vehicles = vehiclesData.data.map(vehicle => {
+      const position = latestPositions[vehicle.gps_id] || null;
+      
+      // if (position) {
+      //   console.log(`Vehicle ${vehicle.vehicle_id} (${vehicle.name}) has position:`, position); // Removed debugging log
+      // } else {
+      //   console.log(`Vehicle ${vehicle.vehicle_id} (${vehicle.name}) has NO position for gps_id:`, vehicle.gps_id); // Removed debugging log
+      // }
+      
       return {
         ...vehicle,
-        position: latest
-          ? {
-              lat: parseFloat(latest.latitude),
-              lng: parseFloat(latest.longitude),
-              timestamp: latest.timestamp,
-            }
-          : null,
+        position
       };
     });
 
-    return { props: { vehicles: combined } };
+    // console.log("Final vehicles with positions:", vehicles.map(v => ({ // Removed debugging log
+    //   vehicle_id: v.vehicle_id,
+    //   name: v.name,
+    //   gps_id: v.gps_id,
+    //   hasPosition: !!v.position
+    // })));
+    
+    // console.log("=== getServerSideProps COMPLETE ==="); // Removed debugging log
+
+    return { props: { vehicles } };
   } catch (err) {
     console.error("❌ Gagal fetch data server:", err);
     

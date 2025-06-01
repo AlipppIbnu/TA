@@ -1,13 +1,13 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 
-// Directus base API URL
-const DIRECTUS_API_URL = 'http://ec2-13-239-62-109.ap-southeast-2.compute.amazonaws.com/items/koordinat_kendaraan';
+// Directus base API URL - Updated to use new endpoint
+const DIRECTUS_API_URL = 'http://ec2-13-229-83-7.ap-southeast-1.compute.amazonaws.com:8055/items/vehicle_datas';
 
 /**
  * API handler untuk mengambil data koordinat kendaraan dari Directus
  * 
  * Query parameters:
- * - id: Filter berdasarkan ID kendaraan (opsional)
+ * - vehicle_id: Filter berdasarkan vehicle_id kendaraan (opsional)
  * - limit: Batasi jumlah hasil (default: 100, -1 untuk semua)
  * - last_only: Hanya ambil koordinat terakhir untuk setiap kendaraan (default: false)
  * - since: Ambil koordinat sejak timestamp tertentu (format ISO, opsional)
@@ -20,7 +20,7 @@ export default async function handler(req, res) {
 
   // Extract query parameters
   const { 
-    id, 
+    vehicle_id, // Changed from 'id' to 'vehicle_id' 
     limit = 100, 
     last_only = false, 
     since = null 
@@ -38,9 +38,9 @@ export default async function handler(req, res) {
       queryParams.append('limit', limit);
     }
     
-    // Filter berdasarkan ID kendaraan jika diberikan
-    if (id) {
-      queryParams.append('filter[id][_eq]', id);
+    // Filter berdasarkan vehicle_id jika diberikan
+    if (vehicle_id) {
+      queryParams.append('filter[vehicle_id][_eq]', vehicle_id);
     }
     
     // Filter berdasarkan timestamp jika parameter since diberikan
@@ -55,8 +55,6 @@ export default async function handler(req, res) {
     if (queryParams.toString()) {
       apiUrl += `?${queryParams.toString()}`;
     }
-    
-    console.log(`Fetching coordinates from Directus: ${apiUrl}`);
     
     // Tambahkan timeout untuk mencegah request menggantung
     const controller = new AbortController();
@@ -75,8 +73,6 @@ export default async function handler(req, res) {
     
     clearTimeout(timeoutId);
     
-    console.log(`Directus response status: ${response.status}`);
-
     if (!response.ok) {
       console.error(`Directus API error: ${response.status} ${response.statusText}`);
       
@@ -121,15 +117,30 @@ export default async function handler(req, res) {
       });
     }
     
-    // Proses data berdasarkan parameter last_only
-    let result = data.data;
+    // Transform data to match expected format - map new field names
+    let result = data.data.map(item => ({
+      id: item.vehicle_id, // Map vehicle_id to id for compatibility
+      vehicle_datas_id: item.vehicle_datas_id,
+      vehicle_id: item.vehicle_id,
+      latitude: item.latitude,
+      longitude: item.longitude,
+      speed: item.speed,
+      rpm: item.rpm,
+      fuel_level: item.fuel_level,
+      ignition_status: item.ignition_status,
+      battery_level: item.battery_level,
+      satellites_used: item.satellites_used,
+      timestamp: item.timestamp,
+      gps_id: item.gps_id
+    }));
     
+    // Proses data berdasarkan parameter last_only
     if (last_only === 'true' && Array.isArray(result)) {
       // Jika last_only=true, ambil hanya koordinat terakhir untuk setiap kendaraan
       const latestCoordinates = {};
       
       for (const coord of result) {
-        const vehicleId = coord.id;
+        const vehicleId = coord.vehicle_id; // Use vehicle_id instead of id
         
         if (!latestCoordinates[vehicleId] || 
             new Date(coord.timestamp) > new Date(latestCoordinates[vehicleId].timestamp)) {
