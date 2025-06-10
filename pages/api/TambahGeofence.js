@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { name, type, definition, rule_type, status, vehicle_id } = req.body;
+    const { name, type, definition, rule_type, status, vehicle_id, user_id } = req.body;
 
     // Validasi input
     if (!name || !type || !definition) {
@@ -26,19 +26,19 @@ export default async function handler(req, res) {
       });
     }
 
-    // Siapkan data untuk Directus
+    // Siapkan data untuk Directus - TANPA vehicle_id
     const directusData = {
       name: name,
-      type: type, 
+      type: type, // Simpan type asli (polygon/multipolygon)
       definition: JSON.stringify(definition),
-      rule_type: rule_type || 'exit',
+      rule_type: rule_type || 'STAY_IN',
       status: status || 'active',
-      vehicle_id: vehicle_id || null,
+      user_id: user_id && user_id !== "" ? user_id : null,
       date_created: new Date().toISOString()
     };
 
-    // Kirim ke Directus
-    const response = await fetch(`${directusConfig.baseURL}/items/geofences`, {
+    // Kirim ke Directus untuk membuat geofence
+    const response = await fetch(`${directusConfig.baseURL}/items/geofence`, {
       method: 'POST',
       headers: {
         ...directusConfig.headers,
@@ -49,26 +49,45 @@ export default async function handler(req, res) {
 
     if (response.ok) {
       const data = await response.json();
+      const newGeofenceId = data.data.geofence_id;
+
+      // Jika ada vehicle_id, update vehicle dengan geofence_id yang baru dibuat
+      if (vehicle_id && vehicle_id !== "") {
+        try {
+          const updateVehicleResponse = await fetch(`${directusConfig.baseURL}/items/vehicle/${vehicle_id}`, {
+            method: 'PATCH',
+            headers: {
+              ...directusConfig.headers,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              geofence_id: newGeofenceId
+            })
+          });
+
+          if (!updateVehicleResponse.ok) {
+            console.error('Failed to update vehicle with geofence_id');
+            // Tidak throw error, karena geofence sudah berhasil dibuat
+          }
+        } catch (updateError) {
+          console.error('Error updating vehicle:', updateError);
+          // Tidak throw error, karena geofence sudah berhasil dibuat
+        }
+      }
       
       return res.status(200).json({
         success: true,
-        message: `Geofence "${name}" berhasil dibuat`,
+        message: `Geofence "${name}" berhasil dibuat${vehicle_id ? ' dan dikaitkan dengan kendaraan' : ''}`,
         data: data.data
       });
     } else {
       // Handle error response
       const responseText = await response.text();
       
-      console.error("❌ Directus error response:", responseText);
-      console.error("❌ Response status:", response.status);
-      console.error("❌ Response headers:", [...response.headers.entries()]);
-      
       let errorData;
       try {
         errorData = JSON.parse(responseText);
-        console.error("❌ Parsed error data:", errorData);
       } catch (e) {
-        console.error("❌ Could not parse error response as JSON");
         errorData = { message: responseText };
       }
 
@@ -80,7 +99,7 @@ export default async function handler(req, res) {
     }
 
   } catch (error) {
-    console.error("❌ API Error:", error);
+    console.error("API Error:", error);
     
     return res.status(500).json({
       success: false,

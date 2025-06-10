@@ -7,15 +7,41 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Ambil ID dari query parameter atau body
     const id = req.query.id || req.body.id;
     
     if (!id) {
       return res.status(400).json({ message: 'ID kendaraan diperlukan' });
     }
 
-    // URL untuk menghapus data di Directus
-    const directusUrl = `${directusConfig.baseURL}/items/vehicle/${id}`;
+    // First, find the vehicle record to get the correct Directus primary key
+    const checkUrl = `${directusConfig.baseURL}/items/vehicle?filter[vehicle_id][_eq]=${id}`;
+    
+    const checkResponse = await fetch(checkUrl, {
+      headers: directusConfig.headers
+    });
+    
+    if (!checkResponse.ok) {
+      return res.status(500).json({ 
+        message: 'Gagal memeriksa kendaraan',
+        error: `Check failed: ${checkResponse.status}`
+      });
+    }
+
+    const checkData = await checkResponse.json();
+
+    if (!checkData.data || checkData.data.length === 0) {
+      return res.status(404).json({ 
+        message: 'Kendaraan tidak ditemukan',
+        receivedId: id
+      });
+    }
+
+    // Get the actual Directus record ID (primary key)
+    const vehicleRecord = checkData.data[0];
+    const directusId = vehicleRecord.id || vehicleRecord.vehicle_id;
+
+    // URL untuk menghapus data di Directus using the correct ID
+    const directusUrl = `${directusConfig.baseURL}/items/vehicle/${directusId}`;
 
     // Kirim request DELETE ke Directus
     const response = await fetch(directusUrl, {
@@ -33,10 +59,9 @@ export default async function handler(req, res) {
         const errorText = await response.text();
         errorMessage += ` - ${errorText}`;
       } catch (e) {
-        // Tidak bisa membaca error text
+        // Could not read error text
       }
       
-      console.error("Delete error:", errorMessage);
       return res.status(response.status).json({ 
         message: 'Gagal menghapus kendaraan dari database',
         error: errorMessage
@@ -45,11 +70,10 @@ export default async function handler(req, res) {
 
     res.status(200).json({ 
       message: 'Kendaraan berhasil dihapus!',
-      success: true 
+      success: true
     });
 
   } catch (error) {
-    console.error("API error:", error);
     res.status(500).json({ 
       message: 'Terjadi kesalahan internal server', 
       error: error.message 

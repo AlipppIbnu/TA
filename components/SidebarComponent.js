@@ -3,6 +3,7 @@
 'use client';
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
 import Image from "next/image";
 import { logout } from "@/lib/authService";
@@ -344,7 +345,6 @@ const SidebarComponent = ({
   // Fungsi untuk menghapus kendaraan
   const handleDeleteVehicle = async (vehicleToDelete) => {
     try {
-      // console.log('Deleting vehicle:', vehicleToDelete); // Removed debugging log
       
       const result = await onDeleteVehicle(vehicleToDelete.vehicle_id);
       
@@ -355,17 +355,16 @@ const SidebarComponent = ({
         }
         
         setSuccessMessage(`Kendaraan ${vehicleToDelete.name} berhasil dihapus!`);
-        setShowSuccessAlert(true);
+        setShowSuccessNotification(true);
         
         // Hide success alert after 3 seconds
         setTimeout(() => {
-          setShowSuccessAlert(false);
+          setShowSuccessNotification(false);
         }, 3000);
       }
     } catch (error) {
       console.error('Error deleting vehicle:', error);
-      setErrorMessage(`Gagal menghapus kendaraan: ${error.message}`);
-      setShowErrorAlert(true);
+      showErrorMessage(`Gagal menghapus kendaraan: ${error.message}`);
     } finally {
       setShowDeleteConfirm(false);
       setVehicleToDelete(null);
@@ -401,10 +400,13 @@ const SidebarComponent = ({
     const currentVisibility = vehicleGeofenceVisibility[vehicleId] || false;
     const newVisibility = !currentVisibility;
     
-    setVehicleGeofenceVisibility(prev => ({
-      ...prev,
-      [vehicleId]: newVisibility
-    }));
+    setVehicleGeofenceVisibility(prev => {
+      const newState = {
+        ...prev,
+        [vehicleId]: newVisibility
+      };
+      return newState;
+    });
     
     // Notify parent component
     if (onToggleGeofence) {
@@ -412,9 +414,18 @@ const SidebarComponent = ({
     }
   };
 
-  // Fungsi untuk mendapatkan geofences untuk kendaraan tertentu
+  // Fungsi untuk mendapatkan geofences untuk kendaraan tertentu (Vehicle-Centric)
   const getVehicleGeofences = (vehicleId) => {
-    return geofences.filter(geofence => geofence.vehicle_id === vehicleId);
+    // Cari vehicle berdasarkan vehicleId
+    const vehicle = vehicles.find(v => v.vehicle_id === vehicleId);
+    
+    // Jika vehicle tidak ada atau tidak punya geofence_id, return empty array
+    if (!vehicle || !vehicle.geofence_id) {
+      return [];
+    }
+    
+    // Cari geofence berdasarkan geofence_id yang dimiliki vehicle
+    return geofences.filter(geofence => geofence.geofence_id === vehicle.geofence_id);
   };
 
   // Fungsi untuk cek apakah kendaraan memiliki geofence
@@ -423,6 +434,7 @@ const SidebarComponent = ({
   };
 
   return (
+    <>
     <div className="w-80 bg-white shadow-md h-screen flex flex-col p-4">
       {/* Logo aplikasi */}
       <div className="flex justify-center mb-6 mt-4">
@@ -436,9 +448,9 @@ const SidebarComponent = ({
         {vehicles.length > 0 ? (
           vehicles.map((vehicle) => {
             const geofenceStatus = getGeofenceStatus(vehicle, geofences);
-            
-            // Find matching vehicle data for speed and RPM
-            const latestVehicleData = vehicleData?.find(data => data.gps_id === vehicle.gps_id);
+              
+              // Find matching vehicle data for speed and RPM
+              const latestVehicleData = vehicleData?.find(data => data.gps_id === vehicle.gps_id);
             
             return (
             <div
@@ -450,106 +462,101 @@ const SidebarComponent = ({
             >
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="font-bold mb-1">{vehicle.name || 'Tidak ada nama'}</p>
-                  <p className="text-sm text-black mb-1">{vehicle.license_plate}</p>
-                  <p className="text-sm text-black mb-1">{vehicle.make} {vehicle.model}</p>
-                  <p className="text-sm text-black mb-2">Tahun {vehicle.year}</p>
-                  
+                    <p className="font-bold mb-1">{vehicle.name || 'Tidak ada nama'}</p>
+                    <p className="text-sm text-black mb-1">{vehicle.license_plate}</p>
+                    <p className="text-sm text-black mb-1">{vehicle.make} {vehicle.model}</p>
+                    <p className="text-sm text-black mb-2">Tahun {vehicle.year}</p>
+                    
                   {vehicle.sim_card_number && (
-                    <p className="text-sm text-black mb-1">SIM Card: {vehicle.sim_card_number}</p>
+                      <p className="text-sm text-black mb-1">SIM Card: {vehicle.sim_card_number}</p>
                   )}
                   {vehicle.gps_device_id && (
-                    <p className="text-sm text-black mb-1">GPS Device: {vehicle.gps_device_id}</p>
+                      <p className="text-sm text-black mb-1">GPS Device: {vehicle.gps_device_id}</p>
                   )}
                   {vehicle.position && (
-                    <p className="text-sm text-black mb-2">
+                      <p className="text-sm text-black mb-2">
                       Koordinat: {`${vehicle.position.lat.toFixed(5)}, ${vehicle.position.lng.toFixed(5)}`}
-                    </p>
+                  </p>
                   )}
-                  
-                  {vehicle.relay_status && (
-                    <p className="text-sm text-black mb-2">
+                    
+                    {vehicle.relay_status && (
+                      <p className="text-sm text-black mb-2">
                       Status Mesin: {
-                        vehicle.relay_status === 'ON'
+                          vehicle.relay_status === 'ON'
                           ? <span className="text-green-600 font-semibold">ON</span>
                           : <span className="text-red-600 font-semibold">OFF</span>
                       }
                     </p>
                   )}
                   
-                  {/* Data kendaraan real-time (speed) - selalu tampil */}
-                  <div className="text-sm text-black mt-2 mb-2">
-                    <p className="mb-1">
-                      Kecepatan: <span className="text-blue-600 font-semibold">{latestVehicleData?.speed || 0} km/h</span>
-                    </p>
-                    {latestVehicleData?.fuel_level && (
+                    {/* Data kendaraan real-time (speed) - selalu tampil */}
+                    <div className="text-sm text-black mt-2 mb-2">
                       <p className="mb-1">
-                        Bahan Bakar: <span className="text-orange-600 font-semibold">{latestVehicleData.fuel_level}%</span>
+                        Kecepatan: <span className="text-blue-600 font-semibold">{latestVehicleData?.speed || 0} km/h</span>
                       </p>
-                    )}
-                  </div>
-                  
-                  {/* Button controls - GEO, ENGINE ON/OFF */}
-                  <div className="flex gap-1 mt-2">
+                      {latestVehicleData?.fuel_level && (
+                        <p className="mb-1">
+                          Bahan Bakar: <span className="text-orange-600 font-semibold">{latestVehicleData.fuel_level}%</span>
+                    </p>
+                  )}
+                </div>
+                    
+                    {/* Button controls - GEO, ENGINE ON/OFF */}
+                    <div className="flex gap-1 mt-2">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleToggleGeofence(vehicle.vehicle_id);
                       }}
                       className={`${
-                      vehicleGeofenceVisibility[vehicle.vehicle_id] === true
-                        ? 'bg-green-600 hover:bg-green-700' 
-                        : 'bg-blue-400 hover:bg-blue-500'
-                    } text-white rounded text-center font-bold transition-colors duration-200 w-10 h-6 text-[10px] flex items-center justify-center`}
-                    title={`${vehicleGeofenceVisibility[vehicle.vehicle_id] === true ? 'Sembunyikan' : 'Tampilkan'} geofence untuk ${vehicle.name}`}
-                    >
-                    GEO
-                    </button>
-
-                    {/* Engine ON Button */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEngineOn(vehicle.vehicle_id);
-                      }}
-                      disabled={loadingVehicles[vehicle.vehicle_id] || vehicle.relay_status === 'ON'}
-                      className={`${
-                        loadingVehicles[vehicle.vehicle_id] ? 'bg-gray-400' : 
-                        vehicle.relay_status === 'ON' ? 'bg-gray-500' :
-                        'bg-green-500 hover:bg-green-600'
+                        vehicleGeofenceVisibility[vehicle.vehicle_id] === true
+                          ? 'bg-green-600 hover:bg-green-700' 
+                          : 'bg-blue-400 hover:bg-blue-500'
                       } text-white rounded text-center font-bold transition-colors duration-200 w-10 h-6 text-[10px] flex items-center justify-center`}
-                      title={vehicle.relay_status === 'ON' ? 'Mesin sudah menyala' : 'Nyalakan mesin'}
-                    >
-                      {loadingVehicles[vehicle.vehicle_id] ? '...' : 'ON'}
-                    </button>
+                        title={`${vehicleGeofenceVisibility[vehicle.vehicle_id] === true ? 'Sembunyikan' : 'Tampilkan'} geofence untuk ${vehicle.name}`}
+                        >
+                        GEO
+                        </button>
 
-                    {/* Engine OFF Button */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEngineOff(vehicle.vehicle_id);
-                      }}
-                      disabled={loadingVehicles[vehicle.vehicle_id] || vehicle.relay_status === 'OFF'}
-                      className={`${
-                        loadingVehicles[vehicle.vehicle_id] ? 'bg-gray-400' : 
-                        vehicle.relay_status === 'OFF' ? 'bg-gray-500' :
-                        'bg-red-500 hover:bg-red-600'
-                      } text-white rounded text-center font-bold transition-colors duration-200 w-12 h-6 text-[10px] flex items-center justify-center`}
-                      title={vehicle.relay_status === 'OFF' ? 'Mesin sudah mati' : 'Matikan mesin'}
-                    >
-                      {loadingVehicles[vehicle.vehicle_id] ? '...' : 'OFF'}
+                        {/* Engine ON Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEngineOn(vehicle.vehicle_id);
+                          }}
+                          disabled={loadingVehicles[vehicle.vehicle_id] || vehicle.relay_status === 'ON'}
+                          className={`${
+                            loadingVehicles[vehicle.vehicle_id] ? 'bg-gray-400' : 
+                            vehicle.relay_status === 'ON' ? 'bg-gray-500' :
+                            'bg-green-500 hover:bg-green-600'
+                          } text-white rounded text-center font-bold transition-colors duration-200 w-10 h-6 text-[10px] flex items-center justify-center`}
+                          title={vehicle.relay_status === 'ON' ? 'Mesin sudah menyala' : 'Nyalakan mesin'}
+                        >
+                          {loadingVehicles[vehicle.vehicle_id] ? '...' : 'ON'}
+                        </button>
+
+                        {/* Engine OFF Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEngineOff(vehicle.vehicle_id);
+                          }}
+                          disabled={loadingVehicles[vehicle.vehicle_id] || vehicle.relay_status === 'OFF'}
+                          className={`${
+                            loadingVehicles[vehicle.vehicle_id] ? 'bg-gray-400' : 
+                            vehicle.relay_status === 'OFF' ? 'bg-gray-500' :
+                            'bg-red-500 hover:bg-red-600'
+                          } text-white rounded text-center font-bold transition-colors duration-200 w-12 h-6 text-[10px] flex items-center justify-center`}
+                          title={vehicle.relay_status === 'OFF' ? 'Mesin sudah mati' : 'Matikan mesin'}
+                        >
+                          {loadingVehicles[vehicle.vehicle_id] ? '...' : 'OFF'}
                     </button>
+                      </div>
+
+
                   </div>
-
-                  {/* Debug info untuk geofence - tampil sementara untuk debugging */}
-                  {getVehicleGeofences(vehicle.vehicle_id).length > 0 && (
-                    <p className="text-xs text-green-600 mt-1">
-                      Geofence: {getVehicleGeofences(vehicle.vehicle_id).length} area
-                    </p>
-                  )}
-                </div>
-                  
-                {/* Button hapus kendaraan - tetap di pojok kanan */}
+                    
+                  {/* Button hapus kendaraan - tetap di pojok kanan */}
                   <button 
                     onClick={(e) => handleShowDeleteConfirm(vehicle, e)}
                     className="bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold transition-colors duration-200"
@@ -596,9 +603,10 @@ const SidebarComponent = ({
       >
         Logout
       </button>
+      </div>
 
       {/* Modal peringatan pilih kendaraan */}
-      {showSelectVehicleAlert && (
+      {showSelectVehicleAlert && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-md shadow-lg max-w-md">
             <h3 className="text-lg font-bold mb-4 text-red-500 text-center">Peringatan</h3>
@@ -614,11 +622,12 @@ const SidebarComponent = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal notifikasi tidak ada history */}
-      {showNoHistoryAlert && (
+      {showNoHistoryAlert && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-md shadow-lg max-w-md">
             <h3 className="text-lg font-bold mb-4 text-red-500">⚠️ Tidak Ada History</h3>
@@ -637,37 +646,59 @@ const SidebarComponent = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal konfirmasi hapus */}
-      {showDeleteConfirm && vehicleToDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-md shadow-lg max-w-md">
-            <h3 className="text-lg font-bold mb-4 text-center">Konfirmasi Hapus</h3>
-            <p className="mb-4 text-center">
-              Apakah Anda yakin ingin menghapus kendaraan <strong>{vehicleToDelete.name}</strong> dengan nomor <strong>{vehicleToDelete.license_plate}</strong>?
-            </p>
-            <div className="flex justify-end mt-6 space-x-2">
+      {showDeleteConfirm && vehicleToDelete && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+          <div className="bg-white p-8 rounded-lg shadow-2xl max-w-md w-full mx-4">
+            <div className="text-center">
+              <div className="mx-auto h-16 w-16 text-red-500 flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-16 h-16">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+              </div>
+              
+              <h3 className="text-xl font-bold mb-4 text-gray-800">Konfirmasi Hapus Kendaraan</h3>
+              
+              <div className="mb-6">
+                <p className="text-gray-600 mb-2">
+                  Apakah Anda yakin ingin menghapus kendaraan:
+                </p>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <p className="font-semibold text-gray-800">{vehicleToDelete.name}</p>
+                  <p className="text-sm text-gray-600">Nomor: {vehicleToDelete.license_plate}</p>
+                  <p className="text-sm text-gray-600">{vehicleToDelete.make} {vehicleToDelete.model}</p>
+                </div>
+                <p className="text-red-600 text-sm mt-3 font-medium">
+                  ⚠️ Tindakan ini tidak dapat dibatalkan
+                </p>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button 
                 onClick={handleCancelDelete}
-                className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400 transition-colors duration-200"
+                  className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors duration-200 font-medium"
               >
                 Batal
               </button>
               <button 
-                onClick={handleDeleteVehicle}
-                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200"
+                  onClick={() => handleDeleteVehicle(vehicleToDelete)}
+                  className="px-6 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200 font-medium"
               >
-                Hapus
+                  Ya, Hapus Kendaraan
               </button>
             </div>
           </div>
         </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal notifikasi sukses */}
-      {showSuccessNotification && (
+      {showSuccessNotification && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-md shadow-lg max-w-md">
             <h3 className="text-lg font-bold mb-4 text-green-600 text-center">Berhasil Menghapus Kendaraan!</h3>
@@ -681,11 +712,12 @@ const SidebarComponent = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal notifikasi relay */}
-      {showRelayNotification && (
+      {showRelayNotification && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-md shadow-lg max-w-md">
             <h3 className={`text-lg font-bold mb-4 ${
@@ -705,18 +737,20 @@ const SidebarComponent = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Notifikasi Error */}
-      {showErrorAlert && (
+      {showErrorAlert && createPortal(
         <div className="fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           ❌ {error}
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal Loading Relay - Menunggu Status Berubah */}
-      {showRelayLoadingModal && (
+      {showRelayLoadingModal && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-md shadow-lg max-w-md">
             <div className="text-center">
@@ -774,10 +808,11 @@ const SidebarComponent = ({
                 </button>
               </div>
             </div>
-          </div>
         </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 };
 

@@ -5,13 +5,15 @@ import { useRouter } from "next/router";
 import SidebarComponent from "../components/SidebarComponent";
 import ModalTambahKendaraan from "@/components/ModalTambahKendaraan"; 
 import ModalSetGeofence from "@/components/ModalSetGeofence";
-import GeofenceNotification from "@/components/GeofenceNotification";
 import useGeofenceNotifications from "@/components/hooks/useGeofenceNotifications";
 import { getCurrentUser, isAuthenticated } from "@/lib/authService";
 import { getUserVehicles } from "@/lib/vehicleService";
 import directusConfig from "@/lib/directusConfig";
 import { deleteVehicle } from "@/lib/vehicleService";
 import { getGeofenceStatus } from "@/utils/geofenceUtils";
+import { toast, ToastContainer } from 'react-toastify';
+import { handleGeofenceViolation } from '@/utils/geofenceApi';
+import GeofenceNotification from '@/components/GeofenceNotification';
 
 // Import dinamis untuk MapComponent (tanpa SSR)
 const MapComponent = dynamic(() => import("../components/MapComponent"), { ssr: false });
@@ -53,6 +55,9 @@ export default function Dashboard() {
   const [geofences, setGeofences] = useState([]);
   const [vehicleGeofenceVisibility, setVehicleGeofenceVisibility] = useState({});
   const [finishMultiPolygonCallback, setFinishMultiPolygonCallback] = useState(null);
+
+  // State untuk UI
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Load user data dan kendaraan
   useEffect(() => {
@@ -108,7 +113,6 @@ export default function Dashboard() {
       
       if (data.success) {
         const geofencesData = data.data || [];
-        
         setGeofences(geofencesData);
       } else {
         throw new Error(data.message || 'Failed to load geofences');
@@ -127,22 +131,36 @@ export default function Dashboard() {
     }
     
     // Function to check geofence status
-    const checkGeofenceStatus = () => {
-    vehicles.forEach(vehicle => {
+    const checkGeofenceStatus = async () => {
+      for (const vehicle of vehicles) {
         if (!vehicle.position) {
-          return;
+          continue;
         }
       
         try {
       const currentVehicleId = vehicle.vehicle_id;
-          const geofenceStatus = getGeofenceStatus(vehicle, getVisibleGeofences());
+          
+          // Hanya cek geofence yang terkait dengan kendaraan ini
+          let geofenceStatus = null;
+          if (vehicle.geofence_id) {
+            // Cari geofence yang terkait dengan kendaraan ini
+            const vehicleGeofence = geofences.find(g => g.geofence_id === vehicle.geofence_id);
+            if (vehicleGeofence) {
+              // Hanya cek status untuk geofence yang terkait dengan kendaraan ini
+              geofenceStatus = getGeofenceStatus(vehicle, [vehicleGeofence]);
+            }
+          }
+          // Jika vehicle tidak memiliki geofence_id, skip monitoring
+          if (!geofenceStatus) {
+            continue;
+          }
           
           // Generate key unik untuk kendaraan ini
           const statusKey = `${currentVehicleId}`;
       
       // Bandingkan dengan status sebelumnya
       const prevStatus = lastGeofenceStatusRef.current[statusKey];
-          
+      
           // Determine current status
           const currentInside = geofenceStatus && geofenceStatus.inside;
           
@@ -166,24 +184,62 @@ export default function Dashboard() {
               
               addGeofenceNotification(notificationData);
             }
-            return;
+            continue;
           }
       
-      // Jika status berubah, buat notifikasi
+          // Jika status berubah, buat notifikasi DAN simpan ke Directus
           if (prevStatus !== currentInside) {
+            const timestamp = new Date().toISOString();
+            const eventType = currentInside ? 'enter' : 'exit';
             const vehicleName = `${vehicle.make || ''} ${vehicle.model || ''} (${vehicle.license_plate || vehicle.name || 'Unknown'})`.trim();
             
+            // Prepare vehicle data for API
+            const vehicleData = {
+              vehicle_id: currentVehicleId,
+              vehicle_name: vehicleName,
+              name: vehicle.name,
+              make: vehicle.make,
+              model: vehicle.model,
+              license_plate: vehicle.license_plate,
+              position: vehicle.position
+            };
+
+            // Prepare geofence data for API
+            const geofenceData = {
+              geofence_id: geofenceStatus?.id || 'unknown',
+              geofence_name: geofenceStatus?.name || 'area yang ditentukan',
+              name: geofenceStatus?.name || 'area yang ditentukan',
+              rule_type: geofenceStatus?.type || 'STAY_IN'
+            };
+
+            // 1. Tampilkan notifikasi lokal terlebih dahulu (untuk response cepat)
             const notificationData = {
               event_id: Date.now(),
               vehicle_id: currentVehicleId,
               vehicle_name: vehicleName,
               geofence_id: geofenceStatus?.id || 'unknown',
               geofence_name: geofenceStatus?.name || 'area yang ditentukan',
-              event_type: currentInside ? 'enter' : 'exit',
-              timestamp: new Date().toISOString()
+              event_type: eventType,
+              timestamp: timestamp
             };
             
             addGeofenceNotification(notificationData);
+
+            // 2. Simpan ke Directus (geofence_events dan alerts)
+            try {
+              const result = await handleGeofenceViolation({
+                eventType: eventType,
+                vehicle: vehicleData,
+                geofence: geofenceData,
+                timestamp: timestamp
+              });
+
+              if (!result.success) {
+                console.error('Failed to save to Directus:', result.error);
+              }
+            } catch (error) {
+              console.error('Error in handleGeofenceViolation:', error);
+            }
       }
       
       // Update status untuk pengecekan berikutnya
@@ -191,7 +247,7 @@ export default function Dashboard() {
         } catch (error) {
           console.error(`Error checking geofence status for vehicle ${vehicle.vehicle_id}:`, error);
         }
-      });
+      }
     };
 
     // Initial check
@@ -243,18 +299,12 @@ export default function Dashboard() {
     // }
   }, [geofenceNotifications]);
 
-  // Fungsi untuk menampilkan error alert
+  // Error handling functions
   const showErrorMessage = (message) => {
     setErrorMessage(message);
     setShowErrorAlert(true);
-    
-    setTimeout(() => {
-      setShowErrorAlert(false);
-      setErrorMessage('');
-    }, 5000);
   };
 
-  // Fungsi untuk menutup error alert
   const handleCloseErrorAlert = () => {
     setShowErrorAlert(false);
     setErrorMessage('');
@@ -289,18 +339,18 @@ export default function Dashboard() {
       }
       
       const data = await response.json();
-
+  
       if (!data.success || !data.data || data.data.length === 0) {
-        showErrorMessage(`Tidak ada data history untuk kendaraan ${existingVehicle.name} dengan GPS ID ${existingVehicle.gps_id}`);
+        showErrorMessage(`Tidak ada data history untuk kendaraan ${existingVehicle.name}\n(${existingVehicle.license_plate})`);
         return;
       }
 
       // Data sudah difilter di API, tinggal transform ke format yang dibutuhkan map
       const pathCoords = data.data.map(coord => ({
-        lat: parseFloat(coord.latitude),
-        lng: parseFloat(coord.longitude),
+          lat: parseFloat(coord.latitude),
+          lng: parseFloat(coord.longitude),
         timestamp: coord.timestamp
-      }));
+        }));
 
       // Gunakan existingVehicle yang sudah diverifikasi
       setSelectedVehicle({
@@ -388,25 +438,51 @@ export default function Dashboard() {
   };
 
   // Handler untuk ketika geofence berhasil dibuat
-  const handleGeofenceSukses = () => {
+  const handleGeofenceSukses = async () => {
     setShowGeofenceModal(false);
     setIsDrawingMode(false);
     setIsMultiPolygon(false);
     
-    // Reload geofences
-    loadGeofences().then(() => {
-      // Auto-enable geofence visibility untuk semua kendaraan yang memiliki geofence
-      setTimeout(() => {
-        const newVisibility = { ...vehicleGeofenceVisibility };
-        
-        vehicles.forEach(vehicle => {
-          // Enable geofence visibility untuk kendaraan ini
-          newVisibility[vehicle.vehicle_id] = true;
-        });
-        
-        setVehicleGeofenceVisibility(newVisibility);
-      }, 1000);
-    });
+    try {
+      // Reload both geofences AND vehicles (karena vehicle.geofence_id berubah)
+      await Promise.all([
+        loadGeofences(),
+        getUserVehicles().then(userVehicles => {
+          setVehicles(userVehicles);
+          // Update selected vehicle if it exists in new data
+          if (selectedVehicle) {
+            const updatedSelectedVehicle = userVehicles.find(v => v.vehicle_id === selectedVehicle.vehicle_id);
+            if (updatedSelectedVehicle) {
+              setSelectedVehicle(updatedSelectedVehicle);
+            }
+          }
+        })
+      ]);
+    } catch (error) {
+      console.error("Error refreshing data after geofence creation:", error);
+    }
+  };
+
+  // Handler untuk ketika geofence berhasil dihapus
+  const handleGeofenceDeleted = async (deletedGeofenceId) => {
+    try {
+      // Reload both geofences AND vehicles (karena vehicle.geofence_id mungkin berubah)
+      await Promise.all([
+        loadGeofences(),
+        getUserVehicles().then(userVehicles => {
+          setVehicles(userVehicles);
+          // Update selected vehicle if it exists in new data
+          if (selectedVehicle) {
+            const updatedSelectedVehicle = userVehicles.find(v => v.vehicle_id === selectedVehicle.vehicle_id);
+            if (updatedSelectedVehicle) {
+              setSelectedVehicle(updatedSelectedVehicle);
+            }
+          }
+        })
+      ]);
+    } catch (error) {
+      console.error("Error refreshing data after geofence deletion:", error);
+    }
   };
 
   // Handler untuk menutup modal geofence
@@ -423,27 +499,21 @@ export default function Dashboard() {
     }));
   };
 
-  // Filter geofences berdasarkan visibility
+  // Filter geofences berdasarkan visibility (Vehicle-Centric Approach)
   const getVisibleGeofences = () => {
     const filtered = geofences.filter(geofence => {
-      // Prioritas vehicle_id field langsung
-      let vehicleId = geofence.vehicle_id;
+      // Cari vehicle yang menggunakan geofence ini
+      const vehicleUsingThisGeofence = vehicles.find(vehicle => 
+        vehicle.geofence_id === geofence.geofence_id
+      );
       
-      // Fallback ke extraction dari type jika vehicle_id kosong
-      if (!vehicleId) {
-        const typeMatch = geofence.type.match(/^(\w+)_vehicle_(\w+)$/);
-        if (typeMatch) {
-          vehicleId = typeMatch[2];
-        }
-      }
-      
-      // Jika tidak ada vehicle_id, skip geofence ini
-      if (!vehicleId) {
+      // Jika tidak ada vehicle yang menggunakan geofence ini, skip
+      if (!vehicleUsingThisGeofence) {
         return false;
       }
       
-      // Convert ke string untuk matching
-      const vehicleIdStr = String(vehicleId);
+      // Cek apakah visibility untuk vehicle tersebut aktif
+      const vehicleIdStr = String(vehicleUsingThisGeofence.vehicle_id);
       const isVisible = vehicleGeofenceVisibility[vehicleIdStr] === true;
       
       return isVisible;
@@ -495,8 +565,21 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="h-screen bg-gray-100 flex relative">
+    <div className="min-h-screen bg-gray-50">
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
+      <aside
+        className={`fixed top-0 left-0 z-50 w-80 h-full bg-white shadow-xl border-r border-gray-200 transform transition-transform duration-300 ease-in-out ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } lg:translate-x-0`}
+      >
       <SidebarComponent 
         vehicles={vehicles}
         onSelectVehicle={handleSelectVehicle}
@@ -507,11 +590,27 @@ export default function Dashboard() {
         selectedVehicle={selectedVehicle}
         geofences={geofences}
         onToggleGeofence={handleToggleGeofence}
-        onHideHistory={handleHideHistory}
+          onHideHistory={handleHideHistory}
       />
+      </aside>
 
       {/* Main Content */}
-      <div className="flex-grow relative">
+      <main
+        className={`transition-all duration-300 ease-in-out lg:ml-80`}
+      >
+        {/* Map Container */}
+        <div className="relative h-screen">
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="lg:hidden fixed top-4 right-16 z-[1001] p-2 bg-white rounded-md shadow-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+
+          {/* Map */}
         <MapComponent
           ref={mapRef}
           vehicles={vehicles}
@@ -519,17 +618,47 @@ export default function Dashboard() {
           isDrawingMode={isDrawingMode}
           isMultiPolygon={isMultiPolygon}
           onPolygonComplete={handlePolygonComplete}
-          onSetFinishMultiPolygonCallback={setFinishMultiPolygonCallback}
-          geofences={getVisibleGeofences()}
-        />
-      </div>
+            geofences={getVisibleGeofences()}
+            allGeofences={geofences}
+            onGeofenceDeleted={handleGeofenceDeleted}
+          />
 
-      {/* Geofence Notifications */}
-      <GeofenceNotification
-        notifications={geofenceNotifications}
-        onDismiss={removeGeofenceNotification}
-        onDismissAll={removeAllGeofenceNotifications}
-      />
+          {/* Geofence Notifications - positioned on the right */}
+          <div className="fixed top-4 right-4 z-[9999] space-y-3 max-w-[420px] w-full">
+            {geofenceNotifications.map((notification) => (
+              <GeofenceNotification
+                key={notification.id}
+                notification={notification}
+                onRemove={removeGeofenceNotification}
+              />
+            ))}
+            
+            {/* Dismiss All Button - only show if there are multiple notifications */}
+            {geofenceNotifications.length > 1 && (
+              <div className="flex justify-end">
+              <button 
+                  onClick={removeAllGeofenceNotifications}
+                  className="bg-gray-800 hover:bg-gray-900 text-white text-xs px-3 py-1.5 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 backdrop-blur-sm font-medium"
+              >
+                  Tutup Semua ({geofenceNotifications.length})
+              </button>
+            </div>
+            )}
+          </div>
+
+          {/* Geofence Modal */}
+          {showGeofenceModal && (
+            <ModalSetGeofence
+              ref={geofenceModalRef}
+              onClose={handleCloseGeofenceModal}
+              onSucceed={handleGeofenceSukses}
+              onStartDrawing={handleStartDrawing}
+              vehicles={vehicles}
+              selectedVehicle={selectedVehicle}
+              onFinishMultiPolygon={handleFinishMultiPolygon}
+            />
+          )}
+        </div>
 
       {/* Modal Tambah Kendaraan */}
       {showTambahModal && (
@@ -539,36 +668,54 @@ export default function Dashboard() {
         />
       )}
 
-      {/* Modal Set Geofence */}
-      {showGeofenceModal && (
-        <ModalSetGeofence
-          ref={geofenceModalRef}
-          onClose={handleCloseGeofenceModal}
-          onSucceed={handleGeofenceSukses}
-          onStartDrawing={handleStartDrawing}
-          vehicles={vehicles}
-          selectedVehicle={selectedVehicle}
-          onFinishMultiPolygon={handleFinishMultiPolygon}
-        />
-      )}
-
       {/* Error Alert */}
       {showErrorAlert && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-md shadow-lg max-w-md">
-            <h3 className="text-lg font-bold mb-4 text-red-600">Error!</h3>
-            <p>{errorMessage}</p>
-            <div className="flex justify-end mt-6">
+            <div className="bg-white p-8 rounded-lg shadow-2xl max-w-md w-full mx-4">
+              <div className="text-center">
+                <div className="mx-auto h-16 w-16 text-red-500 flex items-center justify-center mb-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-16 h-16">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                  </svg>
+                </div>
+                
+                <h3 className="text-xl font-bold mb-4 text-red-600">Tidak Ada Data History</h3>
+                
+                <div className="mb-6">
+                  <div className="text-gray-700 whitespace-pre-line leading-relaxed">
+                    {errorMessage}
+                  </div>
+                </div>
+                
+                <div className="flex justify-center">
               <button 
                 onClick={handleCloseErrorAlert}
-                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
+                    className="px-6 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200 font-medium"
               >
                 OK
               </button>
+                </div>
             </div>
           </div>
         </div>
       )}
+
+        {/* Toast Container */}
+        <ToastContainer
+          position="bottom-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+          className="toast-container"
+          toastClassName="toast-item"
+        />
+      </main>
     </div>
   );
 }
@@ -640,7 +787,7 @@ export async function getServerSideProps() {
       // }
       
       return {
-        ...vehicle,
+      ...vehicle,
         position
       };
     });

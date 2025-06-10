@@ -4,6 +4,9 @@ import "../styles/globals.css";
 import "leaflet/dist/leaflet.css";
 import "leaflet-draw/dist/leaflet.draw.css";
 import SWRProvider from "../components/SWRProvider";
+import { useRouter } from 'next/router'
+import { ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 
 /**
  * MyApp - Komponen utama Next.js yang membungkus seluruh aplikasi
@@ -16,12 +19,23 @@ import SWRProvider from "../components/SWRProvider";
 export default function MyApp({ Component, pageProps }) {
   // State untuk loading
   const [loading, setLoading] = useState(true);
+  const router = useRouter()
 
   // Effect untuk menangani inisialisasi aplikasi
   useEffect(() => {
     // Set loading false setelah komponen dimuat
     setLoading(false);
-  }, []);
+
+    const handleRouteChange = (url) => {
+      console.log('App is changing to: ', url)
+    }
+
+    router.events.on('routeChangeStart', handleRouteChange)
+
+    return () => {
+      router.events.off('routeChangeStart', handleRouteChange)
+    }
+  }, [router]);
 
   // Tampilkan loading indicator saat aplikasi dimuat
   if (loading) {
@@ -36,6 +50,18 @@ export default function MyApp({ Component, pageProps }) {
   return (
     <SWRProvider>
       <Component {...pageProps} />
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
     </SWRProvider>
   );
 }

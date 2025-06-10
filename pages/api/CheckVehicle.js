@@ -5,16 +5,16 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const { vehicle_id } = req.query;
+  const { license_plate } = req.query;
 
-  if (!vehicle_id) {
-    return res.status(400).json({ message: 'Vehicle ID is required' });
+  if (!license_plate) {
+    return res.status(400).json({ message: 'License plate is required' });
   }
 
   try {
-    // Cek vehicle_id secara global, tanpa memperhatikan user_id
+    // Cek license_plate secara global, tanpa memperhatikan user_id
     const response = await fetch(
-      `${directusConfig.endpoints.vehicles}?filter[vehicle_id][_eq]=${encodeURIComponent(vehicle_id)}`,
+      `${directusConfig.endpoints.vehicles}?filter[license_plate][_eq]=${encodeURIComponent(license_plate)}`,
       {
         headers: directusConfig.headers,
       }
@@ -27,17 +27,17 @@ export default async function handler(req, res) {
     const data = await response.json();
     const exists = data.data && data.data.length > 0;
 
-    // Jika vehicle_id sudah ada, berikan informasi tambahan
+    // Jika license_plate sudah ada, berikan informasi tambahan
     if (exists) {
       return res.status(200).json({ 
         exists: true,
-        message: 'Vehicle ID sudah digunakan oleh pengguna lain'
+        message: 'Nomor plat sudah digunakan oleh pengguna lain'
       });
     }
 
     return res.status(200).json({ 
       exists: false,
-      message: 'Vehicle ID tersedia'
+      message: 'Nomor plat tersedia'
     });
   } catch (error) {
     console.error('Error checking vehicle:', error);

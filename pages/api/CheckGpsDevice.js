@@ -6,15 +6,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { gps_device_id } = req.query;
+    const { gps_id } = req.query;
 
-    if (!gps_device_id) {
+    if (!gps_id) {
       return res.status(400).json({ message: 'GPS Device ID is required' });
     }
 
     // Cek GPS device ID secara global, tanpa memperhatikan user_id
     const response = await fetch(
-      `${directusConfig.endpoints.vehicles}?filter[gps_device_id][_eq]=${encodeURIComponent(gps_device_id)}`,
+      `${directusConfig.endpoints.vehicles}?filter[gps_id][_eq]=${encodeURIComponent(gps_id)}`,
       {
         headers: directusConfig.headers
       }

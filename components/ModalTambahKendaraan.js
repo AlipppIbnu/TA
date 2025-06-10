@@ -7,7 +7,6 @@ import { addVehicle } from "../lib/vehicleService";
 export default function ModalTambahKendaraan({ onClose, onSucceed }) {
   // State untuk form data
   const [formData, setFormData] = useState({
-    vehicle_id: "",
     license_plate: "",
     name: "",
     make: "",
@@ -23,7 +22,7 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
   const [error, setError] = useState("");
   const [isCheckingGps, setIsCheckingGps] = useState(false);
   const [gpsError, setGpsError] = useState("");
-  const [vehicleIdError, setVehicleIdError] = useState("");
+  const [licensePlateError, setLicensePlateError] = useState("");
 
   // Handle perubahan input form
   const handleChange = (e) => {
@@ -34,26 +33,26 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
     if (name === 'gps_id') {
       setGpsError('');
     }
-    if (name === 'vehicle_id') {
-      setVehicleIdError('');
+    if (name === 'license_plate') {
+      setLicensePlateError('');
     }
     setError('');
   };
 
-  // Fungsi untuk memeriksa Vehicle ID
-  const checkVehicleId = async (vehicleId) => {
+  // Fungsi untuk memeriksa License Plate
+  const checkLicensePlate = async (licensePlate) => {
     try {
-      const response = await fetch(`/api/CheckVehicle?vehicle_id=${vehicleId}`);
+      const response = await fetch(`/api/CheckVehicle?license_plate=${licensePlate}`);
       const data = await response.json();
 
       if (data.exists) {
-        setVehicleIdError('Vehicle ID sudah digunakan');
+        setLicensePlateError('Nomor plat sudah digunakan');
         return false;
       }
       return true;
     } catch (err) {
-      console.error('Error checking Vehicle ID:', err);
-      setVehicleIdError('Gagal memeriksa Vehicle ID');
+      console.error('Error checking License Plate:', err);
+      setLicensePlateError('Gagal memeriksa nomor plat');
       return false;
     }
   };
@@ -88,14 +87,14 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
   
     try {
     // Validasi form
-      if (!formData.vehicle_id || !formData.license_plate || !formData.name || 
+      if (!formData.license_plate || !formData.name || 
           !formData.make || !formData.model || !formData.year) {
         throw new Error("Mohon isi semua field yang wajib!");
       }
 
-      // Validasi Vehicle ID
-      const isVehicleIdAvailable = await checkVehicleId(formData.vehicle_id);
-      if (!isVehicleIdAvailable) {
+      // Validasi License Plate
+      const isLicensePlateAvailable = await checkLicensePlate(formData.license_plate);
+      if (!isLicensePlateAvailable) {
         setLoading(false);
         return;
       }
@@ -135,24 +134,6 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
 
         <form onSubmit={handleSubmit}>
           <div className="px-6 py-4 space-y-4">
-            {/* Vehicle ID */}
-            <div>
-              <label className="block text-sm mb-1"> Vehicle ID </label>
-              <input
-                type="text"
-                name="vehicle_id"
-                value={formData.vehicle_id}
-                onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  vehicleIdError ? 'border-red-500' : 'border-gray-300'
-                }`}
-                required
-              />
-              {vehicleIdError && (
-                <p className="mt-1 text-sm text-red-600">{vehicleIdError}</p>
-              )}
-            </div>
-            
             {/* Nomor Plat */}
             <div>
               <label className="block text-sm mb-1"> Nomor Plat </label>
@@ -161,9 +142,14 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
                 name="license_plate"
                 value={formData.license_plate}
             onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                  licensePlateError ? 'border-red-500' : 'border-gray-300'
+                }`}
             required
           />
+              {licensePlateError && (
+                <p className="mt-1 text-sm text-red-600">{licensePlateError}</p>
+              )}
             </div>
           
             {/* Nama Kendaraan */}
@@ -217,7 +203,7 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
             required
           />
             </div>
-          
+
             {/* Nomor SIM Card */}
             <div>
               <label className="block text-sm mb-1"> Nomor SIM Card </label>
@@ -233,11 +219,13 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
             {/* GPS Device ID */}
             <div>
               <label className="block text-sm mb-1"> GPS Device ID </label>
+              <p className="text-xs text-gray-500 mb-2">Masukkan UUID yang sudah tertanam di alat GPS (opsional)</p>
               <input
                 type="text"
                 name="gps_id"
                 value={formData.gps_id}
                 onChange={handleChange}
+                placeholder="Contoh: 123e4567-e89b-12d3-a456-426614174000"
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
                   gpsError ? 'border-red-500' : 'border-gray-300'
                 }`}
@@ -249,47 +237,35 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
 
             {/* Error message */}
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
+              <div className="text-red-600 text-sm bg-red-50 p-3 rounded-md">
                 {error}
               </div>
             )}
 
             {/* Success message */}
             {successMessage && (
-              <div className="p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm">
+              <div className="text-green-600 text-sm bg-green-50 p-3 rounded-md">
                 {successMessage}
               </div>
             )}
           </div>
-          
-          {/* Footer with buttons */}
-          <div className="px-6 py-4 bg-gray-50 border-t border-black flex justify-end space-x-2">
+
+          {/* Footer dengan tombol */}
+          <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-white bg-red-500 border border-gray-300 rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="px-4 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200"
               disabled={loading}
             >
               Batal
             </button>
             <button
               type="submit"
-              className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center justify-center min-w-[100px] ${
-                (loading || isCheckingGps) ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
               disabled={loading || isCheckingGps}
             >
-              {loading || isCheckingGps ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  {isCheckingGps ? 'Memeriksa GPS...' : 'Menyimpan...'}
-                </>
-              ) : (
-                'Simpan'
-              )}
+              {loading ? "Menyimpan..." : "Simpan"}
             </button>
           </div>
         </form>

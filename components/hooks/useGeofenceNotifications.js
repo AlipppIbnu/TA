@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { handleGeofenceViolation } from '@/utils/geofenceApi';
+import { getGeofenceStatus } from '@/utils/geofenceUtils';
 
-const useGeofenceNotifications = (maxNotifications = 5, autoRemoveDelay = 5000) => {
+const useGeofenceNotifications = (maxNotifications = 5, autoRemoveDelay = 8000) => {
   const [notifications, setNotifications] = useState([]);
   const notificationTimeouts = useRef({});
 
@@ -67,15 +69,22 @@ const useGeofenceNotifications = (maxNotifications = 5, autoRemoveDelay = 5000) 
     notificationTimeouts.current = {};
   }, []);
 
-  // Function to process geofence events from API
-  const processGeofenceEvents = useCallback((eventsData) => {
+  // Function to process geofence events from API and save to Directus
+  const processGeofenceEventsWithSave = useCallback(async (eventsData, shouldSaveToDirectus = false) => {
     if (!eventsData || !eventsData.data || !Array.isArray(eventsData.data)) {
       return;
     }
 
-    eventsData.data.forEach(event => {
-      // Only process events that indicate vehicle is outside geofence
-      if (event.event_type && (event.event_type === 'exit' || event.event_type === 'exited' || event.event_type === 'outside')) {
+    for (const event of eventsData.data) {
+      // Process all events for notifications
+      if (event.event_type && (
+        event.event_type === 'exit' || 
+        event.event_type === 'exited' || 
+        event.event_type === 'enter' ||
+        event.event_type === 'entered' ||
+        event.event_type === 'outside'
+      )) {
+        // Add custom notification
         addNotification({
           event_id: event.event_id,
           vehicle_id: event.vehicle_id,
@@ -85,25 +94,51 @@ const useGeofenceNotifications = (maxNotifications = 5, autoRemoveDelay = 5000) 
           event_type: event.event_type,
           timestamp: event.timestamp
         });
+
+        // Optionally save to Directus if requested
+        if (shouldSaveToDirectus && event.vehicle_data && event.geofence_data) {
+          try {
+            const result = await handleGeofenceViolation({
+              eventType: event.event_type.replace('ed', ''), // convert 'entered' to 'enter', 'exited' to 'exit'
+              vehicle: event.vehicle_data,
+              geofence: event.geofence_data,
+              timestamp: event.timestamp
+            });
+
+            console.log('📝 Processed event with Directus save:', {
+              eventId: event.event_id,
+              success: result.success,
+              isViolation: result.isViolation
+            });
+          } catch (error) {
+            console.error('Error saving geofence event to Directus:', error);
+          }
+        }
       }
-    });
+    }
   }, [addNotification]);
 
-  // Function to check vehicle geofence status and create notifications
-  const checkGeofenceStatus = useCallback((vehicles, geofences, lastStatusRef) => {
+  // Legacy function for backward compatibility
+  const processGeofenceEvents = useCallback((eventsData) => {
+    return processGeofenceEventsWithSave(eventsData, false);
+  }, [processGeofenceEventsWithSave]);
+
+  // Function to check vehicle geofence status and create notifications with Directus integration
+  const checkGeofenceStatusWithSave = useCallback(async (vehicles, geofences, lastStatusRef) => {
     if (!vehicles.length || !geofences.length) return;
     
-    vehicles.forEach(vehicle => {
-      if (!vehicle.position) return;
+    for (const vehicle of vehicles) {
+      if (!vehicle.position) continue;
       
       const currentVehicleId = vehicle.vehicle_id;
       
       // Get geofence status using existing utility
       let vehicleGeofenceStatus = null;
+      let matchedGeofence = null;
       
       // Check if vehicle is inside any geofence
       for (const geofence of geofences) {
-        // This is a simplified check - you might want to use the actual geofenceUtils
+        // This should use the actual geofenceUtils
         const isInside = checkIfVehicleInsideGeofence(vehicle, geofence);
         
         if (isInside) {
@@ -112,6 +147,7 @@ const useGeofenceNotifications = (maxNotifications = 5, autoRemoveDelay = 5000) 
             name: geofence.name,
             id: geofence.geofence_id || geofence.id
           };
+          matchedGeofence = geofence;
           break;
         }
       }
@@ -127,22 +163,65 @@ const useGeofenceNotifications = (maxNotifications = 5, autoRemoveDelay = 5000) 
       // Compare with previous status
       const prevStatus = lastStatusRef.current[statusKey];
       
-      // If status changed to outside
-      if (prevStatus !== undefined && prevStatus === true && !vehicleGeofenceStatus.inside) {
-        // Vehicle exited geofence - create notification
+      // If status changed
+      if (prevStatus !== undefined && prevStatus !== vehicleGeofenceStatus.inside) {
+        const timestamp = new Date().toISOString();
+        const eventType = vehicleGeofenceStatus.inside ? 'enter' : 'exit';
+        const vehicleName = `${vehicle.make || ''} ${vehicle.model || ''} (${vehicle.license_plate || vehicle.name || 'Unknown'})`.trim();
+        
+        // Add custom notification
         addNotification({
           vehicle_id: currentVehicleId,
-          vehicle_name: `${vehicle.make || ''} ${vehicle.model || ''} (${vehicle.license_plate || vehicle.name || 'Unknown'})`.trim(),
-          geofence_name: 'area yang ditentukan',
-          event_type: 'exit',
-          timestamp: new Date().toISOString()
+          vehicle_name: vehicleName,
+          geofence_name: vehicleGeofenceStatus.name || 'area yang ditentukan',
+          event_type: eventType,
+          timestamp: timestamp
         });
+
+        // Save to Directus if geofence is matched
+        if (matchedGeofence) {
+          try {
+            const vehicleData = {
+              vehicle_id: currentVehicleId,
+              vehicle_name: vehicleName,
+              name: vehicle.name,
+              make: vehicle.make,
+              model: vehicle.model,
+              license_plate: vehicle.license_plate,
+              position: vehicle.position
+            };
+
+            const geofenceData = {
+              geofence_id: matchedGeofence.geofence_id || matchedGeofence.id,
+              geofence_name: matchedGeofence.name,
+              name: matchedGeofence.name,
+              rule_type: matchedGeofence.rule_type || 'STAY_IN'
+            };
+
+            await handleGeofenceViolation({
+              eventType: eventType,
+              vehicle: vehicleData,
+              geofence: geofenceData,
+              timestamp: timestamp
+            });
+          } catch (error) {
+            console.error('Error saving geofence status change:', error);
+          }
+        }
       }
       
       // Update status for next check
       lastStatusRef.current[statusKey] = vehicleGeofenceStatus.inside;
-    });
+    }
   }, [addNotification]);
+
+  // Legacy function for backward compatibility
+  const checkGeofenceStatus = useCallback((vehicles, geofences, lastStatusRef) => {
+    // For backward compatibility, call the new function without await
+    checkGeofenceStatusWithSave(vehicles, geofences, lastStatusRef).catch(error => {
+      console.error('Error in checkGeofenceStatus:', error);
+    });
+  }, [checkGeofenceStatusWithSave]);
 
   // Simplified geofence check function
   const checkIfVehicleInsideGeofence = (vehicle, geofence) => {
@@ -166,7 +245,9 @@ const useGeofenceNotifications = (maxNotifications = 5, autoRemoveDelay = 5000) 
     removeNotification,
     removeAllNotifications,
     processGeofenceEvents,
+    processGeofenceEventsWithSave,
     checkGeofenceStatus,
+    checkGeofenceStatusWithSave,
     notificationCount: notifications.length
   };
 };

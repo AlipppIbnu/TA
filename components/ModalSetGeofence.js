@@ -1,7 +1,8 @@
-// components/ModalSetGeofence.js - Enhanced dengan wajib pilih kendaraan untuk single polygon
+// components/ModalSetGeofence.js - Modal untuk membuat geofence dengan pilihan kendaraan
 'use client';
 
 import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
+import { getCurrentUser } from "@/lib/authService";
 
 /**
  * Modal untuk menambahkan dan mengatur geofence dengan wajib pilih kendaraan untuk single polygon
@@ -24,6 +25,7 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
   // Handle perubahan input form
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    
     if (e.target.name === 'vehicle_id') {
       setError(""); // Reset error saat kendaraan dipilih
     }
@@ -77,6 +79,14 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
     setLoading(true);
     setSuccessMessage("");
     setError("");
+
+    // Get current user
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      setError("User tidak terautentikasi. Silakan login kembali.");
+      setLoading(false);
+      return;
+    }
 
     // Validasi form
     if (!formData.name) {
@@ -158,7 +168,7 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
       geometryType = "MultiPolygon";
     }
 
-    // Format data untuk API sesuai struktur database baru
+    // Format data untuk API
     const geofenceData = {
       name: formData.name,
       type: formData.type,
@@ -169,6 +179,7 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
       rule_type: formData.rule_type,
       status: formData.status,
       vehicle_id: formData.vehicle_id || null,
+      user_id: currentUser.userId,
       date_created: new Date().toISOString()
     };
 
@@ -211,7 +222,7 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
         }, 1000);
       })
       .catch((err) => {
-        console.error("❌ Error membuat geofence:", err);
+        console.error("Error membuat geofence:", err);
         setError(`Gagal membuat geofence: ${err.message}`);
       })
       .finally(() => {
@@ -321,7 +332,7 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
           {/* Select kendaraan - WAJIB untuk single polygon */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              {formData.type === "polygon" ? "Pilih Kendaraan*" : "Pilih Kendaraan (Opsional)"}
+              {formData.type === "polygon" ? "Pilih Kendaraan" : "Pilih Kendaraan (Opsional)"}
             </label>
             <select
               name="vehicle_id"
@@ -342,16 +353,12 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
                 </option>
               ))}
             </select>
-            {formData.type === "polygon" && (
+            {formData.type === "polygon" && !formData.vehicle_id && (
               <p className="text-xs text-red-500 mt-1">
                 * Wajib pilih kendaraan untuk geofence single polygon
               </p>
             )}
-            {formData.vehicle_id && (
-              <p className="text-xs text-green-600 mt-1">
-                Geofence akan dibuat untuk: {getSelectedVehicleName()}
-              </p>
-            )}
+
           </div>
 
           {/* Select rule_type */}
@@ -415,7 +422,7 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
           <div className="flex gap-2">
             {!isDrawing ? (
               <>
-                {/* Tombol Batal - sebelah kiri dengan hover merah */}
+                {/* Tombol Batal */}
                 <button
                   type="button"
                   onClick={onClose}
@@ -425,7 +432,7 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
                   Batal
                 </button>
                 
-                {/* Tombol Gambar Area Polygon - sebelah kanan dengan hover hijau */}
+                {/* Tombol Gambar Area */}
                 <button
                   type="button"
                   onClick={handleStartDrawing}

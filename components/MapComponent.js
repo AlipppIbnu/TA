@@ -5,6 +5,7 @@ import useSWR from 'swr';
 import { useWebSocket } from '@/lib/hooks/useWebSocket';
 import L from "leaflet";
 import { getGeofenceStatus } from "@/utils/geofenceUtils";
+import { createPortal } from 'react-dom';
 
 // Vehicle icon
 const vehicleIcon = new L.Icon({
@@ -291,12 +292,22 @@ const MapComponent = forwardRef(({
   isDrawingMode = false,
   isMultiPolygon = false,
   onPolygonComplete,
-  geofences = []
+  geofences = [],
+  allGeofences = [],
+  onGeofenceDeleted
 }, ref) => {
   const [selectedVehicleId, setSelectedVehicleId] = useState(null);
   const [flyToPositionWhenSelected, setFlyToPositionWhenSelected] = useState(null);
   const [lastFetchTimestamp, setLastFetchTimestamp] = useState(null);
   const [hasReceivedDataBefore, setHasReceivedDataBefore] = useState(false);
+  
+  // State untuk modal konfirmasi hapus geofence
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [geofenceToDelete, setGeofenceToDelete] = useState(null);
+  
+  // State untuk notifikasi sukses
+  const [showSuccessNotification, setShowSuccessNotification] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   
   const lastFlyEventRef = useRef('');
   const mapRef = useRef(null);
@@ -332,7 +343,6 @@ const MapComponent = forwardRef(({
       url += `&since=${encodeURIComponent(lastFetchTimestamp)}`;
     }
     
-    console.log("SWR Key URL:", url); // Re-enabled debugging log
     return url;
   }, [lastFetchTimestamp, hasReceivedDataBefore]);
 
@@ -351,20 +361,11 @@ const MapComponent = forwardRef(({
       errorRetryCount: 3,
       errorRetryInterval: 5000,
       onSuccess: (data) => {
-        console.log("SWR Success - Coordinate data received:", data); // Re-enabled debugging log
         if (data && data.timestamp) {
           setLastFetchTimestamp(data.timestamp);
         }
         // Mark that we've received data before
         setHasReceivedDataBefore(true);
-        
-        // Always log the data we receive
-        if (data && data.data) {
-          console.log("SWR received coordinates:", data.data.length, "items");
-          data.data.forEach(coord => {
-            console.log("Coordinate item:", coord);
-          });
-        }
       },
       onError: (error) => {
         console.error("SWR Error:", error);
@@ -390,7 +391,6 @@ const MapComponent = forwardRef(({
   // Monitor WebSocket data changes
   useEffect(() => {
     if (wsCoordinateData) {
-      console.log("🔄 WebSocket real-time coordinate update:", wsCoordinateData);
       // Update timestamp when we get WebSocket data
       setLastFetchTimestamp(new Date().toISOString());
       setHasReceivedDataBefore(true);
@@ -400,10 +400,8 @@ const MapComponent = forwardRef(({
   // Combine SWR and WebSocket data - prioritize WebSocket for real-time
   const realTimeCoordinateData = useMemo(() => {
     if (wsCoordinateData && wsCoordinateData.data) {
-      console.log("🚀 Using WebSocket data for real-time updates");
       return wsCoordinateData;
     }
-    console.log("📡 Using SWR data for coordinates");
     return coordinateData;
   }, [wsCoordinateData, coordinateData]);
 
@@ -422,16 +420,7 @@ const MapComponent = forwardRef(({
 
   // Process and merge coordinate data with initial vehicles using gps_id
   const updatedVehicles = useMemo(() => {
-    console.log("=== PROCESSING VEHICLES DATA ==="); // Re-enabled debugging log
-    console.log("Initial vehicles:", vehicles.map(v => ({  // Re-enabled debugging log
-      vehicle_id: v.vehicle_id, 
-      name: v.name, 
-      gps_id: v.gps_id,
-      hasInitialPosition: !!v.position 
-    })));
-    
     if (!vehicles || vehicles.length === 0) {
-      console.log("No vehicles available"); // Re-enabled debugging log
       return [];
     }
 
@@ -440,90 +429,47 @@ const MapComponent = forwardRef(({
 
     // If we have fresh coordinate data from SWR, update the positions
     if (realTimeCoordinateData && realTimeCoordinateData.data && realTimeCoordinateData.data.length > 0) {
-      console.log("Coordinate data from SWR:", realTimeCoordinateData.data); // Re-enabled debugging log
-
       // Create coordinate updates map using gps_id
-      const coordinateUpdates = {};
+    const coordinateUpdates = {};
       realTimeCoordinateData.data.forEach(coord => {
-        console.log("Processing coordinate:", coord); // Re-enabled debugging log
         // Use gps_id for matching instead of vehicle_id
         if (coord && coord.gps_id) {
           coordinateUpdates[coord.gps_id] = coord;
-          console.log(`Mapped coordinate for gps_id ${coord.gps_id}:`, coord); // Re-enabled debugging log
         }
       });
-
-      console.log("Coordinate updates map:", coordinateUpdates); // Re-enabled debugging log
 
       // Update vehicles with new coordinates from SWR
       result = vehicles.map(vehicle => {
         // Match using gps_id field
         const update = coordinateUpdates[vehicle.gps_id];
+      
+      if (update) {
+        const newLat = parseFloat(update.latitude);
+        const newLng = parseFloat(update.longitude);
         
-        console.log(`Checking vehicle ${vehicle.vehicle_id} (gps_id: ${vehicle.gps_id}) for updates:`, !!update); // Re-enabled debugging log
-        
-        if (update) {
-          const newLat = parseFloat(update.latitude);
-          const newLng = parseFloat(update.longitude);
-          
-          if (!isNaN(newLat) && !isNaN(newLng)) {
-            console.log(`✅ Updating vehicle ${vehicle.vehicle_id} with NEW coordinates: ${newLat}, ${newLng}`); // Re-enabled debugging log
-            return {
-              ...vehicle,
-              position: {
-                lat: newLat,
-                lng: newLng,
-                timestamp: update.timestamp
-              }
-            };
-          } else {
-            console.log(`❌ Invalid coordinates for vehicle ${vehicle.vehicle_id}:`, update); // Re-enabled debugging log
+        if (!isNaN(newLat) && !isNaN(newLng)) {
+          return {
+            ...vehicle,
+            position: {
+              lat: newLat,
+              lng: newLng,
+              timestamp: update.timestamp
+            }
+          };
           }
-        }
-        
+      }
+      
         // Return vehicle with existing position if no SWR update
-        return vehicle;
-      });
-    } else {
-      console.log("No SWR coordinate data yet, using initial vehicles data"); // Re-enabled debugging log
+      return vehicle;
+    });
     }
-
-    console.log("Final updated vehicles:", result.map(v => ({  // Re-enabled debugging log
-      vehicle_id: v.vehicle_id, 
-      name: v.name, 
-      hasPosition: !!v.position,
-      position: v.position,
-      gps_id: v.gps_id
-    })));
-    console.log("=== END PROCESSING ==="); // Re-enabled debugging log
     
     return result;
   }, [vehicles, realTimeCoordinateData]);
 
-  // Debug initial vehicles when they change
-  useEffect(() => {
-    console.log("=== VEHICLES PROP CHANGED ===");
-    console.log("New vehicles received:", vehicles.map(v => ({
-      vehicle_id: v.vehicle_id,
-      name: v.name,
-      gps_id: v.gps_id,
-      hasPosition: !!v.position,
-      position: v.position
-    })));
-  }, [vehicles]);
-
-  // Debug SWR data when it changes
-  useEffect(() => {
-    if (realTimeCoordinateData) {
-      console.log("=== SWR COORDINATE DATA CHANGED ===");
-      console.log("SWR data:", realTimeCoordinateData);
-    }
-  }, [realTimeCoordinateData]);
-
-  // Debug error state
+  // Error handling
   useEffect(() => {
     if (error) {
-      console.error("=== SWR ERROR ===");
       console.error("SWR Error:", error);
     }
   }, [error]);
@@ -592,344 +538,549 @@ const MapComponent = forwardRef(({
     }
   };
 
+  // Handle geofence deletion
+  const handleDeleteGeofence = async (geofenceId, geofenceName) => {
+    if (!geofenceId) {
+      console.error('ID Geofence tidak valid');
+      return;
+    }
+
+    // Set geofence to delete and show modal
+    const geofence = allGeofences.find(g => g.geofence_id === geofenceId);
+    setGeofenceToDelete(geofence);
+    setShowDeleteConfirm(true);
+  };
+
+  // Handle cancel delete
+  const handleCancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setGeofenceToDelete(null);
+  };
+
+  // Show success message
+  const showSuccessMessage = (message) => {
+    setSuccessMessage(message);
+    setShowSuccessNotification(true);
+  };
+
+  // Handle confirm delete
+  const handleConfirmDelete = async () => {
+    if (!geofenceToDelete) return;
+
+    try {
+      const response = await fetch(`/api/HapusGeofence?geofence_id=${geofenceToDelete.geofence_id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Gagal menghapus geofence');
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Panggil callback untuk refresh data di parent component
+        if (onGeofenceDeleted) {
+          onGeofenceDeleted(geofenceToDelete.geofence_id);
+        }
+        
+        // Tutup modal konfirmasi
+        setShowDeleteConfirm(false);
+        
+        // Tampilkan notifikasi sukses
+        showSuccessMessage(`Geofence "${geofenceToDelete.name}" berhasil dihapus`);
+        
+        // Reset geofence to delete
+        setGeofenceToDelete(null);
+      } else {
+        throw new Error(data.message || 'Gagal menghapus geofence');
+      }
+    } catch (error) {
+      console.error('Error deleting geofence:', error);
+      console.error(`Gagal menghapus geofence: ${error.message}`);
+    }
+  };
+
   return (
-    <MapContainer
-      ref={mapRef}
-      center={initialCenter}
-      zoom={12}
-      style={{ width: "100%", height: "100vh" }}
-      className="map-container"
-      dragging={!isDrawingMode}
-      scrollWheelZoom={!isDrawingMode}
-      doubleClickZoom={false}
-    >
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-      />
+    <>
+      <MapContainer
+        ref={mapRef}
+        center={initialCenter}
+        zoom={12}
+        style={{ width: "100%", height: "100vh" }}
+        className="map-container"
+        dragging={!isDrawingMode}
+        scrollWheelZoom={!isDrawingMode}
+        doubleClickZoom={false}
+      >
+        <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+        />
 
-      {/* Fly to position when vehicle selected */}
-      {flyToPositionWhenSelected && (
-        <FlyToPosition position={flyToPositionWhenSelected} />
-      )}
+        {/* Fly to position when vehicle selected */}
+        {flyToPositionWhenSelected && (
+          <FlyToPosition position={flyToPositionWhenSelected} />
+        )}
 
-      <DrawingHandler 
-        ref={drawingHandlerRef}
-        isDrawingMode={isDrawingMode}
-        isMultiPolygon={isMultiPolygon}
-        onPolygonComplete={handlePolygonComplete}
-      />
+        <DrawingHandler 
+          ref={drawingHandlerRef}
+          isDrawingMode={isDrawingMode}
+          isMultiPolygon={isMultiPolygon}
+          onPolygonComplete={handlePolygonComplete}
+        />
 
-      {/* Vehicles markers */}
-      {!isDrawingMode && updatedVehicles.map((vehicle) => {
-        console.log(`🚗 Rendering vehicle ${vehicle.vehicle_id}:`, {
-          hasPosition: !!vehicle.position,
-          position: vehicle.position,
-          dataSource: wsCoordinateData ? 'WebSocket' : 'SWR'
-        });
-        
-        // Get latest vehicle data for this vehicle
-        const latestVehicleData = vehicleData?.find(data => data.gps_id === vehicle.gps_id);
-        
-        // Get geofence status for this vehicle
-        const geofenceStatus = getGeofenceStatus(vehicle, geofences);
-        
-        return vehicle.position ? (
-          <Marker
-            key={`vehicle-${vehicle.vehicle_id}`}
-            position={[vehicle.position.lat, vehicle.position.lng]}
-            icon={vehicleIcon}
-          >
-            <Popup maxWidth={320}>
-              <div style={{ padding: '8px', fontFamily: 'Arial, sans-serif' }}>
-                <h3 style={{ 
-                  fontWeight: 'bold', 
-                  fontSize: '18px', 
-                  marginBottom: '12px', 
-                  color: '#1e40af',
-                  borderBottom: '1px solid #e5e7eb',
-                  paddingBottom: '8px',
-                  textAlign: 'center'
-                }}>
-                  {vehicle.name}
-                </h3>
-                
-                <div style={{ fontSize: '14px', lineHeight: '1.4' }}>
-                  {/* Basic Info */}
-                  <div style={{ marginBottom: '12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                      <div style={{ flex: 1, marginRight: '10px' }}>
-                        <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', marginBottom: '2px' }}>Plat Nomor</div>
-                        <div style={{ fontWeight: '600', color: '#374151' }}>{vehicle.license_plate}</div>
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', marginBottom: '2px' }}>GPS ID</div>
-                        <div style={{ fontWeight: '600', color: '#374151' }}>{vehicle.gps_id}</div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Location */}
-                  <div style={{ 
-                    backgroundColor: '#f9fafb', 
-                    padding: '10px', 
-                    borderRadius: '6px', 
-                    marginBottom: '12px' 
+        {/* Vehicles markers */}
+        {!isDrawingMode && updatedVehicles.map((vehicle) => {
+          // Get latest vehicle data for this vehicle
+          const latestVehicleData = vehicleData?.find(data => data.gps_id === vehicle.gps_id);
+          
+          // Get geofence status untuk kendaraan ini - hanya cek geofence yang terkait
+          let geofenceStatus = null;
+          if (vehicle.geofence_id) {
+            // Cari geofence yang terkait dengan kendaraan ini
+            const vehicleGeofence = allGeofences.find(g => g.geofence_id === vehicle.geofence_id);
+            if (vehicleGeofence) {
+              // Hanya cek status untuk geofence yang terkait dengan kendaraan ini
+              geofenceStatus = getGeofenceStatus(vehicle, [vehicleGeofence]);
+            }
+          }
+          // Jika vehicle.geofence_id null/undefined, geofenceStatus tetap null
+          
+          return vehicle.position ? (
+            <Marker
+              key={`vehicle-${vehicle.vehicle_id}`}
+              position={[vehicle.position.lat, vehicle.position.lng]}
+              icon={vehicleIcon}
+            >
+              <Popup maxWidth={320}>
+                <div style={{ padding: '8px', fontFamily: 'Arial, sans-serif' }}>
+                  <h3 style={{ 
+                    fontWeight: 'bold', 
+                    fontSize: '18px', 
+                    marginBottom: '12px', 
+                    color: '#1e40af',
+                    borderBottom: '1px solid #e5e7eb',
+                    paddingBottom: '8px',
+                    textAlign: 'center'
                   }}>
-                    <div style={{ fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Lokasi</div>
-                    <div style={{ fontSize: '12px' }}>
-                      <div style={{ marginBottom: '3px' }}>
-                        <span style={{ color: '#6b7280' }}>Latitude: </span>
-                        <span style={{ fontFamily: 'monospace', fontWeight: '600' }}>{vehicle.position.lat.toFixed(6)}</span>
-                      </div>
-                      <div>
-                        <span style={{ color: '#6b7280' }}>Longitude: </span>
-                        <span style={{ fontFamily: 'monospace', fontWeight: '600' }}>{vehicle.position.lng.toFixed(6)}</span>
-                      </div>
-                    </div>
-                  </div>
+                    {vehicle.name}
+                  </h3>
                   
-                  {/* Geofence Status */}
-                  <div style={{ 
-                    backgroundColor: '#f9fafb', 
-                    padding: '10px', 
-                    borderRadius: '6px', 
-                    marginBottom: '12px' 
-                  }}>
-                    <div style={{ fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Status Geofence</div>
-                    {geofenceStatus ? (
-                      <div style={{ 
-                        padding: '6px 8px', 
-                        borderRadius: '4px',
-                        borderLeft: geofenceStatus.inside ? '4px solid #10b981' : '4px solid #ef4444',
-                        backgroundColor: geofenceStatus.inside ? '#d1fae5' : '#fee2e2'
-                      }}>
-                        <div style={{ 
-                          fontSize: '13px', 
-                          fontWeight: '500',
-                          color: geofenceStatus.inside ? '#065f46' : '#991b1b'
-                        }}>
-                          {geofenceStatus.inside 
-                            ? `Dalam area: ${geofenceStatus.name}`
-                            : geofenceStatus.name 
-                              ? `Di luar area: ${geofenceStatus.name} (${(geofenceStatus.distance/1000).toFixed(2)} km)`
-                              : 'Di luar semua area'
-                          }
+                  <div style={{ fontSize: '14px', lineHeight: '1.4' }}>
+                    {/* Basic Info */}
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <div style={{ flex: 1, marginRight: '10px' }}>
+                          <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', marginBottom: '2px' }}>Plat Nomor</div>
+                          <div style={{ fontWeight: '600', color: '#374151' }}>{vehicle.license_plate}</div>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', marginBottom: '2px' }}>GPS ID</div>
+                          <div style={{ fontWeight: '600', color: '#374151' }}>{vehicle.gps_id}</div>
                         </div>
                       </div>
-                    ) : (
-                      <div style={{ fontSize: '13px', color: '#6b7280', fontStyle: 'italic' }}>Tidak ada geofence aktif</div>
-                    )}
-                  </div>
-                  
-                  {/* Vehicle Data */}
-                  {latestVehicleData && (
+                    </div>
+                    
+                    {/* Location */}
                     <div style={{ 
-                      backgroundColor: '#eff6ff', 
+                      backgroundColor: '#f9fafb', 
                       padding: '10px', 
                       borderRadius: '6px', 
                       marginBottom: '12px' 
                     }}>
-                      <div style={{ fontWeight: '600', color: '#374151', marginBottom: '8px' }}>Data Kendaraan</div>
-                      <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                        <div style={{ 
-                          flex: 1, 
-                          textAlign: 'center', 
-                          padding: '8px', 
-                          backgroundColor: 'white', 
-                          borderRadius: '4px',
-                          border: '1px solid #e5e7eb'
-                        }}>
-                          <div style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', marginBottom: '4px' }}>Kecepatan</div>
-                          <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#2563eb' }}>{latestVehicleData.speed || 0}</div>
-                          <div style={{ fontSize: '10px', color: '#6b7280' }}>km/h</div>
+                      <div style={{ fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Lokasi</div>
+                      <div style={{ fontSize: '12px' }}>
+                        <div style={{ marginBottom: '3px' }}>
+                          <span style={{ color: '#6b7280' }}>Latitude: </span>
+                          <span style={{ fontFamily: 'monospace', fontWeight: '600' }}>{vehicle.position.lat.toFixed(6)}</span>
+                        </div>
+                        <div>
+                          <span style={{ color: '#6b7280' }}>Longitude: </span>
+                          <span style={{ fontFamily: 'monospace', fontWeight: '600' }}>{vehicle.position.lng.toFixed(6)}</span>
                         </div>
                       </div>
-                       
-                      {(latestVehicleData.fuel_level || latestVehicleData.battery_level) && (
-                        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                          {latestVehicleData.fuel_level && (
-                            <div style={{ 
-                              flex: 1, 
-                              textAlign: 'center', 
-                              padding: '8px', 
-                              backgroundColor: 'white', 
-                              borderRadius: '4px',
-                              border: '1px solid #e5e7eb'
-                            }}>
-                              <div style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', marginBottom: '4px' }}>Bahan Bakar</div>
-                              <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#ea580c' }}>{latestVehicleData.fuel_level}%</div>
-                            </div>
-                          )}
-                          {latestVehicleData.battery_level && (
-                            <div style={{ 
-                              flex: 1, 
-                              textAlign: 'center', 
-                              padding: '8px', 
-                              backgroundColor: 'white', 
-                              borderRadius: '4px',
-                              border: '1px solid #e5e7eb'
-                            }}>
-                              <div style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', marginBottom: '4px' }}>Baterai</div>
-                              <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#9333ea' }}>{latestVehicleData.battery_level}%</div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      
-                      {latestVehicleData.ignition_status !== undefined && (
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', marginBottom: '4px' }}>Status Mesin</div>
-                          <span style={{ 
-                            display: 'inline-block',
-                            padding: '4px 12px', 
-                            borderRadius: '12px', 
-                            fontSize: '12px', 
-                            fontWeight: '600',
-                            backgroundColor: latestVehicleData.ignition_status ? '#dcfce7' : '#fee2e2',
-                            color: latestVehicleData.ignition_status ? '#166534' : '#991b1b'
+                    </div>
+                    
+                    {/* Geofence Status */}
+                    <div style={{ 
+                      backgroundColor: '#f9fafb', 
+                      padding: '10px', 
+                      borderRadius: '6px', 
+                      marginBottom: '12px' 
+                    }}>
+                      <div style={{ fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Status Geofence</div>
+                      {geofenceStatus ? (
+                        <div style={{ 
+                          padding: '6px 8px', 
+                          borderRadius: '4px',
+                          borderLeft: geofenceStatus.inside ? '4px solid #10b981' : '4px solid #ef4444',
+                          backgroundColor: geofenceStatus.inside ? '#d1fae5' : '#fee2e2'
+                        }}>
+                          <div style={{ 
+                            fontSize: '13px', 
+                            fontWeight: '500',
+                            color: geofenceStatus.inside ? '#065f46' : '#991b1b'
                           }}>
-                            {latestVehicleData.ignition_status ? 'AKTIF' : 'MATI'}
-                          </span>
+                            {geofenceStatus.inside 
+                              ? `Dalam area: ${geofenceStatus.name}`
+                              : geofenceStatus.name 
+                                ? `Di luar area: ${geofenceStatus.name} (${(geofenceStatus.distance/1000).toFixed(2)} km)`
+                                : 'Di luar semua area'
+                            }
+                          </div>
                         </div>
+                      ) : (
+                        <div style={{ fontSize: '13px', color: '#6b7280', fontStyle: 'italic' }}>Tidak ada geofence</div>
                       )}
                     </div>
-                  )}
-                  
-                  {/* Timestamp */}
-                  <div style={{ 
-                    borderTop: '1px solid #e5e7eb', 
-                    paddingTop: '8px', 
-                    textAlign: 'center' 
-                  }}>
-                    <div style={{ fontSize: '11px', color: '#6b7280' }}>
-                      <span style={{ fontWeight: '600' }}>Update Terakhir:</span><br/>
-                      {new Date(vehicle.position.timestamp).toLocaleString('id-ID', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit'
-                      })}
+                    
+
+                    
+                    {/* Timestamp */}
+                    <div style={{ 
+                      borderTop: '1px solid #e5e7eb', 
+                      paddingTop: '8px', 
+                      textAlign: 'center' 
+                    }}>
+                      <div style={{ fontSize: '11px', color: '#6b7280' }}>
+                        <span style={{ fontWeight: '600' }}>Update Terakhir:</span><br/>
+                        {new Date(vehicle.position.timestamp).toLocaleString('id-ID', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit'
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </Popup>
-          </Marker>
-        ) : (
-          // console.log(`Vehicle ${vehicle.vehicle_id} has no position data`),
-          null
-        );
-      })}
+              </Popup>
+            </Marker>
+          ) : (
+            // console.log(`Vehicle ${vehicle.vehicle_id} has no position data`),
+            null
+          );
+        })}
 
-      {/* Vehicle path/history */}
-      {!isDrawingMode && selectedVehicle?.path && selectedVehicle.path.length > 1 && (() => {
-        // Validate path coordinates before rendering
-        const validPath = selectedVehicle.path.filter(coord => 
-          coord && 
-          !isNaN(coord.lat) && !isNaN(coord.lng) &&
-          coord.lat >= -90 && coord.lat <= 90 &&
-          coord.lng >= -180 && coord.lng <= 180
-        );
-        
-        // console.log(`Rendering path for vehicle ${selectedVehicle.vehicle_id}: ${validPath.length}/${selectedVehicle.path.length} valid coordinates`);
-        
-        return validPath.length > 1 ? (
+        {/* Vehicle path/history */}
+        {!isDrawingMode && selectedVehicle?.path && selectedVehicle.path.length > 1 && (() => {
+          // Validate path coordinates before rendering
+          const validPath = selectedVehicle.path.filter(coord => 
+            coord && 
+            !isNaN(coord.lat) && !isNaN(coord.lng) &&
+            coord.lat >= -90 && coord.lat <= 90 &&
+            coord.lng >= -180 && coord.lng <= 180
+          );
+          
+          // console.log(`Rendering path for vehicle ${selectedVehicle.vehicle_id}: ${validPath.length}/${selectedVehicle.path.length} valid coordinates`);
+          
+          return validPath.length > 1 ? (
           <Polyline 
-            positions={validPath.map(coord => [coord.lat, coord.lng])}
+              positions={validPath.map(coord => [coord.lat, coord.lng])}
             color="blue" 
             weight={3}
             opacity={0.8}
           />
-        ) : null;
-      })()}
+          ) : null;
+        })()}
 
-      {/* Geofences - hidden during drawing */}
-      {!isDrawingMode && geofences.map((geofence) => {
-        // console.log('MapComponent rendering geofence:', geofence);
-        
-        let polygons = [];
-        
-        try {
-          // Parse geofence definition
-          const geoData = typeof geofence.definition === 'string' 
-            ? JSON.parse(geofence.definition) 
-            : geofence.definition;
+        {/* Geofences - hidden during drawing */}
+        {!isDrawingMode && geofences.map((geofence) => {
+          // console.log('MapComponent rendering geofence:', geofence);
           
-          // console.log('Geofence geoData:', geoData);
+          let polygons = [];
           
-          if (geoData && geoData.coordinates) {
-            if (geoData.type === 'Polygon') {
-              // Single polygon: convert [lng, lat] to [lat, lng]
-              const coords = geoData.coordinates[0].map(coord => [coord[1], coord[0]]);
-              polygons.push(coords);
-              // console.log('Polygon coords:', coords);
-            } else if (geoData.type === 'MultiPolygon') {
-              // MultiPolygon: process each polygon
-              polygons = geoData.coordinates.map(polygonCoords => 
-                polygonCoords[0].map(coord => [coord[1], coord[0]])
-              );
-              // console.log('MultiPolygon coords:', polygons);
+          try {
+            // Parse geofence definition
+            const geoData = typeof geofence.definition === 'string' 
+              ? JSON.parse(geofence.definition) 
+              : geofence.definition;
+            
+            // console.log('Geofence geoData:', geoData);
+            
+            if (geoData && geoData.coordinates) {
+              if (geoData.type === 'Polygon') {
+                // Single polygon: convert [lng, lat] to [lat, lng]
+                const coords = geoData.coordinates[0].map(coord => [coord[1], coord[0]]);
+                polygons.push(coords);
+                // console.log('Polygon coords:', coords);
+              } else if (geoData.type === 'MultiPolygon') {
+                // MultiPolygon: process each polygon
+                polygons = geoData.coordinates.map(polygonCoords => 
+                  polygonCoords[0].map(coord => [coord[1], coord[0]])
+                );
+                // console.log('MultiPolygon coords:', polygons);
+              }
             }
+          } catch (e) {
+            // console.error('Error parsing geofence data:', e);
           }
-        } catch (e) {
-          // console.error('Error parsing geofence data:', e);
-        }
 
-        // console.log('Final polygons to render:', polygons);
+          // console.log('Final polygons to render:', polygons);
 
-        // Render polygons
-        return polygons.map((coords, index) => {
-          // console.log(`Rendering polygon ${index} for geofence ${geofence.name}:`, coords);
-          return (
-            <Polygon
-              key={`geofence-${geofence.geofence_id || geofence.id || index}-${index}`}
-              positions={coords}
-              color={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
-              fillColor={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
-              fillOpacity={0.1}
-              weight={2}
-              opacity={0.8}
-            >
-              <Popup>
-                <div>
-                  <h3 className="font-bold">{geofence.name}</h3>
-                  <p><strong>Tipe:</strong> {geofence.rule_type}</p>
-                  <p><strong>Status:</strong> {geofence.status}</p>
-                  {(geofence.vehicle_id || geofence.vehicleId || geofence.user_id) && (
-                    <p><strong>Kendaraan:</strong> {geofence.vehicle_id || geofence.vehicleId || geofence.user_id}</p>
-                  )}
+          // Render polygons
+          return polygons.map((coords, index) => {
+            // console.log(`Rendering polygon ${index} for geofence ${geofence.name}:`, coords);
+            return (
+              <Polygon
+                key={`geofence-${geofence.geofence_id || geofence.id || index}-${index}`}
+                positions={coords}
+                color={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
+                fillColor={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
+                fillOpacity={0.1}
+                weight={2}
+                opacity={0.8}
+              >
+                <Popup maxWidth={380}>
+                  <div style={{ padding: '8px', fontFamily: 'Arial, sans-serif' }}>
+                    <h3 style={{ 
+                      fontWeight: 'bold', 
+                      fontSize: '18px', 
+                      marginBottom: '12px', 
+                      color: '#1e40af',
+                      borderBottom: '1px solid #e5e7eb',
+                      paddingBottom: '8px',
+                      textAlign: 'center'
+                    }}>
+                      {geofence.name}
+                    </h3>
+                    
+                    <div style={{ fontSize: '14px', lineHeight: '1.4' }}>
+                      {/* Geofence Info */}
+                      <div style={{ marginBottom: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                          <div style={{ flex: 1, marginRight: '10px' }}>
+                            <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', marginBottom: '2px' }}>Tipe</div>
+                            <span style={{ 
+                              display: 'inline-block',
+                              padding: '4px 8px', 
+                              borderRadius: '12px', 
+                              fontSize: '12px', 
+                              fontWeight: '600',
+                              backgroundColor: geofence.rule_type === 'FORBIDDEN' ? '#fee2e2' : '#dcfce7',
+                              color: geofence.rule_type === 'FORBIDDEN' ? '#991b1b' : '#166534'
+                            }}>
+                              {geofence.rule_type === 'FORBIDDEN' ? 'TERLARANG' : 'STAY_IN'}
+                            </span>
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', marginBottom: '2px' }}>Status</div>
+                            <span style={{ 
+                              display: 'inline-block',
+                              padding: '4px 8px', 
+                              borderRadius: '12px', 
+                              fontSize: '12px', 
+                              fontWeight: '600',
+                              backgroundColor: geofence.status === 'active' ? '#dcfce7' : '#fef3c7',
+                              color: geofence.status === 'active' ? '#166534' : '#92400e'
+                            }}>
+                              {geofence.status === 'active' ? 'AKTIF' : 'INACTIVE'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Associated Vehicle */}
+                      <div style={{ 
+                        backgroundColor: '#eff6ff', 
+                        padding: '10px', 
+                        borderRadius: '6px', 
+                        marginBottom: '12px' 
+                      }}>
+                        <div style={{ fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Kendaraan Terkait</div>
+                        {(() => {
+                          // Cari vehicle yang menggunakan geofence ini
+                          const vehicleUsingThisGeofence = vehicles.find(v => v.geofence_id === geofence.geofence_id);
+                          return vehicleUsingThisGeofence ? (
+                            <div style={{ 
+                              padding: '8px', 
+                              backgroundColor: 'white', 
+                              borderRadius: '4px',
+                              border: '1px solid #e5e7eb'
+                            }}>
+                              <div style={{ fontWeight: '600', fontSize: '13px', color: '#1e40af', marginBottom: '2px' }}>
+                                {vehicleUsingThisGeofence.name}
+                              </div>
+                              <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                {vehicleUsingThisGeofence.license_plate} • {vehicleUsingThisGeofence.make} {vehicleUsingThisGeofence.model}
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{ 
+                              padding: '8px', 
+                              backgroundColor: '#f9fafb', 
+                              borderRadius: '4px',
+                              border: '1px dashed #d1d5db',
+                              textAlign: 'center'
+                            }}>
+                              <div style={{ fontSize: '13px', color: '#6b7280', fontStyle: 'italic' }}>
+                                Tidak dikaitkan dengan kendaraan
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+
+                      {/* Date Created */}
+                      {geofence.date_created && (
+                        <div style={{ 
+                          borderTop: '1px solid #e5e7eb', 
+                          paddingTop: '8px', 
+                          marginBottom: '12px',
+                          textAlign: 'center' 
+                        }}>
+                          <div style={{ fontSize: '11px', color: '#6b7280' }}>
+                            <span style={{ fontWeight: '600' }}>Dibuat:</span><br/>
+                            {new Date(geofence.date_created).toLocaleString('id-ID', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Delete Button */}
+                      <div style={{ 
+                        borderTop: '1px solid #e5e7eb', 
+                        paddingTop: '12px',
+                        textAlign: 'center' 
+                      }}>
+                        <button
+                          onClick={() => handleDeleteGeofence(geofence.geofence_id, geofence.name)}
+                          style={{
+                            backgroundColor: '#dc2626',
+                            color: 'white',
+                            border: 'none',
+                            padding: '8px 16px',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            boxShadow: '0 2px 4px rgba(220, 38, 38, 0.2)',
+                            width: 'auto',
+                            minWidth: '120px'
+                          }}
+                          onMouseOver={(e) => {
+                            e.target.style.backgroundColor = '#b91c1c';
+                            e.target.style.transform = 'translateY(-1px)';
+                            e.target.style.boxShadow = '0 4px 8px rgba(220, 38, 38, 0.3)';
+                          }}
+                          onMouseOut={(e) => {
+                            e.target.style.backgroundColor = '#dc2626';
+                            e.target.style.transform = 'translateY(0)';
+                            e.target.style.boxShadow = '0 2px 4px rgba(220, 38, 38, 0.2)';
+                          }}
+                        >
+                          Hapus Geofence
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </Popup>
+              </Polygon>
+            );
+          });
+        })}
+
+        {/* Drawing mode indicator */}
+        {isDrawingMode && (
+          <div 
+            style={{
+              position: 'absolute',
+              top: '10px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: '#007bff',
+              color: 'white',
+              padding: '10px 20px',
+              borderRadius: '4px',
+              zIndex: 1000,
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center' }}>
+              Mode Drawing Aktif {isMultiPolygon ? '(Multipolygon)' : '(Polygon)'} - klik kiri untuk titik, klik kanan untuk selesai (min 3 titik)
+            </span>
+          </div>
+        )}
+      </MapContainer>
+
+      {/* Modal konfirmasi hapus geofence */}
+      {showDeleteConfirm && geofenceToDelete && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+          <div className="bg-white p-8 rounded-lg shadow-2xl max-w-md w-full mx-4">
+            <div className="text-center">
+              <div className="mx-auto h-16 w-16 text-red-500 flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-16 h-16">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+              </div>
+              
+              <h3 className="text-xl font-bold mb-4 text-gray-800">Konfirmasi Hapus Geofence</h3>
+              
+              <div className="mb-6">
+                <p className="text-gray-600 mb-2">
+                  Apakah Anda yakin ingin menghapus geofence:
+                </p>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <p className="font-semibold text-gray-800">{geofenceToDelete.name}</p>
+                  <p className="text-sm text-gray-600">Tipe: {geofenceToDelete.rule_type}</p>
+                  <p className="text-sm text-gray-600">Status: {geofenceToDelete.status}</p>
                 </div>
-              </Popup>
-            </Polygon>
-          );
-        });
-      })}
-
-      {/* Drawing mode indicator */}
-      {isDrawingMode && (
-        <div 
-          style={{
-            position: 'absolute',
-            top: '10px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            background: '#007bff',
-            color: 'white',
-            padding: '10px 20px',
-            borderRadius: '4px',
-            zIndex: 1000,
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-          }}
-        >
-          <span style={{ display: 'flex', alignItems: 'center' }}>
-            Mode Drawing Aktif {isMultiPolygon ? '(Multipolygon)' : '(Polygon)'} - klik kiri untuk titik, klik kanan untuk selesai (min 3 titik)
-          </span>
-        </div>
+                <p className="text-red-600 text-sm mt-3 font-medium">
+                  Geofence yang dihapus tidak dapat dikembalikan
+                </p>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <button 
+                  onClick={handleCancelDelete}
+                  className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors duration-200 font-medium"
+                >
+                  Batal
+                </button>
+                <button 
+                  onClick={handleConfirmDelete}
+                  className="px-6 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200 font-medium"
+                >
+                  Ya, Hapus Geofence
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
-    </MapContainer>
+
+      {/* Modal notifikasi sukses */}
+      {showSuccessNotification && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-md shadow-lg max-w-md">
+            <h3 className="text-lg font-bold mb-4 text-green-600 text-center">Berhasil Menghapus Geofence!</h3>
+            <p className="mb-4">{successMessage}</p>
+            <div className="flex justify-end mt-6">
+              <button 
+                onClick={() => setShowSuccessNotification(false)}
+                className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
   );
 });
 
