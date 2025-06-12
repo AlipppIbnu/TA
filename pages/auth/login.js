@@ -130,7 +130,7 @@ export default function Login() {
 
               {/* Forgot Password */}
               <div className="flex justify-end text-md">
-                <Link href="/auth/forgot-password" className="text-blue-500">
+                <Link href="/reset-password" className="text-blue-500">
                   Forgot Password?
                 </Link>
               </div>

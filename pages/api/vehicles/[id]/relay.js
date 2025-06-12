@@ -12,7 +12,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { relay_status } = req.body;
+    const { relay_status, issued_by } = req.body;
     
     // Validasi input
     if (!relay_status || !['ON', 'OFF'].includes(relay_status)) {
@@ -21,7 +21,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // Get vehicle data
+    // Dapatkan data kendaraan
     const vehicleResponse = await fetch(
       `${directusConfig.endpoints.vehicles}/${id}`,
       { headers: directusConfig.headers }
@@ -34,11 +34,20 @@ export default async function handler(req, res) {
     const vehicleData = await vehicleResponse.json();
     const vehicle = vehicleData.data;
 
+    // Log perintah ke tabel commands
+    const commandType = relay_status === 'ON' ? 'ENGINE_ON' : 'ENGINE_OFF';
+    const commandLogged = await logCommand({
+      issued_by: issued_by || null,
+      command_type: commandType,
+      vehicle_id: vehicle.vehicle_id,
+      gps_id: vehicle.gps_id
+    });
+
     // Kirim perintah ke relay fisik
     const relayCommand = await sendRelayCommand(vehicle, relay_status);
     
     if (!relayCommand.success) {
-      // Fallback: update database saja dengan warning
+      // Fallback: update database saja dengan peringatan
       const dbUpdateResult = await updateDatabaseOnly(id, relay_status);
       
       return res.status(207).json({
@@ -55,7 +64,7 @@ export default async function handler(req, res) {
     const dbUpdateResult = await updateDatabaseOnly(id, relay_status);
     
     if (dbUpdateResult.success) {
-      // Async verification (no await, background process)
+      // Verifikasi async (tanpa await, proses background)
       setTimeout(() => verifyRelayStatus(vehicle, relay_status), 2000);
       
       return res.status(200).json({
@@ -84,7 +93,7 @@ export default async function handler(req, res) {
 }
 
 /**
- * Update database only
+ * Update database saja
  */
 async function updateDatabaseOnly(vehicleId, relay_status) {
   try {
@@ -110,7 +119,7 @@ async function updateDatabaseOnly(vehicleId, relay_status) {
 }
 
 /**
- * Send command to physical relay with retry mechanism
+ * Kirim perintah ke relay fisik dengan mekanisme retry
  */
 async function sendRelayCommand(vehicle, relay_status) {
   try {
@@ -163,7 +172,7 @@ async function sendRelayCommand(vehicle, relay_status) {
 }
 
 /**
- * Verify relay status (background process)
+ * Verifikasi status relay (proses background)
  */
 async function verifyRelayStatus(vehicle, expectedStatus) {
   try {
@@ -185,6 +194,40 @@ async function verifyRelayStatus(vehicle, expectedStatus) {
     
     return { success: false, error: 'Verification failed' };
   } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Log perintah ke tabel commands
+ */
+async function logCommand({ issued_by, command_type, vehicle_id, gps_id }) {
+  try {
+    const commandData = {
+      issued_by: issued_by,
+      command_type: command_type,
+      status: 'sent',
+      date_sent: new Date().toISOString(),
+      vehicle_id: vehicle_id,
+      gps_id: gps_id
+    };
+
+    const response = await fetch(directusConfig.endpoints.commands, {
+      method: 'POST',
+      headers: directusConfig.headers,
+      body: JSON.stringify(commandData)
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      return { success: true, data: result.data };
+    } else {
+      const errorData = await response.json();
+      console.error('Failed to log command:', errorData);
+      return { success: false, error: errorData };
+    }
+  } catch (error) {
+    console.error('Error logging command:', error);
     return { success: false, error: error.message };
   }
 } 

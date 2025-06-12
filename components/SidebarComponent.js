@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
 import Image from "next/image";
-import { logout } from "@/lib/authService";
+import { logout, getCurrentUser } from "@/lib/authService";
 import { deleteVehicle } from "@/lib/vehicleService";
 import { getGeofenceStatus } from "@/utils/geofenceUtils";
 import useSWR from 'swr';
@@ -191,13 +191,17 @@ const SidebarComponent = ({
 
     setLoadingVehicles(prev => ({ ...prev, [vehicleId]: true }));
     try {
+      // Get current user for logging command
+      const currentUser = getCurrentUser();
+      
       const response = await fetch(`/api/vehicles/${selectedVehicle.vehicle_id}/relay`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          relay_status: 'ON'
+          relay_status: 'ON',
+          issued_by: currentUser?.userId || null
         }),
       });
       
@@ -257,13 +261,17 @@ const SidebarComponent = ({
 
     setLoadingVehicles(prev => ({ ...prev, [vehicleId]: true }));
     try {
+      // Get current user for logging command
+      const currentUser = getCurrentUser();
+      
       const response = await fetch(`/api/vehicles/${selectedVehicle.vehicle_id}/relay`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          relay_status: 'OFF'
+          relay_status: 'OFF',
+          issued_by: currentUser?.userId || null
         }),
       });
       

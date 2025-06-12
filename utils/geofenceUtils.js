@@ -1,11 +1,11 @@
 /**
- * Checks if a point is inside a polygon using ray casting algorithm
- * @param {Array} point - [lat, lng] of the point to check
- * @param {Array} polygon - Array of [lat, lng] points forming the polygon
- * @returns {Boolean} - true if point is inside polygon
+ * Memeriksa apakah suatu titik berada di dalam polygon menggunakan algoritma ray casting
+ * @param {Array} point - [lat, lng] dari titik yang akan dicek
+ * @param {Array} polygon - Array dari [lat, lng] titik yang membentuk polygon
+ * @returns {Boolean} - true jika titik berada di dalam polygon
  */
 export function isPointInPolygon(point, polygon) {
-  // Ray casting algorithm
+  // Algoritma ray casting
   let inside = false;
   const x = point[0], y = point[1];
   
@@ -22,30 +22,30 @@ export function isPointInPolygon(point, polygon) {
 }
 
 /**
- * Checks if a point is inside any polygon of a multipolygon
- * @param {Array} point - [lat, lng] of the point to check
- * @param {Array} multipolygon - Array of polygons
- * @returns {Boolean} - true if point is inside any polygon
+ * Memeriksa apakah suatu titik berada di dalam salah satu polygon dari multipolygon
+ * @param {Array} point - [lat, lng] dari titik yang akan dicek
+ * @param {Array} multipolygon - Array dari polygon
+ * @returns {Boolean} - true jika titik berada di dalam salah satu polygon
  */
 export function isPointInMultiPolygon(point, multipolygon) {
   return multipolygon.some(polygon => isPointInPolygon(point, polygon));
 }
 
 /**
- * Calculates the minimum distance from a point to any polygon in meters
- * @param {Array} point - [lat, lng] of the point
- * @param {Array} polygon - Array of [lat, lng] points forming the polygon
- * @returns {Number} - distance in meters
+ * Menghitung jarak minimum dari suatu titik ke polygon dalam meter
+ * @param {Array} point - [lat, lng] dari titik
+ * @param {Array} polygon - Array dari [lat, lng] titik yang membentuk polygon
+ * @returns {Number} - jarak dalam meter
  */
 export function distanceToPolygon(point, polygon) {
-  // Convert lat/lng to radians for Haversine formula
+  // Konversi lat/lng ke radian untuk formula Haversine
   function toRadians(degrees) {
     return degrees * Math.PI / 180;
   }
   
-  // Haversine formula to calculate distance between two points in km
+  // Formula Haversine untuk menghitung jarak antara dua titik dalam km
   function haversineDistance(point1, point2) {
-    const R = 6371000; // Earth radius in meters
+    const R = 6371000; // Radius bumi dalam meter
     const dLat = toRadians(point2[0] - point1[0]);
     const dLon = toRadians(point2[1] - point1[1]);
     const a = 
@@ -56,44 +56,44 @@ export function distanceToPolygon(point, polygon) {
     return R * c;
   }
   
-  // Find minimum distance to any edge of the polygon
+  // Cari jarak minimum ke sisi mana pun dari polygon
   let minDistance = Infinity;
   
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
     const segment = [polygon[j], polygon[i]];
     
-    // Calculate distance to segment
+    // Hitung jarak ke segmen
     const distance = distanceToSegment(point, segment);
     minDistance = Math.min(minDistance, distance);
   }
   
-  // Calculate distance to line segment
+  // Hitung jarak ke segmen garis
   function distanceToSegment(point, segment) {
     const [p1, p2] = segment;
     
-    // Special case: segment is actually a point
+    // Kasus khusus: segmen sebenarnya adalah titik
     if (p1[0] === p2[0] && p1[1] === p2[1]) {
       return haversineDistance(point, p1);
     }
     
-    // Find nearest point on segment using vector projection
-    // This is an approximation for small distances
+    // Cari titik terdekat pada segmen menggunakan proyeksi vektor
+    // Ini adalah pendekatan untuk jarak kecil
     const x = point[0], y = point[1];
     const x1 = p1[0], y1 = p1[1];
     const x2 = p2[0], y2 = p2[1];
     
-    // Calculate squared length of segment
+    // Hitung panjang kuadrat segmen
     const segmentLengthSquared = (x2-x1)*(x2-x1) + (y2-y1)*(y2-y1);
     
-    // Project point onto segment
+    // Proyeksikan titik ke segmen
     let t = ((x-x1)*(x2-x1) + (y-y1)*(y2-y1)) / segmentLengthSquared;
     t = Math.max(0, Math.min(1, t));
     
-    // Find nearest point on segment
+    // Cari titik terdekat pada segmen
     const nearestX = x1 + t * (x2-x1);
     const nearestY = y1 + t * (y2-y1);
     
-    // Calculate distance to nearest point
+    // Hitung jarak ke titik terdekat
     return haversineDistance(point, [nearestX, nearestY]);
   }
   
@@ -101,10 +101,10 @@ export function distanceToPolygon(point, polygon) {
 }
 
 /**
- * Gets the geofence status for a vehicle
- * @param {Object} vehicle - Vehicle object with position property
- * @param {Array} geofences - Array of geofence objects
- * @returns {Object|null} - Geofence status object or null
+ * Mendapatkan status geofence untuk suatu kendaraan
+ * @param {Object} vehicle - Objek kendaraan dengan properti position
+ * @param {Array} geofences - Array dari objek geofence
+ * @returns {Object|null} - Objek status geofence atau null
  */
 export function getGeofenceStatus(vehicle, geofences) {
   if (!vehicle.position) return null;
@@ -113,33 +113,33 @@ export function getGeofenceStatus(vehicle, geofences) {
   let nearestGeofence = null;
   let minDistance = Infinity;
   
-  // Check if the vehicle is inside any geofence
+  // Periksa apakah kendaraan berada di dalam geofence mana pun
   for (const geofence of geofences) {
     let geofencePolygons = [];
     
     try {
-      // Parse geofence data (could be single polygon or multipolygon)
+      // Parse data geofence (bisa single polygon atau multipolygon)
       const geoData = typeof geofence.definition === 'string' 
         ? JSON.parse(geofence.definition) 
         : geofence.definition;
       
       if (geoData && geoData.coordinates) {
-        // Handle both single polygon and multipolygon
+        // Tangani single polygon dan multipolygon
         if (geoData.type === 'Polygon') {
-          // Single polygon - format coordinates
+          // Single polygon - format koordinat
           const polygonCoords = geoData.coordinates[0]
-            .map(coord => [coord[1], coord[0]]); // Convert [lng, lat] to [lat, lng]
+            .map(coord => [coord[1], coord[0]]); // Konversi [lng, lat] ke [lat, lng]
           geofencePolygons = [polygonCoords];
         } 
         else if (geoData.type === 'MultiPolygon') {
-          // MultiPolygon - format each polygon's coordinates
+          // MultiPolygon - format koordinat setiap polygon
           geofencePolygons = geoData.coordinates.map(polygonCoords => 
             polygonCoords[0].map(coord => [coord[1], coord[0]])
           );
         }
       }
       
-      // Check if vehicle is in this geofence
+      // Periksa apakah kendaraan berada di geofence ini
       if (geofencePolygons.length && isPointInMultiPolygon(vehiclePosition, geofencePolygons)) {
         return {
           inside: true,
@@ -149,9 +149,9 @@ export function getGeofenceStatus(vehicle, geofences) {
         };
       }
       
-      // If not inside, calculate distance to nearest geofence
+      // Jika tidak di dalam, hitung jarak ke geofence terdekat
       if (geofencePolygons.length) {
-        // Find closest polygon
+        // Cari polygon terdekat
         geofencePolygons.forEach(polygon => {
           const distance = distanceToPolygon(vehiclePosition, polygon);
           if (distance < minDistance) {
@@ -160,7 +160,7 @@ export function getGeofenceStatus(vehicle, geofences) {
               inside: false,
               name: geofence.name,
               id: geofence.geofence_id || geofence.id,
-              distance: distance, // Distance in meters
+              distance: distance, // Jarak dalam meter
               type: geofence.rule_type || 'STAY_IN'
             };
           }

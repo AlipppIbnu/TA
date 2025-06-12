@@ -1,4 +1,4 @@
-// components/MapComponent.js - Enhanced version with SWR and correct gps_id matching
+// components/MapComponent.js - Versi yang ditingkatkan dengan SWR dan pencocokan gps_id yang benar
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Polygon, useMap, useMapEvents } from "react-leaflet";
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useMemo } from "react";
 import useSWR from 'swr';
@@ -7,7 +7,7 @@ import L from "leaflet";
 import { getGeofenceStatus } from "@/utils/geofenceUtils";
 import { createPortal } from 'react-dom';
 
-// Vehicle icon
+// Ikon kendaraan
 const vehicleIcon = new L.Icon({
   iconUrl: "/icon/logo_mobil.png",
   iconSize: [30, 30],
@@ -15,7 +15,7 @@ const vehicleIcon = new L.Icon({
   popupAnchor: [0, -30],
 });
 
-// Polygon point icon
+// Ikon titik polygon
 const polygonPointIcon = new L.Icon({
   iconUrl: "data:image/svg+xml;base64," + btoa(`
     <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
@@ -26,9 +26,9 @@ const polygonPointIcon = new L.Icon({
   iconAnchor: [8, 8],
 });
 
-// SWR Fetcher function
+// Fungsi SWR Fetcher
 const fetcher = async (url) => {
-  // console.log("Fetching from:", url); // Removed debugging log
+  // console.log("Fetching from:", url); // Log debugging dihapus
   
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
@@ -60,9 +60,9 @@ const fetcher = async (url) => {
   }
 };
 
-// SWR Fetcher function for vehicle data
+// Fungsi SWR Fetcher untuk data kendaraan
 const vehicleDataFetcher = async (url) => {
-  // console.log("Fetching vehicle data from:", url); // Removed debugging log
+  // console.log("Fetching vehicle data from:", url); // Log debugging dihapus
   
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
@@ -94,13 +94,13 @@ const vehicleDataFetcher = async (url) => {
   }
 };
 
-// FlyToPosition component
+// Komponen FlyToPosition
 const FlyToPosition = ({ position }) => {
   const map = useMap();
 
   useEffect(() => {
     if (position) {
-      // console.log("FlyToPosition: Flying to position:", position); // Removed debugging log
+      // console.log("FlyToPosition: Flying to position:", position); // Log debugging dihapus
       map.flyTo(position, 16);
     }
   }, [position, map]);
@@ -108,7 +108,7 @@ const FlyToPosition = ({ position }) => {
   return null;
 };
 
-// Enhanced DrawingHandler component dengan multipolygon support
+// Komponen DrawingHandler yang ditingkatkan dengan dukungan multipolygon
 const DrawingHandler = forwardRef(({ isDrawingMode, onPolygonComplete, isMultiPolygon = false }, ref) => {
   const map = useMap();
   const [currentPolygon, setCurrentPolygon] = useState([]);
@@ -127,7 +127,7 @@ const DrawingHandler = forwardRef(({ isDrawingMode, onPolygonComplete, isMultiPo
       setCurrentPolygon(newPolygon);
       setIsDrawing(true);
       
-      // Add marker for the point
+      // Tambahkan marker untuk titik
       const marker = L.marker(e.latlng, {
         icon: polygonPointIcon,
         zIndexOffset: 1000
@@ -135,7 +135,7 @@ const DrawingHandler = forwardRef(({ isDrawingMode, onPolygonComplete, isMultiPo
       
       setTempMarkers(prev => [...prev, marker]);
       
-      // Create visual polyline
+      // Buat polyline visual
       if (newPolygon.length > 1) {
         if (tempPolyline) {
           map.removeLayer(tempPolyline);
@@ -155,13 +155,13 @@ const DrawingHandler = forwardRef(({ isDrawingMode, onPolygonComplete, isMultiPo
       if (!isDrawingMode || currentPolygon.length < 3) return;
       
       if (isMultiPolygon) {
-        // Add current polygon to the list of polygons
+        // Tambahkan polygon saat ini ke daftar polygon
         setPolygons(prev => [...prev, currentPolygon]);
         
-        // Clear current polygon but keep drawing mode active
+        // Hapus polygon saat ini tapi tetap aktifkan mode menggambar
         setCurrentPolygon([]);
         
-        // Clear temporary markers and polyline
+        // Hapus marker dan polyline sementara
         tempMarkers.forEach(marker => map.removeLayer(marker));
         setTempMarkers([]);
         
@@ -170,10 +170,10 @@ const DrawingHandler = forwardRef(({ isDrawingMode, onPolygonComplete, isMultiPo
           setTempPolyline(null);
         }
         
-        // Alert user
-        alert('Polygon added! Right-click on the map to add another polygon, or click "Finish" to complete the multipolygon.');
+        // Alert pengguna
+        alert('Polygon ditambahkan! Klik kanan pada peta untuk menambah polygon lain, atau klik "Finish" untuk menyelesaikan multipolygon.');
       } else {
-        // Single polygon mode - complete the drawing
+        // Mode polygon tunggal - selesaikan menggambar
         onPolygonComplete(currentPolygon);
         setCurrentPolygon([]);
         setIsDrawing(false);
@@ -189,25 +189,25 @@ const DrawingHandler = forwardRef(({ isDrawingMode, onPolygonComplete, isMultiPo
     }
   });
 
-  // Function to complete the multipolygon drawing
+  // Fungsi untuk menyelesaikan gambar multipolygon
   const finishMultiPolygon = () => {
     let allPolygons = [...polygons];
     
-    // Add the current polygon if it's valid
+    // Tambahkan polygon saat ini jika valid
     if (currentPolygon.length >= 3) {
       allPolygons = [...polygons, currentPolygon];
     }
     
     if (allPolygons.length > 0) {
-      // Send all polygons to the parent component
+      // Kirim semua polygon ke komponen parent
       onPolygonComplete(allPolygons);
       
-      // Reset states
+      // Reset state
       setPolygons([]);
       setCurrentPolygon([]);
       setIsDrawing(false);
       
-      // Clean up map
+      // Bersihkan peta
       tempMarkers.forEach(marker => map.removeLayer(marker));
       setTempMarkers([]);
       
@@ -218,12 +218,12 @@ const DrawingHandler = forwardRef(({ isDrawingMode, onPolygonComplete, isMultiPo
     }
   };
 
-  // Expose the finish function to parent component
+  // Expose fungsi finish ke komponen parent
   useImperativeHandle(ref, () => ({
     finishMultiPolygon
   }));
 
-  // Clean up when drawing mode changes
+  // Bersihkan ketika mode menggambar berubah
   useEffect(() => {
     if (!isDrawingMode) {
       setCurrentPolygon([]);
@@ -285,7 +285,7 @@ const DrawingHandler = forwardRef(({ isDrawingMode, onPolygonComplete, isMultiPo
 
 DrawingHandler.displayName = 'DrawingHandler';
 
-// Main map component
+// Komponen peta utama
 const MapComponent = forwardRef(({ 
   vehicles, 
   selectedVehicle, 
@@ -314,7 +314,7 @@ const MapComponent = forwardRef(({
   const mapReadyRef = useRef(false);
   const drawingHandlerRef = useRef(null);
 
-  // SWR para real-time vehicle data (speed, rpm, etc.)
+  // SWR untuk data kendaraan real-time (kecepatan, dll.)
   const { 
     data: vehicleData, 
     error: vehicleDataError, 
@@ -657,74 +657,61 @@ const MapComponent = forwardRef(({
               icon={vehicleIcon}
             >
               <Popup maxWidth={320}>
-                <div style={{ padding: '8px', fontFamily: 'Arial, sans-serif' }}>
-                  <h3 style={{ 
-                    fontWeight: 'bold', 
-                    fontSize: '18px', 
-                    marginBottom: '12px', 
-                    color: '#1e40af',
-                    borderBottom: '1px solid #e5e7eb',
-                    paddingBottom: '8px',
-                    textAlign: 'center'
-                  }}>
+                <div className="p-2 font-sans">
+                  <h3 className="font-bold text-lg mb-3 text-blue-700 border-b border-gray-200 pb-2 text-center">
                     {vehicle.name}
                   </h3>
                   
-                  <div style={{ fontSize: '14px', lineHeight: '1.4' }}>
+                  <div className="text-sm leading-relaxed">
                     {/* Basic Info */}
-                    <div style={{ marginBottom: '12px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                        <div style={{ flex: 1, marginRight: '10px' }}>
-                          <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', marginBottom: '2px' }}>Plat Nomor</div>
-                          <div style={{ fontWeight: '600', color: '#374151' }}>{vehicle.license_plate}</div>
+                    <div className="mb-3">
+                      <div className="flex justify-between mb-1.5">
+                        <div className="flex-1 mr-2.5">
+                          <div className="text-xs text-gray-500 uppercase mb-0.5">Plat Nomor</div>
+                          <div className="font-semibold text-gray-700">{vehicle.license_plate}</div>
                         </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', marginBottom: '2px' }}>GPS ID</div>
-                          <div style={{ fontWeight: '600', color: '#374151' }}>{vehicle.gps_id}</div>
+                        <div className="flex-1">
+                          <div className="text-xs text-gray-500 uppercase mb-0.5">GPS ID</div>
+                          <div className="font-semibold text-gray-700">{vehicle.gps_id}</div>
                         </div>
                       </div>
                     </div>
                     
-                    {/* Location */}
-                    <div style={{ 
-                      backgroundColor: '#f9fafb', 
-                      padding: '10px', 
-                      borderRadius: '6px', 
-                      marginBottom: '12px' 
-                    }}>
-                      <div style={{ fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Lokasi</div>
-                      <div style={{ fontSize: '12px' }}>
-                        <div style={{ marginBottom: '3px' }}>
-                          <span style={{ color: '#6b7280' }}>Latitude: </span>
-                          <span style={{ fontFamily: 'monospace', fontWeight: '600' }}>{vehicle.position.lat.toFixed(6)}</span>
+                    {/* Location & Vehicle ID */}
+                    <div className="mb-3">
+                      <div className="flex justify-between mb-1.5">
+                        <div className="flex-1 mr-2.5">
+                          <div className="text-xs text-gray-500 uppercase mb-0.5">Lokasi</div>
+                          <div className="text-xs">
+                            <div className="mb-1">
+                              <span className="text-gray-500">Lat: </span>
+                              <span className="font-semibold text-gray-700">{vehicle.position.lat.toFixed(6)}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Lng: </span>
+                              <span className="font-semibold text-gray-700">{vehicle.position.lng.toFixed(6)}</span>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <span style={{ color: '#6b7280' }}>Longitude: </span>
-                          <span style={{ fontFamily: 'monospace', fontWeight: '600' }}>{vehicle.position.lng.toFixed(6)}</span>
+                        <div className="flex-1">
+                          <div className="text-xs text-gray-500 uppercase mb-0.5">Vehicle ID</div>
+                          <div className="font-semibold text-gray-700">{vehicle.vehicle_id}</div>
                         </div>
                       </div>
                     </div>
                     
                     {/* Geofence Status */}
-                    <div style={{ 
-                      backgroundColor: '#f9fafb', 
-                      padding: '10px', 
-                      borderRadius: '6px', 
-                      marginBottom: '12px' 
-                    }}>
-                      <div style={{ fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Status Geofence</div>
+                    <div className="bg-gray-50 p-2.5 rounded-md mb-3">
+                      <div className="font-semibold text-gray-700 mb-1.5">Status Geofence</div>
                       {geofenceStatus ? (
-                        <div style={{ 
-                          padding: '6px 8px', 
-                          borderRadius: '4px',
-                          borderLeft: geofenceStatus.inside ? '4px solid #10b981' : '4px solid #ef4444',
-                          backgroundColor: geofenceStatus.inside ? '#d1fae5' : '#fee2e2'
-                        }}>
-                          <div style={{ 
-                            fontSize: '13px', 
-                            fontWeight: '500',
-                            color: geofenceStatus.inside ? '#065f46' : '#991b1b'
-                          }}>
+                        <div className={`px-2 py-1.5 rounded ${
+                          geofenceStatus.inside 
+                            ? 'border-l-4 border-green-500 bg-green-100' 
+                            : 'border-l-4 border-red-500 bg-red-100'
+                        }`}>
+                          <div className={`text-xs font-medium ${
+                            geofenceStatus.inside ? 'text-green-800' : 'text-red-800'
+                          }`}>
                             {geofenceStatus.inside 
                               ? `Dalam area: ${geofenceStatus.name}`
                               : geofenceStatus.name 
@@ -734,20 +721,14 @@ const MapComponent = forwardRef(({
                           </div>
                         </div>
                       ) : (
-                        <div style={{ fontSize: '13px', color: '#6b7280', fontStyle: 'italic' }}>Tidak ada geofence</div>
+                        <div className="text-xs text-gray-500 italic">Tidak ada geofence</div>
                       )}
                     </div>
                     
-
-                    
                     {/* Timestamp */}
-                    <div style={{ 
-                      borderTop: '1px solid #e5e7eb', 
-                      paddingTop: '8px', 
-                      textAlign: 'center' 
-                    }}>
-                      <div style={{ fontSize: '11px', color: '#6b7280' }}>
-                        <span style={{ fontWeight: '600' }}>Update Terakhir:</span><br/>
+                    <div className="border-t border-gray-200 pt-2 text-center">
+                      <div className="text-xs text-gray-500">
+                        <span className="font-semibold">Update Terakhir:</span><br/>
                         {new Date(vehicle.position.timestamp).toLocaleString('id-ID', {
                           day: '2-digit',
                           month: '2-digit',
@@ -838,48 +819,32 @@ const MapComponent = forwardRef(({
                 opacity={0.8}
               >
                 <Popup maxWidth={380}>
-                  <div style={{ padding: '8px', fontFamily: 'Arial, sans-serif' }}>
-                    <h3 style={{ 
-                      fontWeight: 'bold', 
-                      fontSize: '18px', 
-                      marginBottom: '12px', 
-                      color: '#1e40af',
-                      borderBottom: '1px solid #e5e7eb',
-                      paddingBottom: '8px',
-                      textAlign: 'center'
-                    }}>
+                  <div className="p-2 font-sans">
+                    <h3 className="font-bold text-lg mb-3 text-blue-700 border-b border-gray-200 pb-2 text-center">
                       {geofence.name}
                     </h3>
                     
-                    <div style={{ fontSize: '14px', lineHeight: '1.4' }}>
+                    <div className="text-sm leading-relaxed">
                       {/* Geofence Info */}
-                      <div style={{ marginBottom: '12px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                          <div style={{ flex: 1, marginRight: '10px' }}>
-                            <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', marginBottom: '2px' }}>Tipe</div>
-                            <span style={{ 
-                              display: 'inline-block',
-                              padding: '4px 8px', 
-                              borderRadius: '12px', 
-                              fontSize: '12px', 
-                              fontWeight: '600',
-                              backgroundColor: geofence.rule_type === 'FORBIDDEN' ? '#fee2e2' : '#dcfce7',
-                              color: geofence.rule_type === 'FORBIDDEN' ? '#991b1b' : '#166534'
-                            }}>
+                      <div className="mb-3">
+                        <div className="flex justify-between mb-2">
+                          <div className="flex-1 mr-2.5">
+                            <div className="text-xs text-gray-500 uppercase mb-0.5">Tipe</div>
+                            <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
+                              geofence.rule_type === 'FORBIDDEN' 
+                                ? 'bg-red-100 text-red-800' 
+                                : 'bg-green-100 text-green-800'
+                            }`}>
                               {geofence.rule_type === 'FORBIDDEN' ? 'TERLARANG' : 'STAY_IN'}
                             </span>
                           </div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', marginBottom: '2px' }}>Status</div>
-                            <span style={{ 
-                              display: 'inline-block',
-                              padding: '4px 8px', 
-                              borderRadius: '12px', 
-                              fontSize: '12px', 
-                              fontWeight: '600',
-                              backgroundColor: geofence.status === 'active' ? '#dcfce7' : '#fef3c7',
-                              color: geofence.status === 'active' ? '#166534' : '#92400e'
-                            }}>
+                          <div className="flex-1">
+                            <div className="text-xs text-gray-500 uppercase mb-0.5">Status</div>
+                            <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
+                              geofence.status === 'active' 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}>
                               {geofence.status === 'active' ? 'AKTIF' : 'INACTIVE'}
                             </span>
                           </div>
@@ -887,39 +852,23 @@ const MapComponent = forwardRef(({
                       </div>
 
                       {/* Associated Vehicle */}
-                      <div style={{ 
-                        backgroundColor: '#eff6ff', 
-                        padding: '10px', 
-                        borderRadius: '6px', 
-                        marginBottom: '12px' 
-                      }}>
-                        <div style={{ fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Kendaraan Terkait</div>
+                      <div className="bg-blue-50 p-2.5 rounded-md mb-3">
+                        <div className="font-semibold text-gray-700 mb-1.5">Kendaraan Terkait</div>
                         {(() => {
                           // Cari vehicle yang menggunakan geofence ini
                           const vehicleUsingThisGeofence = vehicles.find(v => v.geofence_id === geofence.geofence_id);
                           return vehicleUsingThisGeofence ? (
-                            <div style={{ 
-                              padding: '8px', 
-                              backgroundColor: 'white', 
-                              borderRadius: '4px',
-                              border: '1px solid #e5e7eb'
-                            }}>
-                              <div style={{ fontWeight: '600', fontSize: '13px', color: '#1e40af', marginBottom: '2px' }}>
+                            <div className="p-2 bg-white rounded border border-gray-200">
+                              <div className="font-semibold text-xs text-blue-700 mb-0.5">
                                 {vehicleUsingThisGeofence.name}
                               </div>
-                              <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                              <div className="text-xs text-gray-500">
                                 {vehicleUsingThisGeofence.license_plate} • {vehicleUsingThisGeofence.make} {vehicleUsingThisGeofence.model}
                               </div>
                             </div>
                           ) : (
-                            <div style={{ 
-                              padding: '8px', 
-                              backgroundColor: '#f9fafb', 
-                              borderRadius: '4px',
-                              border: '1px dashed #d1d5db',
-                              textAlign: 'center'
-                            }}>
-                              <div style={{ fontSize: '13px', color: '#6b7280', fontStyle: 'italic' }}>
+                            <div className="p-2 bg-gray-50 rounded border border-dashed border-gray-300 text-center">
+                              <div className="text-xs text-gray-500 italic">
                                 Tidak dikaitkan dengan kendaraan
                               </div>
                             </div>
@@ -929,14 +878,9 @@ const MapComponent = forwardRef(({
 
                       {/* Date Created */}
                       {geofence.date_created && (
-                        <div style={{ 
-                          borderTop: '1px solid #e5e7eb', 
-                          paddingTop: '8px', 
-                          marginBottom: '12px',
-                          textAlign: 'center' 
-                        }}>
-                          <div style={{ fontSize: '11px', color: '#6b7280' }}>
-                            <span style={{ fontWeight: '600' }}>Dibuat:</span><br/>
+                        <div className="border-t border-gray-200 pt-2 mb-3 text-center">
+                          <div className="text-xs text-gray-500">
+                            <span className="font-semibold">Dibuat:</span><br/>
                             {new Date(geofence.date_created).toLocaleString('id-ID', {
                               day: '2-digit',
                               month: '2-digit',
@@ -949,37 +893,10 @@ const MapComponent = forwardRef(({
                       )}
 
                       {/* Delete Button */}
-                      <div style={{ 
-                        borderTop: '1px solid #e5e7eb', 
-                        paddingTop: '12px',
-                        textAlign: 'center' 
-                      }}>
+                      <div className="border-t border-gray-200 pt-3 text-center">
                         <button
                           onClick={() => handleDeleteGeofence(geofence.geofence_id, geofence.name)}
-                          style={{
-                            backgroundColor: '#dc2626',
-                            color: 'white',
-                            border: 'none',
-                            padding: '8px 16px',
-                            borderRadius: '6px',
-                            fontSize: '12px',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
-                            boxShadow: '0 2px 4px rgba(220, 38, 38, 0.2)',
-                            width: 'auto',
-                            minWidth: '120px'
-                          }}
-                          onMouseOver={(e) => {
-                            e.target.style.backgroundColor = '#b91c1c';
-                            e.target.style.transform = 'translateY(-1px)';
-                            e.target.style.boxShadow = '0 4px 8px rgba(220, 38, 38, 0.3)';
-                          }}
-                          onMouseOut={(e) => {
-                            e.target.style.backgroundColor = '#dc2626';
-                            e.target.style.transform = 'translateY(0)';
-                            e.target.style.boxShadow = '0 2px 4px rgba(220, 38, 38, 0.2)';
-                          }}
+                          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-xs font-semibold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 min-w-[120px]"
                         >
                           Hapus Geofence
                         </button>
@@ -994,21 +911,8 @@ const MapComponent = forwardRef(({
 
         {/* Drawing mode indicator */}
         {isDrawingMode && (
-          <div 
-            style={{
-              position: 'absolute',
-              top: '10px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              background: '#007bff',
-              color: 'white',
-              padding: '10px 20px',
-              borderRadius: '4px',
-              zIndex: 1000,
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-            }}
-          >
-            <span style={{ display: 'flex', alignItems: 'center' }}>
+          <div className="absolute top-2.5 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-5 py-2.5 rounded z-[1000] shadow-md">
+            <span className="flex items-center">
               Mode Drawing Aktif {isMultiPolygon ? '(Multipolygon)' : '(Polygon)'} - klik kiri untuk titik, klik kanan untuk selesai (min 3 titik)
             </span>
           </div>

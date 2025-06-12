@@ -1,4 +1,4 @@
-// pages/Dashboard.js - Simplified version using SWR in MapComponent
+// pages/Dashboard.js - Versi yang disederhanakan menggunakan SWR di MapComponent
 import dynamic from "next/dynamic";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
@@ -26,13 +26,13 @@ export default function Dashboard() {
   const geofenceModalRef = useRef(null);
   const lastGeofenceStatusRef = useRef({});
 
-  // Geofence notifications hook
+  // Hook notifikasi geofence
   const {
     notifications: geofenceNotifications,
     addNotification: addGeofenceNotification,
     removeNotification: removeGeofenceNotification,
     removeAllNotifications: removeAllGeofenceNotifications
-  } = useGeofenceNotifications(5, 8000); // Max 5 notifications, auto-remove after 8 seconds
+  } = useGeofenceNotifications(5, 8000); // Maksimal 5 notifikasi, otomatis hapus setelah 8 detik
 
   // State untuk user dan loading
   const [user, setUser] = useState(null);
@@ -63,13 +63,13 @@ export default function Dashboard() {
   useEffect(() => {
     const loadUserAndVehicles = async () => {
       try {
-        // Check if user is authenticated
+        // Periksa apakah pengguna sudah terotentikasi
         if (!isAuthenticated()) {
           router.push("/auth/login");
           return;
         }
 
-        // Get current user data
+        // Dapatkan data pengguna saat ini
         const userData = getCurrentUser();
         if (!userData) {
           router.push("/auth/login");
@@ -78,7 +78,7 @@ export default function Dashboard() {
 
         setUser(userData);
 
-        // Load vehicles for current user - this will get fresh data including positions
+        // Muat kendaraan untuk pengguna saat ini - ini akan mendapatkan data segar termasuk posisi
         const userVehicles = await getUserVehicles();
         
         setVehicles(userVehicles);
@@ -86,7 +86,7 @@ export default function Dashboard() {
           setSelectedVehicle(userVehicles[0]);
         }
 
-        // Load geofences
+        // Muat geofences
         await loadGeofences();
       } catch (error) {
         console.error('Error loading data:', error);
@@ -100,7 +100,7 @@ export default function Dashboard() {
     loadUserAndVehicles();
   }, [router]);
 
-  // Load geofences from API
+  // Muat geofences dari API
   const loadGeofences = async () => {
     try {
       const response = await fetch('/api/geofences');
@@ -120,17 +120,17 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Error loading geofences:', error);
       setGeofences([]);
-      // Don't show error alert for geofences as it's not critical for dashboard functionality
+      // Jangan tampilkan alert error untuk geofences karena tidak kritis untuk fungsi dashboard
     }
   };
 
-  // Monitor geofence status changes for notifications
+  // Monitor perubahan status geofence untuk notifikasi
   useEffect(() => {
     if (!vehicles.length || !geofences.length) {
       return;
     }
     
-    // Function to check geofence status
+    // Fungsi untuk memeriksa status geofence
     const checkGeofenceStatus = async () => {
       for (const vehicle of vehicles) {
         if (!vehicle.position) {
@@ -161,7 +161,7 @@ export default function Dashboard() {
       // Bandingkan dengan status sebelumnya
       const prevStatus = lastGeofenceStatusRef.current[statusKey];
       
-          // Determine current status
+          // Tentukan status saat ini
           const currentInside = geofenceStatus && geofenceStatus.inside;
           
           // Jika ini adalah pengecekan pertama, set status dan trigger notifikasi jika di luar
@@ -366,6 +366,12 @@ export default function Dashboard() {
 
   // Fungsi untuk handle vehicle selection dari sidebar
   const handleSelectVehicle = (vehicle) => {
+    // Handle null vehicle (when deselecting)
+    if (!vehicle) {
+      setSelectedVehicle(null);
+      return;
+    }
+    
     // Pastikan kendaraan masih ada dalam daftar sebelum memilihnya
     const existingVehicle = vehicles.find(v => v.vehicle_id === vehicle.vehicle_id);
     if (!existingVehicle) {

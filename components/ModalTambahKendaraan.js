@@ -219,7 +219,7 @@ export default function ModalTambahKendaraan({ onClose, onSucceed }) {
             {/* GPS Device ID */}
             <div>
               <label className="block text-sm mb-1"> GPS Device ID </label>
-              <p className="text-xs text-gray-500 mb-2">Masukkan UUID yang sudah tertanam di alat GPS (opsional)</p>
+              <p className="text-xs text-gray-500 mb-2">Masukkan UUID yang ada pada alat GPS (opsional)</p>
               <input
                 type="text"
                 name="gps_id"
