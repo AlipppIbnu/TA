@@ -36,7 +36,7 @@ export default async function handler(req, res) {
 
     // Log perintah ke tabel commands
     const commandType = relay_status === 'ON' ? 'ENGINE_ON' : 'ENGINE_OFF';
-    const commandLogged = await logCommand({
+    await logCommand({
       issued_by: issued_by || null,
       command_type: commandType,
       vehicle_id: vehicle.vehicle_id,

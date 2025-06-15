@@ -1,7 +1,7 @@
 // components/ModalSetGeofence.js - Modal untuk membuat geofence dengan pilihan kendaraan
 'use client';
 
-import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
+import { useState, forwardRef, useImperativeHandle } from "react";
 import { getCurrentUser } from "@/lib/authService";
 
 /**
@@ -227,18 +227,13 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
         let errorData;
         try {
           errorData = JSON.parse(responseText);
-        } catch (e) {
+        } catch {
           errorData = { message: responseText };
         }
         throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
       }
 
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (e) {
-        throw new Error("Invalid JSON response");
-      }
+      // Parse and ignore the response data since we only need success status
 
       // Success
       const selectedVehicle = vehicles.find(v => v.vehicle_id === formData.vehicle_id);
@@ -262,12 +257,6 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
     } finally {
       setLoading(false);
     }
-  };
-
-  // Helper untuk mendapatkan nama kendaraan yang dipilih
-  const getSelectedVehicleName = () => {
-    const selectedVehicle = vehicles.find(v => v.vehicle_id === formData.vehicle_id);
-    return selectedVehicle ? `${selectedVehicle.name} (${selectedVehicle.license_plate})` : "";
   };
 
   // Helper untuk menghitung status area

@@ -74,7 +74,7 @@ const swrConfig = {
   },
   
   // Global success handler
-  onSuccess: (data, key) => {
+  onSuccess: (/* data, key */) => {
     // Optional: Log successful requests for debugging - Removed in production
     // if (process.env.NODE_ENV === 'development') {
     //   console.log('SWR Success:', {

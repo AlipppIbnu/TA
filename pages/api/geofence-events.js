@@ -58,7 +58,7 @@ export default async function handler(req, res) {
       try {
         errorData = JSON.parse(responseText);
         console.error("❌ Parsed error data:", errorData);
-      } catch (e) {
+      } catch {
         console.error("❌ Could not parse error response as JSON");
         errorData = { message: responseText };
       }

@@ -1,4 +1,5 @@
 // markerUtils.js - Utility functions for marker animations and rotations
+import L from 'leaflet';
 
 // Calculate bearing (direction) between two coordinates
 export const calculateBearing = (start, end) => {
@@ -31,8 +32,6 @@ export const calculateDistance = (start, end) => {
 
 // Create rotated vehicle icon based on bearing
 export const createRotatedVehicleIcon = (bearing = 0) => {
-  const L = require('leaflet');
-  
   return new L.divIcon({
     html: `
       <div style="

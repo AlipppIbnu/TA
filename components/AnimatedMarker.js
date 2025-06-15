@@ -63,7 +63,7 @@ const AnimatedMarker = ({ position, duration = 1500, ...markerProps }) => {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [position, duration]);
+  }, [position, duration, currentPosition]);
 
   // Cleanup on unmount
   useEffect(() => {

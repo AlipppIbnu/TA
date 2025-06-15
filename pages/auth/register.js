@@ -1,6 +1,5 @@
 // pages/auth/register.js
 import { useState } from "react";
-import { useRouter } from "next/router";
 import Link from "next/link";
 import Image from "next/image";
 import { register } from "../../lib/authService";
@@ -16,8 +15,6 @@ export default function Register() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [loading, setLoading] = useState(false);
-  
-  const router = useRouter();
 
   /**
    * Handler untuk proses registrasi

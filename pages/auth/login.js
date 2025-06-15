@@ -36,7 +36,7 @@ export default function Login() {
       // Proses login dengan Directus
       await login(email, password);
       router.push("/dashboard");
-    } catch (err) {
+    } catch {
       setError("Email atau password salah!");
     }
   };

@@ -4,11 +4,8 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/router";
 import Image from "next/image";
 import { getCurrentUser } from "@/lib/authService";
-import { deleteVehicle } from "@/lib/vehicleService";
-import { getGeofenceStatus } from "@/utils/geofenceUtils";
 import useSWR from 'swr';
 
 // SWR fetcher for vehicle data
@@ -36,11 +33,9 @@ const SidebarComponent = ({
   onHistoryClick,
   onHideHistory,
   selectedVehicle,
-  geofences = [],
   onToggleGeofence,
   onUpdateVehicle
 }) => {
-  const router = useRouter();
   
   // State untuk kendaraan
   const [selectedVehicleId, setSelectedVehicleId] = useState(null);
@@ -61,7 +56,6 @@ const SidebarComponent = ({
   const [showErrorAlert, setShowErrorAlert] = useState(false);
   
   // State untuk relay
-  const [relays, setRelays] = useState([]);
   const [loadingVehicles, setLoadingVehicles] = useState({});
   
   // State baru untuk loading modal relay
@@ -75,8 +69,7 @@ const SidebarComponent = ({
 
   // SWR untuk mengambil data kendaraan real-time (speed, RPM, dll)
   const { 
-    data: vehicleData, 
-    error: vehicleDataError 
+    data: vehicleData
   } = useSWR(
     'http://ec2-13-229-83-7.ap-southeast-1.compute.amazonaws.com:8055/items/vehicle_datas',
     vehicleDataFetcher,
@@ -97,8 +90,6 @@ const SidebarComponent = ({
       }
     }
   }, [vehicles, relayLoadingVehicleId, initialRelayStatus, showRelayLoadingModal]);
-
-
 
   // Fungsi untuk memilih kendaraan
   const handleSelectVehicle = (vehicle) => {
@@ -218,7 +209,7 @@ const SidebarComponent = ({
           showRelayNotif(`Gagal menyalakan mesin: ${responseData.error || 'Terjadi kesalahan'}`, "error");
         }
       }
-    } catch (error) {
+    } catch {
       // Tutup loading modal jika error
       setShowRelayLoadingModal(false);
       showRelayNotif(`Koneksi terputus. Silakan coba lagi`, "error");
@@ -288,7 +279,7 @@ const SidebarComponent = ({
           showRelayNotif(`Gagal mematikan mesin: ${responseData.error || 'Terjadi kesalahan'}`, "error");
         }
       }
-    } catch (error) {
+    } catch {
       // Tutup loading modal jika error
       setShowRelayLoadingModal(false);
       showRelayNotif(`Koneksi terputus. Silakan coba lagi`, "error");
@@ -319,16 +310,6 @@ const SidebarComponent = ({
   const handleCancelDelete = () => {
     setShowDeleteConfirm(false);
     setVehicleToDelete(null);
-  };
-
-  // Fungsi untuk menampilkan pesan sukses
-  const showSuccessMessage = (message) => {
-    setSuccessMessage(message);
-    setShowSuccessNotification(true);
-    setTimeout(() => {
-      setShowSuccessNotification(false);
-      setSuccessMessage('');
-    }, 3000);
   };
 
   // Fungsi untuk menampilkan pesan error
@@ -370,29 +351,6 @@ const SidebarComponent = ({
     }
   };
 
-  // Komponen loading spinner
-  const LoadingSpinner = () => (
-    <>
-      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-      </svg>
-      LOADING...
-    </>
-  );
-
-  // Fungsi untuk mendapatkan status relay kendaraan terpilih
-  const getSelectedVehicleRelayStatus = () => {
-    if (!selectedVehicleId) return null;
-
-    const selectedVehicle = vehicles.find(v => v.vehicle_id === selectedVehicleId);
-    if (!selectedVehicle) return null;
-
-    return selectedVehicle.relay_status;
-  };
-
-  const selectedRelayStatus = getSelectedVehicleRelayStatus();
-
   // Fungsi untuk toggle geofence visibility
   const handleToggleGeofence = (vehicleId) => {
     // Default state adalah false (hidden), toggle sesuai dengan state saat ini
@@ -413,25 +371,6 @@ const SidebarComponent = ({
     }
   };
 
-  // Fungsi untuk mendapatkan geofences untuk kendaraan tertentu (Vehicle-Centric)
-  const getVehicleGeofences = (vehicleId) => {
-    // Cari vehicle berdasarkan vehicleId
-    const vehicle = vehicles.find(v => v.vehicle_id === vehicleId);
-    
-    // Jika vehicle tidak ada atau tidak punya geofence_id, return empty array
-    if (!vehicle || !vehicle.geofence_id) {
-      return [];
-    }
-    
-    // Cari geofence berdasarkan geofence_id yang dimiliki vehicle
-    return geofences.filter(geofence => geofence.geofence_id === vehicle.geofence_id);
-  };
-
-  // Fungsi untuk cek apakah kendaraan memiliki geofence
-  const hasGeofence = (vehicleId) => {
-    return getVehicleGeofences(vehicleId).length > 0;
-  };
-
   return (
     <>
     <div className="w-80 bg-white shadow-md h-screen flex flex-col p-4">
@@ -446,8 +385,6 @@ const SidebarComponent = ({
       <div className="flex-grow overflow-y-auto">
         {vehicles.length > 0 ? (
           vehicles.map((vehicle) => {
-            const geofenceStatus = getGeofenceStatus(vehicle, geofences);
-              
               // Find matching vehicle data for speed and RPM
               const latestVehicleData = vehicleData?.find(data => data.gps_id === vehicle.gps_id);
             

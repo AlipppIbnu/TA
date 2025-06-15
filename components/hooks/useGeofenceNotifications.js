@@ -1,10 +1,20 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { handleGeofenceViolation } from '@/utils/geofenceApi';
-import { getGeofenceStatus } from '@/utils/geofenceUtils';
 
 const useGeofenceNotifications = (maxNotifications = 5, autoRemoveDelay = 8000) => {
   const [notifications, setNotifications] = useState([]);
   const notificationTimeouts = useRef({});
+
+  // Function to remove a specific notification
+  const removeNotification = useCallback((notificationId) => {
+    setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
+    
+    // Clear timeout if exists
+    if (notificationTimeouts.current[notificationId]) {
+      clearTimeout(notificationTimeouts.current[notificationId]);
+      delete notificationTimeouts.current[notificationId];
+    }
+  }, []);
 
   // Function to add a new notification
   const addNotification = useCallback((eventData) => {
@@ -45,18 +55,7 @@ const useGeofenceNotifications = (maxNotifications = 5, autoRemoveDelay = 8000) 
     }
 
     return notification.id;
-  }, [maxNotifications, autoRemoveDelay]);
-
-  // Function to remove a specific notification
-  const removeNotification = useCallback((notificationId) => {
-    setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
-    
-    // Clear timeout if exists
-    if (notificationTimeouts.current[notificationId]) {
-      clearTimeout(notificationTimeouts.current[notificationId]);
-      delete notificationTimeouts.current[notificationId];
-    }
-  }, []);
+  }, [maxNotifications, autoRemoveDelay, removeNotification]);
 
   // Function to remove all notifications
   const removeAllNotifications = useCallback(() => {
@@ -224,7 +223,7 @@ const useGeofenceNotifications = (maxNotifications = 5, autoRemoveDelay = 8000) 
   }, [checkGeofenceStatusWithSave]);
 
   // Simplified geofence check function
-  const checkIfVehicleInsideGeofence = (vehicle, geofence) => {
+  const checkIfVehicleInsideGeofence = (/* vehicle, geofence */) => {
     // This is a placeholder - replace with actual geofence checking logic
     // You might want to import and use the geofenceUtils here
     return false; // Simplified for demo

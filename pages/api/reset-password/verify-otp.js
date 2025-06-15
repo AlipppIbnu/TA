@@ -56,7 +56,7 @@ export default async function handler(req, res) {
       success: true 
     });
     
-  } catch (error) {
+  } catch {
     return res.status(500).json({ 
       message: 'Terjadi kesalahan saat memverifikasi OTP' 
     });

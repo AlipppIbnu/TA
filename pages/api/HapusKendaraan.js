@@ -58,7 +58,7 @@ export default async function handler(req, res) {
       try {
         const errorText = await response.text();
         errorMessage += ` - ${errorText}`;
-      } catch (e) {
+      } catch {
         // Could not read error text
       }
       

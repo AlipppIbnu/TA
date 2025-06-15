@@ -1,6 +1,6 @@
 // components/MapComponent.js - Versi yang ditingkatkan dengan SWR dan pencocokan gps_id yang benar
-import { MapContainer, TileLayer, Marker, Popup, Polyline, Polygon, Circle, useMap, useMapEvents } from "react-leaflet";
-import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useMemo } from "react";
+import { MapContainer, TileLayer, Popup, Polyline, Polygon, Circle, useMap, useMapEvents } from "react-leaflet";
+import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useMemo, useCallback } from "react";
 import useSWR from 'swr';
 import { useWebSocket } from '@/lib/hooks/useWebSocket';
 import L from "leaflet";
@@ -110,7 +110,7 @@ const FlyToPosition = ({ position }) => {
 };
 
 // Komponen DrawingHandler yang mendukung polygon dan circle
-const DrawingHandler = forwardRef(({ isDrawingMode, drawingType, onPolygonComplete }, ref) => {
+const DrawingHandler = forwardRef(({ isDrawingMode, drawingType, onPolygonComplete }) => {
   const map = useMap();
   const [currentPolygon, setCurrentPolygon] = useState([]);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -122,15 +122,15 @@ const DrawingHandler = forwardRef(({ isDrawingMode, drawingType, onPolygonComple
   const tempCircleRef = useRef(null);
 
   // Fungsi untuk membersihkan semua temporary elements
-  const clearTemporaryElements = () => {
+  const clearTemporaryElements = useCallback(() => {
     // Clear markers
     tempMarkersRef.current.forEach(marker => {
       try {
         if (marker && map.hasLayer(marker)) {
           map.removeLayer(marker);
         }
-      } catch (e) {
-        console.warn('Error removing marker:', e);
+      } catch (error) {
+        console.warn('Error removing marker:', error);
       }
     });
     tempMarkersRef.current = [];
@@ -141,8 +141,8 @@ const DrawingHandler = forwardRef(({ isDrawingMode, drawingType, onPolygonComple
         if (map.hasLayer(tempPolylineRef.current)) {
           map.removeLayer(tempPolylineRef.current);
         }
-      } catch (e) {
-        console.warn('Error removing polyline:', e);
+      } catch (error) {
+        console.warn('Error removing polyline:', error);
       }
       tempPolylineRef.current = null;
     }
@@ -153,8 +153,8 @@ const DrawingHandler = forwardRef(({ isDrawingMode, drawingType, onPolygonComple
         if (map.hasLayer(tempCircleRef.current)) {
           map.removeLayer(tempCircleRef.current);
         }
-      } catch (e) {
-        console.warn('Error removing circle:', e);
+      } catch (error) {
+        console.warn('Error removing circle:', error);
       }
       tempCircleRef.current = null;
     }
@@ -162,7 +162,7 @@ const DrawingHandler = forwardRef(({ isDrawingMode, drawingType, onPolygonComple
     setCurrentPolygon([]);
     setIsDrawing(false);
     setCircleCenter(null);
-  };
+  }, [map]);
 
   useMapEvents({
     click: (e) => {
@@ -226,7 +226,7 @@ const DrawingHandler = forwardRef(({ isDrawingMode, drawingType, onPolygonComple
       }
     },
     
-    contextmenu: (e) => {
+    contextmenu: () => {
       if (!isDrawingMode) return;
       
       if (drawingType === "polygon" && currentPolygon.length >= 3) {
@@ -251,8 +251,8 @@ const DrawingHandler = forwardRef(({ isDrawingMode, drawingType, onPolygonComple
           if (map.hasLayer(tempCircleRef.current)) {
             map.removeLayer(tempCircleRef.current);
           }
-        } catch (e) {
-          console.warn('Error removing temp circle in mousemove:', e);
+        } catch (error) {
+          console.warn('Error removing temp circle in mousemove:', error);
         }
         tempCircleRef.current = null;
       }
@@ -269,8 +269,8 @@ const DrawingHandler = forwardRef(({ isDrawingMode, drawingType, onPolygonComple
         }).addTo(map);
         
         tempCircleRef.current = circle;
-      } catch (e) {
-        console.warn('Error creating temp circle:', e);
+      } catch (error) {
+        console.warn('Error creating temp circle:', error);
       }
     },
     
@@ -283,8 +283,8 @@ const DrawingHandler = forwardRef(({ isDrawingMode, drawingType, onPolygonComple
             if (map.hasLayer(tempCircleRef.current)) {
               map.removeLayer(tempCircleRef.current);
             }
-          } catch (e) {
-            console.warn('Error removing temp circle in movestart:', e);
+          } catch (error) {
+            console.warn('Error removing temp circle in movestart:', error);
           }
           tempCircleRef.current = null;
         }
@@ -305,8 +305,8 @@ const DrawingHandler = forwardRef(({ isDrawingMode, drawingType, onPolygonComple
             if (map.hasLayer(tempCircleRef.current)) {
               map.removeLayer(tempCircleRef.current);
             }
-          } catch (e) {
-            console.warn('Error removing temp circle in zoomstart:', e);
+          } catch (error) {
+            console.warn('Error removing temp circle in zoomstart:', error);
           }
           tempCircleRef.current = null;
         }
@@ -328,8 +328,8 @@ const DrawingHandler = forwardRef(({ isDrawingMode, drawingType, onPolygonComple
           if (map.hasLayer(tempCircleRef.current)) {
             map.removeLayer(tempCircleRef.current);
           }
-        } catch (e) {
-          console.warn('Error removing temp circle in dragstart:', e);
+        } catch (error) {
+          console.warn('Error removing temp circle in dragstart:', error);
         }
         tempCircleRef.current = null;
       }
@@ -342,8 +342,8 @@ const DrawingHandler = forwardRef(({ isDrawingMode, drawingType, onPolygonComple
           if (map.hasLayer(tempCircleRef.current)) {
             map.removeLayer(tempCircleRef.current);
           }
-        } catch (e) {
-          console.warn('Error removing temp circle in drag:', e);
+        } catch (error) {
+          console.warn('Error removing temp circle in drag:', error);
         }
         tempCircleRef.current = null;
       }
@@ -356,8 +356,8 @@ const DrawingHandler = forwardRef(({ isDrawingMode, drawingType, onPolygonComple
           if (map.hasLayer(tempCircleRef.current)) {
             map.removeLayer(tempCircleRef.current);
           }
-        } catch (e) {
-          console.warn('Error removing temp circle in mouseout:', e);
+        } catch (error) {
+          console.warn('Error removing temp circle in mouseout:', error);
         }
         tempCircleRef.current = null;
       }
@@ -369,14 +369,14 @@ const DrawingHandler = forwardRef(({ isDrawingMode, drawingType, onPolygonComple
     if (!isDrawingMode) {
       clearTemporaryElements();
     }
-  }, [isDrawingMode, drawingType]);
+  }, [isDrawingMode, drawingType, clearTemporaryElements]);
 
   // Cleanup saat component unmount
   useEffect(() => {
     return () => {
       clearTemporaryElements();
     };
-  }, []);
+  }, [clearTemporaryElements]);
 
   // Aggressive cleanup untuk temporary circle yang stuck
   useEffect(() => {
@@ -384,7 +384,7 @@ const DrawingHandler = forwardRef(({ isDrawingMode, drawingType, onPolygonComple
       // Force cleanup all temporary circles when not in circle drawing mode
       clearTemporaryElements();
     }
-  }, [isDrawingMode, drawingType]);
+  }, [isDrawingMode, drawingType, clearTemporaryElements]);
 
   // Periodic cleanup untuk memastikan tidak ada temporary circles yang stuck
   useEffect(() => {
@@ -396,8 +396,8 @@ const DrawingHandler = forwardRef(({ isDrawingMode, drawingType, onPolygonComple
             if (map.hasLayer(tempCircleRef.current)) {
               map.removeLayer(tempCircleRef.current);
             }
-          } catch (e) {
-            console.warn('Error in periodic cleanup:', e);
+          } catch (error) {
+            console.warn('Error in periodic cleanup:', error);
           }
           tempCircleRef.current = null;
         }
@@ -457,11 +457,7 @@ const MapComponent = forwardRef(({
   const mapReadyRef = useRef(false);
 
   // SWR untuk data kendaraan real-time (kecepatan, dll.)
-  const { 
-    data: vehicleData, 
-    error: vehicleDataError, 
-    isLoading: vehicleDataLoading
-  } = useSWR(
+  const {} = useSWR(
     'http://ec2-13-229-83-7.ap-southeast-1.compute.amazonaws.com:8055/items/vehicle_datas',
     vehicleDataFetcher,
     {
@@ -490,8 +486,7 @@ const MapComponent = forwardRef(({
 
   const { 
     data: coordinateData, 
-    error, 
-    isLoading
+    error
   } = useSWR(
     swrKey,
     fetcher,
@@ -518,8 +513,7 @@ const MapComponent = forwardRef(({
   // WebSocket untuk real-time coordinate updates
   const { 
     data: wsCoordinateData, 
-    ws: websocket,
-    mutate: wsUpdate
+    ws: websocket
   } = useWebSocket('/items/vehicle_datas');
 
   // Monitor WebSocket connection status
@@ -675,7 +669,7 @@ const MapComponent = forwardRef(({
   };
 
   // Handle geofence deletion
-  const handleDeleteGeofence = async (geofenceId, geofenceName) => {
+  const handleDeleteGeofence = async (geofenceId) => {
     if (!geofenceId) {
       console.error('ID Geofence tidak valid');
       return;
@@ -770,8 +764,6 @@ const MapComponent = forwardRef(({
 
         {/* Vehicles markers */}
         {!isDrawingMode && updatedVehicles.map((vehicle) => {
-          // Get latest vehicle data for this vehicle
-          const latestVehicleData = vehicleData?.find(data => data.gps_id === vehicle.gps_id);
           
           // Get geofence status untuk kendaraan ini - hanya cek geofence yang terkait
           let geofenceStatus = null;
@@ -1247,8 +1239,8 @@ const MapComponent = forwardRef(({
             }
             
             return null;
-          } catch (e) {
-            // console.error('Error parsing geofence data:', e);
+          } catch {
+            // console.error('Error parsing geofence data:', error);
             return null;
           }
         })}

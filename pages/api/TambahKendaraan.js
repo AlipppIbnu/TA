@@ -63,7 +63,7 @@ export default async function handler(req, res) {
     let data;
     try {
       data = JSON.parse(text);
-    } catch (parseError) {
+    } catch {
       return res.status(500).json({ 
         message: 'Respons bukan format JSON valid'
       });

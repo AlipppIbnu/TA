@@ -34,7 +34,7 @@ export default function ResetPassword() {
       } else {
         setError(data.message);
       }
-    } catch (error) {
+    } catch {
       setError('Terjadi kesalahan. Silakan coba lagi.');
     } finally {
       setLoading(false);

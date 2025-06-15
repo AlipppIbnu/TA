@@ -49,7 +49,7 @@ export default async function handler(req, res) {
       let errorData;
       try {
         errorData = JSON.parse(responseText);
-      } catch (e) {
+      } catch {
         errorData = { message: responseText };
       }
 

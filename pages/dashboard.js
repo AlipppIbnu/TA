@@ -9,9 +9,8 @@ import useGeofenceNotifications from "@/components/hooks/useGeofenceNotification
 import { getCurrentUser, isAuthenticated } from "@/lib/authService";
 import { getUserVehicles } from "@/lib/vehicleService";
 import directusConfig from "@/lib/directusConfig";
-import { deleteVehicle } from "@/lib/vehicleService";
 import { getGeofenceStatus } from "@/utils/geofenceUtils";
-import { toast, ToastContainer } from 'react-toastify';
+import { ToastContainer } from 'react-toastify';
 import { handleGeofenceViolation } from '@/utils/geofenceApi';
 import GeofenceNotification from '@/components/GeofenceNotification';
 import UserDropdown from '@/components/UserDropdown';
@@ -36,13 +35,11 @@ export default function Dashboard() {
   } = useGeofenceNotifications(5, 8000); // Maksimal 5 notifikasi, otomatis hapus setelah 8 detik
 
   // State untuk user dan loading
-  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   
   // State untuk kendaraan
   const [vehicles, setVehicles] = useState([]);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
-  const [vehicleHistories, setVehicleHistories] = useState([]);
   
   // State untuk modal dan notifikasi
   const [showTambahModal, setShowTambahModal] = useState(false); 
@@ -75,8 +72,6 @@ export default function Dashboard() {
           router.push("/auth/login");
           return;
         }
-
-        setUser(userData);
 
         // Muat kendaraan untuk pengguna saat ini - ini akan mendapatkan data segar termasuk posisi
         const userVehicles = await getUserVehicles();
@@ -468,7 +463,7 @@ export default function Dashboard() {
   };
 
   // Handler untuk ketika geofence berhasil dihapus
-  const handleGeofenceDeleted = async (deletedGeofenceId) => {
+  const handleGeofenceDeleted = async () => {
     try {
       // Reload both geofences AND vehicles (karena vehicle.geofence_id mungkin berubah)
       await Promise.all([

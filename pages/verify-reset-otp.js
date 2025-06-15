@@ -61,7 +61,7 @@ export default function VerifyResetOTP() {
           setCountdown(0);
         }
       }
-    } catch (error) {
+    } catch {
       setError('Terjadi kesalahan. Silakan coba lagi.');
     } finally {
       setLoading(false);
@@ -87,7 +87,7 @@ export default function VerifyResetOTP() {
       } else {
         setError(data.message);
       }
-    } catch (error) {
+    } catch {
       setError('Gagal mengirim ulang OTP');
     } finally {
       setResendLoading(false);

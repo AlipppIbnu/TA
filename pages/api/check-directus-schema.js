@@ -35,7 +35,7 @@ export default async function handler(req, res) {
       const errorText = await error.response?.text();
       errorDetail = errorText;
       console.error('Schema error:', errorText);
-    } catch (e) {
+    } catch {
       // Could not read error details
     }
     
