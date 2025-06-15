@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
 import Image from "next/image";
-import { logout, getCurrentUser } from "@/lib/authService";
+import { getCurrentUser } from "@/lib/authService";
 import { deleteVehicle } from "@/lib/vehicleService";
 import { getGeofenceStatus } from "@/utils/geofenceUtils";
 import useSWR from 'swr';
@@ -98,16 +98,7 @@ const SidebarComponent = ({
     }
   }, [vehicles, relayLoadingVehicleId, initialRelayStatus, showRelayLoadingModal]);
 
-  // Fungsi untuk logout
-  const handleLogout = async () => {
-    try {
-      await logout();
-      // Pastikan redirect terjadi setelah logout selesai
-        window.location.href = "/auth/login";
-    } catch (error) {
-        console.error("Logout Error:", error);
-    }
-  };
+
 
   // Fungsi untuk memilih kendaraan
   const handleSelectVehicle = (vehicle) => {
@@ -603,14 +594,6 @@ const SidebarComponent = ({
           {showHistory ? "HIDE HISTORY" : "SHOW HISTORY"}
         </button>
       </div>
-
-      {/* Tombol logout */}
-      <button 
-        onClick={handleLogout} 
-        className="mt-4 bg-red-500 hover:bg-red-600 text-white px-6 py-2 text-lg rounded-md w-full transition-colors duration-200"
-      >
-        Logout
-      </button>
       </div>
 
       {/* Modal peringatan pilih kendaraan */}
@@ -707,7 +690,7 @@ const SidebarComponent = ({
 
       {/* Modal notifikasi sukses */}
       {showSuccessNotification && createPortal(
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
           <div className="bg-white p-6 rounded-md shadow-lg max-w-md">
             <h3 className="text-lg font-bold mb-4 text-green-600 text-center">Berhasil Menghapus Kendaraan!</h3>
             <p className="mb-4">{successMessage}</p>
@@ -726,7 +709,7 @@ const SidebarComponent = ({
 
       {/* Modal notifikasi relay */}
       {showRelayNotification && createPortal(
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
           <div className="bg-white p-6 rounded-md shadow-lg max-w-md">
             <h3 className={`text-lg font-bold mb-4 ${
               relayNotifStatus === 'success' ? 'text-green-600' : 'text-red-500'
@@ -759,7 +742,7 @@ const SidebarComponent = ({
 
       {/* Modal Loading Relay - Menunggu Status Berubah */}
       {showRelayLoadingModal && createPortal(
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
           <div className="bg-white p-6 rounded-md shadow-lg max-w-md">
             <div className="text-center">
               <div className="mb-4">

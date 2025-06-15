@@ -5,7 +5,7 @@ import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
 import { getCurrentUser } from "@/lib/authService";
 
 /**
- * Modal untuk menambahkan dan mengatur geofence dengan wajib pilih kendaraan untuk single polygon
+ * Modal untuk menambahkan dan mengatur geofence dengan pilihan kendaraan
  */
 const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehicles = [] }, ref) => {
   // State management
@@ -20,6 +20,7 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
   const [successMessage, setSuccessMessage] = useState("");
   const [isDrawing, setIsDrawing] = useState(false);
   const [polygonCoordinates, setPolygonCoordinates] = useState([]);
+  const [circleData, setCircleData] = useState({ center: null, radius: 0 });
   const [error, setError] = useState("");
 
   // Handle perubahan input form
@@ -31,15 +32,15 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
     }
   };
 
-  // Handle mulai drawing polygon atau multipolygon
+  // Handle mulai drawing polygon atau circle
   const handleStartDrawing = () => {
     if (!formData.name) {
       setError("Masukkan nama geofence terlebih dahulu!");
       return;
     }
 
-    // Untuk single polygon, wajib pilih kendaraan terlebih dahulu
-    if (formData.type === "polygon" && !formData.vehicle_id) {
+    // Wajib pilih kendaraan terlebih dahulu
+    if (!formData.vehicle_id) {
       setError("Pilih kendaraan terlebih dahulu untuk membuat geofence!");
       return;
     }
@@ -47,34 +48,49 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
     setError("");
     setIsDrawing(true);
     setPolygonCoordinates([]);
+    setCircleData({ center: null, radius: 0 });
     
-    // Pass multipolygon flag to parent
-    const isMultiPolygon = formData.type === "multipolygon";
-    onStartDrawing(true, isMultiPolygon);
+    // Pass drawing type to parent
+    onStartDrawing(true, formData.type);
   };
 
-  // Function ini akan dipanggil dari parent saat polygon selesai digambar
+  // Function ini akan dipanggil dari parent saat polygon/circle selesai digambar
   const handlePolygonComplete = (coordinates) => {
-    setPolygonCoordinates(coordinates);
+    if (formData.type === "polygon") {
+      setPolygonCoordinates(coordinates);
+    } else if (formData.type === "circle") {
+      setCircleData(coordinates);
+    }
     setIsDrawing(false);
     onStartDrawing(false, false);
   };
 
-  // Handle reset polygon
-  const handleResetPolygon = () => {
+  // Handle reset area
+  const handleResetArea = () => {
     setPolygonCoordinates([]);
+    setCircleData({ center: null, radius: 0 });
     setIsDrawing(false);
     setError("");
     onStartDrawing(false, false);
   };
 
-  // Expose handlePolygonComplete ke parent
+  // Function untuk circle completion
+  const handleCircleComplete = (circleData) => {
+    if (formData.type === "circle") {
+      setCircleData(circleData);
+    }
+    setIsDrawing(false);
+    onStartDrawing(false, false);
+  };
+
+  // Expose methods ke parent
   useImperativeHandle(ref, () => ({
-    handlePolygonComplete
+    handlePolygonComplete,
+    handleCircleComplete
   }));
 
   // Validasi dan kirim data ke API
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setSuccessMessage("");
@@ -95,8 +111,8 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
       return;
     }
 
-    // Untuk single polygon, wajib ada kendaraan yang dipilih
-    if (formData.type === "polygon" && !formData.vehicle_id) {
+    // Wajib ada kendaraan yang dipilih
+    if (!formData.vehicle_id) {
       setError("Pilih kendaraan untuk geofence ini!");
       setLoading(false);
       return;
@@ -109,20 +125,9 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
         setLoading(false);
         return;
       }
-    } else if (formData.type === "multipolygon") {
-      if (!Array.isArray(polygonCoordinates) || polygonCoordinates.length === 0) {
-        setError("Gambar area multipolygon terlebih dahulu!");
-        setLoading(false);
-        return;
-      }
-      
-      // Validate each polygon in multipolygon
-      const hasInvalidPolygon = polygonCoordinates.some(polygon => 
-        !Array.isArray(polygon) || polygon.length < 3
-      );
-      
-      if (hasInvalidPolygon) {
-        setError("Setiap polygon dalam multipolygon harus memiliki minimal 3 titik!");
+    } else if (formData.type === "circle") {
+      if (!circleData.center || circleData.radius <= 0) {
+        setError("Gambar area circle terlebih dahulu!");
         setLoading(false);
         return;
       }
@@ -148,24 +153,49 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
       
       formattedCoordinates = [convertedCoords];
       geometryType = "Polygon";
-    } else if (formData.type === "multipolygon") {
-      // MultiPolygon: convert each polygon
-      formattedCoordinates = polygonCoordinates.map(polygon => {
-        const convertedCoords = polygon.map(coord => [coord[1], coord[0]]);
-        
-        // Ensure each polygon is closed
-        if (convertedCoords.length > 0) {
-          const firstPoint = convertedCoords[0];
-          const lastPoint = convertedCoords[convertedCoords.length - 1];
-          
-          if (firstPoint[0] !== lastPoint[0] || firstPoint[1] !== lastPoint[1]) {
-            convertedCoords.push([...firstPoint]);
-          }
-        }
-        
-        return [convertedCoords]; // Wrap in array for polygon holes support
-      });
-      geometryType = "MultiPolygon";
+    } else if (formData.type === "circle") {
+      // Circle: convert to polygon for GeoJSON compatibility
+      geometryType = "Polygon";
+      
+      // Validate circle data structure
+      if (!circleData || !circleData.center || circleData.radius === undefined) {
+        setError("Data circle tidak valid. Silakan gambar circle ulang.");
+        setLoading(false);
+        return;
+      }
+      
+      // Handle Leaflet LatLng object or plain object
+      let centerLng, centerLat;
+      
+      if (typeof circleData.center === 'object') {
+        // Handle both Leaflet LatLng object and plain object
+        centerLng = circleData.center.lng !== undefined ? circleData.center.lng : 
+                   (circleData.center.lon !== undefined ? circleData.center.lon : null);
+        centerLat = circleData.center.lat !== undefined ? circleData.center.lat : null;
+      }
+      
+      if (centerLng === null || centerLat === null) {
+        setError("Koordinat center circle tidak valid. Silakan gambar circle ulang.");
+        setLoading(false);
+        return;
+      }
+      
+      // Convert circle to polygon (create points around circumference)
+      const radiusInDegrees = circleData.radius / 111000; // Rough conversion: 1 degree ≈ 111km
+      const points = [];
+      const numPoints = 32; // Number of points to create the circle polygon
+      
+      for (let i = 0; i < numPoints; i++) {
+        const angle = (i * 2 * Math.PI) / numPoints;
+        const pointLng = centerLng + (radiusInDegrees * Math.cos(angle));
+        const pointLat = centerLat + (radiusInDegrees * Math.sin(angle));
+        points.push([pointLng, pointLat]);
+      }
+      
+      // Close the polygon by adding the first point at the end
+      points.push([...points[0]]);
+      
+      formattedCoordinates = [points];
     }
 
     // Format data untuk API
@@ -178,56 +208,60 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
       },
       rule_type: formData.rule_type,
       status: formData.status,
-      vehicle_id: formData.vehicle_id || null,
+      vehicle_id: formData.vehicle_id,
       user_id: currentUser.userId,
       date_created: new Date().toISOString()
     };
 
     // Kirim data ke API
-    fetch("/api/TambahGeofence", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(geofenceData),
-    })
-      .then(async (res) => {
-        const responseText = await res.text();
-        
-        if (!res.ok) {
-          let errorData;
-          try {
-            errorData = JSON.parse(responseText);
-          } catch (e) {
-            errorData = { message: responseText };
-          }
-          throw new Error(errorData.message || `HTTP ${res.status}: ${res.statusText}`);
-        }
-        
-        try {
-          return JSON.parse(responseText);
-        } catch (e) {
-          throw new Error("Invalid JSON response");
-        }
-      })
-      .then((data) => {
-        const selectedVehicle = vehicles.find(v => v.vehicle_id === formData.vehicle_id);
-        const vehicleName = selectedVehicle ? `${selectedVehicle.name} (${selectedVehicle.license_plate})` : formData.vehicle_id;
-        
-        setSuccessMessage(
-          `Geofence "${formData.name}" untuk kendaraan ${vehicleName} berhasil dibuat!`
-        );
-        
-        // Tunggu 1 detik sebelum menutup modal
-        setTimeout(() => {
-          onSucceed();
-        }, 1000);
-      })
-      .catch((err) => {
-        console.error("Error membuat geofence:", err);
-        setError(`Gagal membuat geofence: ${err.message}`);
-      })
-      .finally(() => {
-        setLoading(false);
+    try {
+      const response = await fetch("/api/TambahGeofence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(geofenceData),
       });
+
+      const responseText = await response.text();
+
+      if (!response.ok) {
+        let errorData;
+        try {
+          errorData = JSON.parse(responseText);
+        } catch (e) {
+          errorData = { message: responseText };
+        }
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        throw new Error("Invalid JSON response");
+      }
+
+      // Success
+      const selectedVehicle = vehicles.find(v => v.vehicle_id === formData.vehicle_id);
+      const vehicleName = selectedVehicle ? `${selectedVehicle.name} (${selectedVehicle.license_plate})` : formData.vehicle_id;
+      
+      setSuccessMessage(
+        `Geofence "${formData.name}" untuk kendaraan ${vehicleName} berhasil dibuat!`
+      );
+      
+      // Tunggu 1 detik sebelum menutup modal
+      setTimeout(() => {
+        onSucceed();
+      }, 1000);
+
+    } catch (err) {
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        setError(`Network error: ${err.message}. Periksa koneksi internet.`);
+      } else {
+        setError(`Gagal membuat geofence: ${err.message}`);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Helper untuk mendapatkan nama kendaraan yang dipilih
@@ -236,41 +270,39 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
     return selectedVehicle ? `${selectedVehicle.name} (${selectedVehicle.license_plate})` : "";
   };
 
-  // Helper untuk menghitung jumlah polygon
-  const getPolygonCount = () => {
+  // Helper untuk menghitung status area
+  const getAreaStatus = () => {
     if (formData.type === "polygon") {
-      return polygonCoordinates.length >= 3 ? 1 : 0;
-    } else if (formData.type === "multipolygon") {
-      return Array.isArray(polygonCoordinates) ? polygonCoordinates.length : 0;
+      return polygonCoordinates.length >= 3 ? "Selesai" : `${polygonCoordinates.length} titik`;
+    } else if (formData.type === "circle") {
+      return circleData.center && circleData.radius > 0 ? "Selesai" : "Belum digambar";
     }
-    return 0;
+    return "Belum digambar";
   };
 
-  // Helper untuk menghitung total titik
-  const getTotalPoints = () => {
+  // Helper untuk menghitung total titik/info
+  const getAreaInfo = () => {
     if (formData.type === "polygon") {
-      return polygonCoordinates.length;
-    } else if (formData.type === "multipolygon") {
-      return Array.isArray(polygonCoordinates) 
-        ? polygonCoordinates.reduce((total, polygon) => total + polygon.length, 0)
-        : 0;
+      return `${polygonCoordinates.length} titik`;
+    } else if (formData.type === "circle") {
+      return circleData.radius > 0 ? `Radius: ${Math.round(circleData.radius)}m` : "Belum ada data";
     }
-    return 0;
+    return "Belum ada data";
   };
 
   return (
     <div 
-      className="fixed inset-0 z-50"
+      className="fixed inset-0 z-[9999] flex items-center justify-center"
       style={{
         background: isDrawing ? 'transparent' : 'rgba(0, 0, 0, 0.5)',
         pointerEvents: isDrawing ? 'none' : 'auto'
       }}
     >
       <div 
-        className={`bg-white p-8 rounded-md shadow-lg max-h-[90vh] overflow-y-auto transition-all duration-300 ${
+        className={`bg-white p-8 rounded-md shadow-lg max-h-[90vh] overflow-y-auto ${
           isDrawing 
-            ? 'fixed top-4 right-4 w-80 z-[60]'
-            : 'relative max-w-md mx-auto mt-20'
+            ? 'fixed top-20 right-4 w-80 z-[10000]'
+            : 'w-full max-w-md'
         }`}
         style={{ pointerEvents: 'auto' }}
       >
@@ -317,32 +349,33 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
               value={formData.type}
               onChange={handleChange}
               className="w-full border p-2 rounded"
-              disabled={isDrawing || polygonCoordinates.length > 0}
+              disabled={isDrawing || polygonCoordinates.length > 0 || (circleData.center && circleData.radius > 0)}
             >
-              <option value="polygon">Polygon (Area Tunggal)</option>
-              <option value="multipolygon">Multipolygon (Multiple Area)</option>
+              <option value="polygon">Polygon (Area Berbentuk Poligon)</option>
+              <option value="circle">Circle (Area Berbentuk Lingkaran)</option>
             </select>
-            {formData.type === "multipolygon" && (
-              <p className="text-xs text-gray-500 mt-1">
-                Multipolygon memungkinkan Anda membuat beberapa area geofence dalam satu definisi
-              </p>
-            )}
+            <p className="text-xs text-gray-500 mt-1">
+              {formData.type === "polygon" 
+                ? "Polygon memungkinkan Anda membuat area dengan bentuk bebas"
+                : "Circle memungkinkan Anda membuat area berbentuk lingkaran dengan radius tertentu"
+              }
+            </p>
           </div>
 
-          {/* Select kendaraan - WAJIB untuk single polygon */}
+          {/* Select kendaraan - WAJIB */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              {formData.type === "polygon" ? "Pilih Kendaraan" : "Pilih Kendaraan (Opsional)"}
+              Pilih Kendaraan
             </label>
             <select
               name="vehicle_id"
               value={formData.vehicle_id}
               onChange={handleChange}
               className={`w-full border p-2 rounded ${
-                formData.type === "polygon" && !formData.vehicle_id ? 'border-red-500' : ''
+                !formData.vehicle_id ? 'border-red-500' : ''
               }`}
               disabled={isDrawing}
-              required={formData.type === "polygon"}
+              required
             >
               <option value="">
                 {vehicles.length > 0 ? "-- Pilih Kendaraan --" : "Tidak ada kendaraan tersedia"}
@@ -353,12 +386,11 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
                 </option>
               ))}
             </select>
-            {formData.type === "polygon" && !formData.vehicle_id && (
+            {!formData.vehicle_id && (
               <p className="text-xs text-red-500 mt-1">
-                * Wajib pilih kendaraan untuk geofence single polygon
+                * Wajib pilih kendaraan untuk geofence
               </p>
             )}
-
           </div>
 
           {/* Select rule_type */}
@@ -396,22 +428,18 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
           </div>
 
           {/* Status drawing */}
-          {(isDrawing || polygonCoordinates.length > 0) && (
+          {(isDrawing || polygonCoordinates.length > 0 || (circleData.center && circleData.radius > 0)) && (
             <div className="p-3 bg-blue-50 rounded-md border border-blue-200">
               <p className="text-sm font-medium text-blue-800">Status Drawing:</p>
               <p className="text-xs text-blue-600">
-                Polygon: {getPolygonCount()} | Total Titik: {getTotalPoints()}
+                Status: {getAreaStatus()} | {getAreaInfo()}
               </p>
-              {formData.vehicle_id && (
-                <p className="text-xs text-green-600">
-                  Untuk kendaraan: {getSelectedVehicleName()}
-                </p>
-              )}
+             
               {isDrawing && (
                 <p className="text-xs text-blue-600 mt-1">
-                  {formData.type === "multipolygon" 
-                    ? "Klik kiri untuk titik, klik kanan untuk selesai polygon. Klik 'Finish' untuk selesai multipolygon."
-                    : "Klik kiri untuk titik, klik kanan untuk selesai polygon."
+                  {formData.type === "polygon" 
+                    ? "Klik kiri untuk titik, klik kanan untuk selesai polygon (min 3 titik)."
+                    : "Klik kiri pertama untuk center, klik kiri kedua untuk menentukan radius circle."
                   }
                 </p>
               )}
@@ -437,16 +465,17 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
                   type="button"
                   onClick={handleStartDrawing}
                   className="flex-1 bg-green-500 text-white p-2 rounded hover:bg-green-600 transition-colors duration-200 disabled:bg-gray-400"
-                  disabled={loading || (formData.type === "polygon" && !formData.vehicle_id)}
+                  disabled={loading || !formData.vehicle_id}
                 >
-                  Gambar Area {formData.type === "multipolygon" ? "Multipolygon" : "Polygon"}
+                  Gambar {formData.type === "circle" ? "Circle" : "Polygon"}
                 </button>
                 
-                {/* Tombol Simpan - muncul setelah polygon digambar */}
-                {polygonCoordinates.length > 0 && (
+                {/* Tombol Simpan - muncul setelah area digambar */}
+                {((formData.type === "polygon" && polygonCoordinates.length > 0) || 
+                  (formData.type === "circle" && circleData.center && circleData.radius > 0)) && (
                   <button
                     type="submit"
-                    disabled={loading || (formData.type === "polygon" && !formData.vehicle_id)}
+                    disabled={loading || !formData.vehicle_id}
                     className="flex-1 bg-green-500 text-white p-2 rounded hover:bg-green-600 disabled:bg-gray-400"
                   >
                     {loading ? "Menyimpan..." : "Simpan"}
@@ -456,7 +485,7 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
             ) : (
               <button
                 type="button"
-                onClick={handleResetPolygon}
+                onClick={handleResetArea}
                 className="flex-1 bg-red-500 text-white p-2 rounded hover:bg-red-600"
               >
                 Batal Gambar
@@ -464,11 +493,12 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
             )}
           </div>
 
-          {/* Reset coordinates button */}
-          {!isDrawing && polygonCoordinates.length > 0 && (
+          {/* Reset area button */}
+          {!isDrawing && ((formData.type === "polygon" && polygonCoordinates.length > 0) || 
+            (formData.type === "circle" && circleData.center && circleData.radius > 0)) && (
             <button
               type="button"
-              onClick={handleResetPolygon}
+              onClick={handleResetArea}
               className="w-full bg-yellow-500 text-white p-2 rounded hover:bg-yellow-600 text-sm"
             >
               Reset Area yang Digambar

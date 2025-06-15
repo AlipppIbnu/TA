@@ -1,11 +1,12 @@
 // components/MapComponent.js - Versi yang ditingkatkan dengan SWR dan pencocokan gps_id yang benar
-import { MapContainer, TileLayer, Marker, Popup, Polyline, Polygon, useMap, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Polyline, Polygon, Circle, useMap, useMapEvents } from "react-leaflet";
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useMemo } from "react";
 import useSWR from 'swr';
 import { useWebSocket } from '@/lib/hooks/useWebSocket';
 import L from "leaflet";
 import { getGeofenceStatus } from "@/utils/geofenceUtils";
 import { createPortal } from 'react-dom';
+import AnimatedMarker from './AnimatedMarker';
 
 // Ikon kendaraan
 const vehicleIcon = new L.Icon({
@@ -108,19 +109,66 @@ const FlyToPosition = ({ position }) => {
   return null;
 };
 
-// Komponen DrawingHandler yang ditingkatkan dengan dukungan multipolygon
-const DrawingHandler = forwardRef(({ isDrawingMode, onPolygonComplete, isMultiPolygon = false }, ref) => {
+// Komponen DrawingHandler yang mendukung polygon dan circle
+const DrawingHandler = forwardRef(({ isDrawingMode, drawingType, onPolygonComplete }, ref) => {
   const map = useMap();
   const [currentPolygon, setCurrentPolygon] = useState([]);
-  const [polygons, setPolygons] = useState([]);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [tempMarkers, setTempMarkers] = useState([]);
-  const [tempPolyline, setTempPolyline] = useState(null);
+  const [circleCenter, setCircleCenter] = useState(null);
+  
+  // Gunakan refs untuk melacak temporary layers secara langsung
+  const tempMarkersRef = useRef([]);
+  const tempPolylineRef = useRef(null);
+  const tempCircleRef = useRef(null);
+
+  // Fungsi untuk membersihkan semua temporary elements
+  const clearTemporaryElements = () => {
+    // Clear markers
+    tempMarkersRef.current.forEach(marker => {
+      try {
+        if (marker && map.hasLayer(marker)) {
+          map.removeLayer(marker);
+        }
+      } catch (e) {
+        console.warn('Error removing marker:', e);
+      }
+    });
+    tempMarkersRef.current = [];
+    
+    // Clear polyline
+    if (tempPolylineRef.current) {
+      try {
+        if (map.hasLayer(tempPolylineRef.current)) {
+          map.removeLayer(tempPolylineRef.current);
+        }
+      } catch (e) {
+        console.warn('Error removing polyline:', e);
+      }
+      tempPolylineRef.current = null;
+    }
+    
+    // Clear circle
+    if (tempCircleRef.current) {
+      try {
+        if (map.hasLayer(tempCircleRef.current)) {
+          map.removeLayer(tempCircleRef.current);
+        }
+      } catch (e) {
+        console.warn('Error removing circle:', e);
+      }
+      tempCircleRef.current = null;
+    }
+    
+    setCurrentPolygon([]);
+    setIsDrawing(false);
+    setCircleCenter(null);
+  };
 
   useMapEvents({
     click: (e) => {
       if (!isDrawingMode) return;
       
+      if (drawingType === "polygon") {
       const newPoint = [e.latlng.lat, e.latlng.lng];
       const newPolygon = [...currentPolygon, newPoint];
       
@@ -133,12 +181,12 @@ const DrawingHandler = forwardRef(({ isDrawingMode, onPolygonComplete, isMultiPo
         zIndexOffset: 1000
       }).addTo(map);
       
-      setTempMarkers(prev => [...prev, marker]);
+        tempMarkersRef.current.push(marker);
       
       // Buat polyline visual
       if (newPolygon.length > 1) {
-        if (tempPolyline) {
-          map.removeLayer(tempPolyline);
+          if (tempPolylineRef.current) {
+            map.removeLayer(tempPolylineRef.current);
         }
         
         const polyline = L.polyline(newPolygon, {
@@ -147,113 +195,222 @@ const DrawingHandler = forwardRef(({ isDrawingMode, onPolygonComplete, isMultiPo
           dashArray: '5, 5'
         }).addTo(map);
         
-        setTempPolyline(polyline);
+          tempPolylineRef.current = polyline;
+        }
+      } else if (drawingType === "circle") {
+        if (!isDrawing) {
+          // Klik pertama: Set center point
+          setCircleCenter(e.latlng);
+          setIsDrawing(true);
+          
+          // Add center marker
+          const marker = L.marker(e.latlng, {
+            icon: polygonPointIcon,
+            zIndexOffset: 1000
+          }).addTo(map);
+          
+          tempMarkersRef.current = [marker];
+        } else if (circleCenter) {
+          // Klik kedua: Set radius dan selesaikan circle
+          const radius = circleCenter.distanceTo(e.latlng);
+          
+          if (radius >= 10) { // Minimum radius 10 meters
+            onPolygonComplete({
+              center: circleCenter,
+              radius: radius
+            });
+            
+            clearTemporaryElements();
+          }
+        }
       }
     },
     
     contextmenu: (e) => {
-      if (!isDrawingMode || currentPolygon.length < 3) return;
+      if (!isDrawingMode) return;
       
-      if (isMultiPolygon) {
-        // Tambahkan polygon saat ini ke daftar polygon
-        setPolygons(prev => [...prev, currentPolygon]);
-        
-        // Hapus polygon saat ini tapi tetap aktifkan mode menggambar
-        setCurrentPolygon([]);
-        
-        // Hapus marker dan polyline sementara
-        tempMarkers.forEach(marker => map.removeLayer(marker));
-        setTempMarkers([]);
-        
-        if (tempPolyline) {
-          map.removeLayer(tempPolyline);
-          setTempPolyline(null);
-        }
-        
-        // Alert pengguna
-        alert('Polygon ditambahkan! Klik kanan pada peta untuk menambah polygon lain, atau klik "Finish" untuk menyelesaikan multipolygon.');
-      } else {
-        // Mode polygon tunggal - selesaikan menggambar
+      if (drawingType === "polygon" && currentPolygon.length >= 3) {
+        // Mode polygon - selesaikan menggambar
         onPolygonComplete(currentPolygon);
-        setCurrentPolygon([]);
-        setIsDrawing(false);
-        
-        tempMarkers.forEach(marker => map.removeLayer(marker));
-        setTempMarkers([]);
-        
-        if (tempPolyline) {
-          map.removeLayer(tempPolyline);
-          setTempPolyline(null);
+        clearTemporaryElements();
+      }
+      // Untuk circle, tidak ada aksi pada context menu (klik kanan)
+    },
+    
+    mousemove: (e) => {
+      if (!isDrawingMode || drawingType !== "circle" || !isDrawing || !circleCenter) return;
+      
+      const radius = circleCenter.distanceTo(e.latlng);
+      
+      // Minimum radius 10 meters
+      if (radius < 10) return;
+      
+      // Clear existing temporary circle
+      if (tempCircleRef.current) {
+        try {
+          if (map.hasLayer(tempCircleRef.current)) {
+            map.removeLayer(tempCircleRef.current);
+          }
+        } catch (e) {
+          console.warn('Error removing temp circle in mousemove:', e);
         }
+        tempCircleRef.current = null;
+      }
+      
+      // Create new temporary circle
+      try {
+        const circle = L.circle(circleCenter, {
+          radius: radius,
+          color: 'red',
+          fillColor: 'red',
+          fillOpacity: 0.2,
+          weight: 2,
+          dashArray: '5, 5'
+        }).addTo(map);
+        
+        tempCircleRef.current = circle;
+      } catch (e) {
+        console.warn('Error creating temp circle:', e);
+      }
+    },
+    
+    // Tambahkan event handler untuk membersihkan temporary elements saat map mulai digeser
+    movestart: () => {
+      if (isDrawingMode) {
+        // Bersihkan temporary circle saat map mulai digeser
+        if (tempCircleRef.current) {
+          try {
+            if (map.hasLayer(tempCircleRef.current)) {
+              map.removeLayer(tempCircleRef.current);
+            }
+          } catch (e) {
+            console.warn('Error removing temp circle in movestart:', e);
+          }
+          tempCircleRef.current = null;
+        }
+      }
+    },
+    
+    // Event handler saat map selesai digeser
+    moveend: () => {
+      // Tidak perlu action khusus, temporary elements sudah dibersihkan di movestart
+    },
+    
+    // Event handler untuk zoom
+    zoomstart: () => {
+      if (isDrawingMode) {
+        // Bersihkan temporary circle saat zoom mulai
+        if (tempCircleRef.current) {
+          try {
+            if (map.hasLayer(tempCircleRef.current)) {
+              map.removeLayer(tempCircleRef.current);
+            }
+          } catch (e) {
+            console.warn('Error removing temp circle in zoomstart:', e);
+          }
+          tempCircleRef.current = null;
+        }
+      }
+    },
+    
+    // Event handler untuk ESC key atau cancel drawing
+    keydown: (e) => {
+      if (e.originalEvent.key === 'Escape' && isDrawingMode && isDrawing) {
+        // Cancel current drawing
+        clearTemporaryElements();
+      }
+    },
+    
+    // Additional event handlers untuk mengatasi masalah drag/pan
+    dragstart: () => {
+      if (isDrawingMode && tempCircleRef.current) {
+        try {
+          if (map.hasLayer(tempCircleRef.current)) {
+            map.removeLayer(tempCircleRef.current);
+          }
+        } catch (e) {
+          console.warn('Error removing temp circle in dragstart:', e);
+        }
+        tempCircleRef.current = null;
+      }
+    },
+    
+    drag: () => {
+      // Clear temporary circle during drag to prevent stuck circles
+      if (isDrawingMode && tempCircleRef.current) {
+        try {
+          if (map.hasLayer(tempCircleRef.current)) {
+            map.removeLayer(tempCircleRef.current);
+          }
+        } catch (e) {
+          console.warn('Error removing temp circle in drag:', e);
+        }
+        tempCircleRef.current = null;
+      }
+    },
+    
+    // Clear temporary circle when mouse leaves the map
+    mouseout: () => {
+      if (isDrawingMode && drawingType === "circle" && tempCircleRef.current) {
+        try {
+          if (map.hasLayer(tempCircleRef.current)) {
+            map.removeLayer(tempCircleRef.current);
+          }
+        } catch (e) {
+          console.warn('Error removing temp circle in mouseout:', e);
+        }
+        tempCircleRef.current = null;
       }
     }
   });
 
-  // Fungsi untuk menyelesaikan gambar multipolygon
-  const finishMultiPolygon = () => {
-    let allPolygons = [...polygons];
-    
-    // Tambahkan polygon saat ini jika valid
-    if (currentPolygon.length >= 3) {
-      allPolygons = [...polygons, currentPolygon];
-    }
-    
-    if (allPolygons.length > 0) {
-      // Kirim semua polygon ke komponen parent
-      onPolygonComplete(allPolygons);
-      
-      // Reset state
-      setPolygons([]);
-      setCurrentPolygon([]);
-      setIsDrawing(false);
-      
-      // Bersihkan peta
-      tempMarkers.forEach(marker => map.removeLayer(marker));
-      setTempMarkers([]);
-      
-      if (tempPolyline) {
-        map.removeLayer(tempPolyline);
-        setTempPolyline(null);
-      }
-    }
-  };
-
-  // Expose fungsi finish ke komponen parent
-  useImperativeHandle(ref, () => ({
-    finishMultiPolygon
-  }));
-
   // Bersihkan ketika mode menggambar berubah
   useEffect(() => {
     if (!isDrawingMode) {
-      setCurrentPolygon([]);
-      setPolygons([]);
-      setIsDrawing(false);
-      tempMarkers.forEach(marker => map.removeLayer(marker));
-      setTempMarkers([]);
-      if (tempPolyline) {
-        map.removeLayer(tempPolyline);
-        setTempPolyline(null);
-      }
+      clearTemporaryElements();
     }
-  }, [isDrawingMode, map, tempMarkers, tempPolyline]);
+  }, [isDrawingMode, drawingType]);
+
+  // Cleanup saat component unmount
+  useEffect(() => {
+    return () => {
+      clearTemporaryElements();
+    };
+  }, []);
+
+  // Aggressive cleanup untuk temporary circle yang stuck
+  useEffect(() => {
+    if (!isDrawingMode || drawingType !== "circle") {
+      // Force cleanup all temporary circles when not in circle drawing mode
+      clearTemporaryElements();
+    }
+  }, [isDrawingMode, drawingType]);
+
+  // Periodic cleanup untuk memastikan tidak ada temporary circles yang stuck
+  useEffect(() => {
+    if (isDrawingMode && drawingType === "circle") {
+      const cleanupInterval = setInterval(() => {
+        // Hanya bersihkan jika tidak sedang aktif menggambar
+        if (!isDrawing && tempCircleRef.current) {
+          try {
+            if (map.hasLayer(tempCircleRef.current)) {
+              map.removeLayer(tempCircleRef.current);
+            }
+          } catch (e) {
+            console.warn('Error in periodic cleanup:', e);
+          }
+          tempCircleRef.current = null;
+        }
+      }, 1000); // Check every second
+
+      return () => clearInterval(cleanupInterval);
+    }
+  }, [isDrawingMode, drawingType, isDrawing, map]);
 
   return (
     <>
-      {/* Render all completed polygons */}
-      {polygons.map((polygon, index) => (
-        <Polygon 
-          key={`polygon-${index}`}
-          positions={polygon} 
-          color="purple" 
-          fillColor="purple" 
-          fillOpacity={0.2}
-          weight={2}
-        />
-      ))}
-      
       {/* Render current polygon if it has at least 3 points */}
-      {isDrawing && currentPolygon.length >= 3 && (
+      {drawingType === "polygon" && isDrawing && currentPolygon.length >= 3 && (
         <Polygon 
           positions={currentPolygon} 
           color="red" 
@@ -264,21 +421,7 @@ const DrawingHandler = forwardRef(({ isDrawingMode, onPolygonComplete, isMultiPo
         />
       )}
       
-      {/* UI for multipolygon mode */}
-      {isDrawingMode && isMultiPolygon && (
-        <div className="absolute top-20 right-4 bg-white p-4 rounded shadow-md z-50">
-          <p className="text-sm font-bold mb-2">Multipolygon Drawing</p>
-          <p className="text-xs mb-1">Polygons: {polygons.length}</p>
-          <p className="text-xs mb-2">Current points: {currentPolygon.length}</p>
-          <button 
-            onClick={finishMultiPolygon}
-            className="px-3 py-1 bg-green-500 text-white text-sm rounded"
-            disabled={polygons.length === 0 && currentPolygon.length < 3}
-          >
-            Finish Drawing
-          </button>
-        </div>
-      )}
+
     </>
   );
 });
@@ -290,7 +433,7 @@ const MapComponent = forwardRef(({
   vehicles, 
   selectedVehicle, 
   isDrawingMode = false,
-  isMultiPolygon = false,
+  drawingType = "polygon",
   onPolygonComplete,
   geofences = [],
   allGeofences = [],
@@ -312,7 +455,6 @@ const MapComponent = forwardRef(({
   const lastFlyEventRef = useRef('');
   const mapRef = useRef(null);
   const mapReadyRef = useRef(false);
-  const drawingHandlerRef = useRef(null);
 
   // SWR untuk data kendaraan real-time (kecepatan, dll.)
   const { 
@@ -354,10 +496,10 @@ const MapComponent = forwardRef(({
     swrKey,
     fetcher,
     {
-      refreshInterval: 1000,
+      refreshInterval: 2000, // Refresh setiap 2 detik untuk real-time yang lebih responsif
       revalidateOnFocus: false,
       revalidateOnReconnect: true,
-      dedupingInterval: 500,
+      dedupingInterval: 1000, // Kurangi dedupe interval
       errorRetryCount: 3,
       errorRetryInterval: 5000,
       onSuccess: (data) => {
@@ -383,8 +525,7 @@ const MapComponent = forwardRef(({
   // Monitor WebSocket connection status
   useEffect(() => {
     if (websocket) {
-      console.log("🟢 WebSocket connected for real-time coordinates");
-      console.log("WebSocket readyState:", websocket.readyState);
+      // WebSocket connected for real-time coordinates
     }
   }, [websocket]);
 
@@ -488,11 +629,6 @@ const MapComponent = forwardRef(({
       // console.log("Manual flyToVehicle called with position:", position); // Removed debugging log
       setFlyToPositionWhenSelected(position);
       lastFlyEventRef.current = 'manual_api_call';
-    },
-    finishMultiPolygon: () => {
-      if (drawingHandlerRef.current) {
-        drawingHandlerRef.current.finishMultiPolygon();
-      }
     }
   }), []);
 
@@ -627,9 +763,8 @@ const MapComponent = forwardRef(({
         )}
 
         <DrawingHandler 
-          ref={drawingHandlerRef}
           isDrawingMode={isDrawingMode}
-          isMultiPolygon={isMultiPolygon}
+          drawingType={drawingType}
           onPolygonComplete={handlePolygonComplete}
         />
 
@@ -651,7 +786,7 @@ const MapComponent = forwardRef(({
           // Jika vehicle.geofence_id null/undefined, geofenceStatus tetap null
           
           return vehicle.position ? (
-            <Marker
+            <AnimatedMarker
               key={`vehicle-${vehicle.vehicle_id}`}
               position={[vehicle.position.lat, vehicle.position.lng]}
               icon={vehicleIcon}
@@ -742,7 +877,7 @@ const MapComponent = forwardRef(({
                   </div>
                 </div>
               </Popup>
-            </Marker>
+            </AnimatedMarker>
           ) : (
             // console.log(`Vehicle ${vehicle.vehicle_id} has no position data`),
             null
@@ -775,8 +910,6 @@ const MapComponent = forwardRef(({
         {!isDrawingMode && geofences.map((geofence) => {
           // console.log('MapComponent rendering geofence:', geofence);
           
-          let polygons = [];
-          
           try {
             // Parse geofence definition
             const geoData = typeof geofence.definition === 'string' 
@@ -786,31 +919,123 @@ const MapComponent = forwardRef(({
             // console.log('Geofence geoData:', geoData);
             
             if (geoData && geoData.coordinates) {
-              if (geoData.type === 'Polygon') {
-                // Single polygon: convert [lng, lat] to [lat, lng]
+              // Check the original type field to distinguish between polygon and circle
+              const originalType = geofence.type; // This is the type we set (polygon/circle)
+              
+              if (originalType === 'circle') {
+                // Circle stored as polygon - render as polygon but show circle info
                 const coords = geoData.coordinates[0].map(coord => [coord[1], coord[0]]);
-                polygons.push(coords);
-                // console.log('Polygon coords:', coords);
-              } else if (geoData.type === 'MultiPolygon') {
-                // MultiPolygon: process each polygon
-                polygons = geoData.coordinates.map(polygonCoords => 
-                  polygonCoords[0].map(coord => [coord[1], coord[0]])
+                
+                return (
+                  <Polygon
+                    key={`geofence-${geofence.geofence_id || geofence.id}`}
+                    positions={coords}
+                    color={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
+                    fillColor={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
+                    fillOpacity={0.1}
+                    weight={2}
+                    opacity={0.8}
+                  >
+                    <Popup maxWidth={380}>
+                      <div className="p-2 font-sans">
+                        <h3 className="font-bold text-lg mb-3 text-blue-700 border-b border-gray-200 pb-2 text-center">
+                          {geofence.name}
+                        </h3>
+                        
+                        <div className="text-sm leading-relaxed">
+                          {/* Geofence Info */}
+                          <div className="mb-3">
+                            <div className="flex justify-between mb-2">
+                              <div className="flex-1 mr-2.5">
+                                <div className="text-xs text-gray-500 uppercase mb-0.5">Tipe</div>
+                                <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
+                                  geofence.rule_type === 'FORBIDDEN' 
+                                    ? 'bg-red-100 text-red-800' 
+                                    : 'bg-green-100 text-green-800'
+                                }`}>
+                                  {geofence.rule_type === 'FORBIDDEN' ? 'TERLARANG' : 'STAY_IN'}
+                                </span>
+                              </div>
+                              <div className="flex-1">
+                                <div className="text-xs text-gray-500 uppercase mb-0.5">Status</div>
+                                <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
+                                  geofence.status === 'active' 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                  {geofence.status === 'active' ? 'AKTIF' : 'INACTIVE'}
+                                </span>
+                              </div>
+                            </div>
+                            {/* Circle specific info */}
+                            <div className="text-xs text-gray-600 mt-2">
+                              <span className="font-medium">Bentuk:</span> Circle (Area Lingkaran)
+                            </div>
+                          </div>
+
+                          {/* Associated Vehicle */}
+                          <div className="bg-blue-50 p-2.5 rounded-md mb-3">
+                            <div className="font-semibold text-gray-700 mb-1.5">Kendaraan Terkait</div>
+                            {(() => {
+                              // Cari vehicle yang menggunakan geofence ini
+                              const vehicleUsingThisGeofence = vehicles.find(v => v.geofence_id === geofence.geofence_id);
+                              return vehicleUsingThisGeofence ? (
+                                <div className="p-2 bg-white rounded border border-gray-200">
+                                  <div className="font-semibold text-xs text-blue-700 mb-0.5">
+                                    {vehicleUsingThisGeofence.name}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {vehicleUsingThisGeofence.license_plate} • {vehicleUsingThisGeofence.make} {vehicleUsingThisGeofence.model}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="p-2 bg-gray-50 rounded border border-dashed border-gray-300 text-center">
+                                  <div className="text-xs text-gray-500 italic">
+                                    Tidak dikaitkan dengan kendaraan
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          {/* Date Created */}
+                          {geofence.date_created && (
+                            <div className="border-t border-gray-200 pt-2 mb-3 text-center">
+                              <div className="text-xs text-gray-500">
+                                <span className="font-semibold">Dibuat:</span><br/>
+                                {new Date(geofence.date_created).toLocaleString('id-ID', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Delete Button */}
+                          <div className="border-t border-gray-200 pt-3 text-center">
+                            <button
+                              onClick={() => handleDeleteGeofence(geofence.geofence_id, geofence.name)}
+                              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-xs font-semibold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 min-w-[120px]"
+                            >
+                              Hapus Geofence
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </Popup>
+                  </Polygon>
                 );
-                // console.log('MultiPolygon coords:', polygons);
               }
-            }
-          } catch (e) {
-            // console.error('Error parsing geofence data:', e);
-          }
-
-          // console.log('Final polygons to render:', polygons);
-
-          // Render polygons
-          return polygons.map((coords, index) => {
-            // console.log(`Rendering polygon ${index} for geofence ${geofence.name}:`, coords);
+              else if (geoData.type === 'Polygon') {
+                // Regular polygon
+                const coords = geoData.coordinates[0].map(coord => [coord[1], coord[0]]);
+                
             return (
               <Polygon
-                key={`geofence-${geofence.geofence_id || geofence.id || index}-${index}`}
+                    key={`geofence-${geofence.geofence_id || geofence.id}`}
                 positions={coords}
                 color={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
                 fillColor={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
@@ -848,6 +1073,10 @@ const MapComponent = forwardRef(({
                               {geofence.status === 'active' ? 'AKTIF' : 'INACTIVE'}
                             </span>
                           </div>
+                        </div>
+                        {/* Polygon specific info */}
+                        <div className="text-xs text-gray-600 mt-2">
+                          <span className="font-medium">Bentuk:</span> Polygon (Area Custom)
                         </div>
                       </div>
 
@@ -906,14 +1135,133 @@ const MapComponent = forwardRef(({
                 </Popup>
               </Polygon>
             );
-          });
+              } else if (geoData.type === 'Circle') {
+                // Circle: render using Circle component
+                const center = [geoData.coordinates.center[1], geoData.coordinates.center[0]]; // Convert [lng, lat] to [lat, lng]
+                const radius = geoData.coordinates.radius;
+                
+                return (
+                  <Circle
+                    key={`geofence-${geofence.geofence_id || geofence.id}`}
+                    center={center}
+                    radius={radius}
+                    color={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
+                    fillColor={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
+                    fillOpacity={0.1}
+                    weight={2}
+                    opacity={0.8}
+                  >
+                    <Popup maxWidth={380}>
+                      <div className="p-2 font-sans">
+                        <h3 className="font-bold text-lg mb-3 text-blue-700 border-b border-gray-200 pb-2 text-center">
+                          {geofence.name}
+                        </h3>
+                        
+                        <div className="text-sm leading-relaxed">
+                          {/* Geofence Info */}
+                          <div className="mb-3">
+                            <div className="flex justify-between mb-2">
+                              <div className="flex-1 mr-2.5">
+                                <div className="text-xs text-gray-500 uppercase mb-0.5">Tipe</div>
+                                <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
+                                  geofence.rule_type === 'FORBIDDEN' 
+                                    ? 'bg-red-100 text-red-800' 
+                                    : 'bg-green-100 text-green-800'
+                                }`}>
+                                  {geofence.rule_type === 'FORBIDDEN' ? 'TERLARANG' : 'STAY_IN'}
+                                </span>
+                              </div>
+                              <div className="flex-1">
+                                <div className="text-xs text-gray-500 uppercase mb-0.5">Status</div>
+                                <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
+                                  geofence.status === 'active' 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                  {geofence.status === 'active' ? 'AKTIF' : 'INACTIVE'}
+                                </span>
+                              </div>
+                            </div>
+                            {/* Circle specific info */}
+                            <div className="text-xs text-gray-600 mt-2">
+                              <span className="font-medium">Radius:</span> {Math.round(radius)}m
+                            </div>
+                          </div>
+
+                          {/* Associated Vehicle */}
+                          <div className="bg-blue-50 p-2.5 rounded-md mb-3">
+                            <div className="font-semibold text-gray-700 mb-1.5">Kendaraan Terkait</div>
+                            {(() => {
+                              // Cari vehicle yang menggunakan geofence ini
+                              const vehicleUsingThisGeofence = vehicles.find(v => v.geofence_id === geofence.geofence_id);
+                              return vehicleUsingThisGeofence ? (
+                                <div className="p-2 bg-white rounded border border-gray-200">
+                                  <div className="font-semibold text-xs text-blue-700 mb-0.5">
+                                    {vehicleUsingThisGeofence.name}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {vehicleUsingThisGeofence.license_plate} • {vehicleUsingThisGeofence.make} {vehicleUsingThisGeofence.model}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="p-2 bg-gray-50 rounded border border-dashed border-gray-300 text-center">
+                                  <div className="text-xs text-gray-500 italic">
+                                    Tidak dikaitkan dengan kendaraan
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          {/* Date Created */}
+                          {geofence.date_created && (
+                            <div className="border-t border-gray-200 pt-2 mb-3 text-center">
+                              <div className="text-xs text-gray-500">
+                                <span className="font-semibold">Dibuat:</span><br/>
+                                {new Date(geofence.date_created).toLocaleString('id-ID', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Delete Button */}
+                          <div className="border-t border-gray-200 pt-3 text-center">
+                            <button
+                              onClick={() => handleDeleteGeofence(geofence.geofence_id, geofence.name)}
+                              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-xs font-semibold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 min-w-[120px]"
+                            >
+                              Hapus Geofence
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </Popup>
+                  </Circle>
+                );
+              }
+            }
+            
+            return null;
+          } catch (e) {
+            // console.error('Error parsing geofence data:', e);
+            return null;
+          }
         })}
 
         {/* Drawing mode indicator */}
         {isDrawingMode && (
           <div className="absolute top-2.5 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-5 py-2.5 rounded z-[1000] shadow-md">
             <span className="flex items-center">
-              Mode Drawing Aktif {isMultiPolygon ? '(Multipolygon)' : '(Polygon)'} - klik kiri untuk titik, klik kanan untuk selesai (min 3 titik)
+              Mode Drawing Aktif ({drawingType === "circle" ? "Circle" : "Polygon"}) - 
+              {drawingType === "polygon" 
+                ? " klik kiri untuk titik, klik kanan untuk selesai (min 3 titik)"
+                : " klik kiri untuk center, klik kiri kedua untuk menentukan radius"
+              }
             </span>
           </div>
         )}
@@ -968,7 +1316,7 @@ const MapComponent = forwardRef(({
 
       {/* Modal notifikasi sukses */}
       {showSuccessNotification && createPortal(
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
           <div className="bg-white p-6 rounded-md shadow-lg max-w-md">
             <h3 className="text-lg font-bold mb-4 text-green-600 text-center">Berhasil Menghapus Geofence!</h3>
             <p className="mb-4">{successMessage}</p>

@@ -14,6 +14,7 @@ import { getGeofenceStatus } from "@/utils/geofenceUtils";
 import { toast, ToastContainer } from 'react-toastify';
 import { handleGeofenceViolation } from '@/utils/geofenceApi';
 import GeofenceNotification from '@/components/GeofenceNotification';
+import UserDropdown from '@/components/UserDropdown';
 
 // Import dinamis untuk MapComponent (tanpa SSR)
 const MapComponent = dynamic(() => import("../components/MapComponent"), { ssr: false });
@@ -51,10 +52,9 @@ export default function Dashboard() {
   // State untuk geofence
   const [showGeofenceModal, setShowGeofenceModal] = useState(false);
   const [isDrawingMode, setIsDrawingMode] = useState(false);
-  const [isMultiPolygon, setIsMultiPolygon] = useState(false);
+  const [drawingType, setDrawingType] = useState('polygon');
   const [geofences, setGeofences] = useState([]);
   const [vehicleGeofenceVisibility, setVehicleGeofenceVisibility] = useState({});
-  const [finishMultiPolygonCallback, setFinishMultiPolygonCallback] = useState(null);
 
   // State untuk UI
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -284,8 +284,8 @@ export default function Dashboard() {
       }
     };
 
-    // Reload positions every 60 seconds for fresh data
-    const positionInterval = setInterval(reloadVehiclePositions, 60000);
+    // Reload positions every 30 seconds for fresh data (dipercepat untuk real-time yang lebih baik)
+    const positionInterval = setInterval(reloadVehiclePositions, 30000);
 
     return () => {
       clearInterval(positionInterval);
@@ -422,18 +422,9 @@ export default function Dashboard() {
   };
 
   // Handler untuk drawing mode
-  const handleStartDrawing = (start = true, isMultiPolygon = false) => {
+  const handleStartDrawing = (start = true, type = 'polygon') => {
     setIsDrawingMode(start);
-    setIsMultiPolygon(isMultiPolygon);
-  };
-
-  // Handler untuk finish multipolygon
-  const handleFinishMultiPolygon = () => {
-    if (finishMultiPolygonCallback) {
-      finishMultiPolygonCallback();
-    } else {
-      console.error("Dashboard: finishMultiPolygonCallback is null");
-    }
+    setDrawingType(type);
   };
 
   // Handler untuk polygon completion
@@ -443,11 +434,18 @@ export default function Dashboard() {
     }
   };
 
+  // Handler untuk circle completion
+  const handleCircleComplete = (circleData) => {
+    if (geofenceModalRef.current) {
+      geofenceModalRef.current.handleCircleComplete(circleData);
+    }
+  };
+
   // Handler untuk ketika geofence berhasil dibuat
   const handleGeofenceSukses = async () => {
     setShowGeofenceModal(false);
     setIsDrawingMode(false);
-    setIsMultiPolygon(false);
+    setDrawingType('polygon');
     
     try {
       // Reload both geofences AND vehicles (karena vehicle.geofence_id berubah)
@@ -495,6 +493,7 @@ export default function Dashboard() {
   const handleCloseGeofenceModal = () => {
     setShowGeofenceModal(false);
     setIsDrawingMode(false);
+    setDrawingType('polygon');
   };
 
   // Handler untuk toggle geofence visibility
@@ -604,17 +603,35 @@ export default function Dashboard() {
       <main
         className={`transition-all duration-300 ease-in-out lg:ml-80`}
       >
-        {/* Map Container */}
-        <div className="relative h-screen">
-          {/* Mobile Menu Button */}
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="lg:hidden fixed top-4 right-16 z-[1001] p-2 bg-white rounded-md shadow-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
+        {/* Header */}
+        {!isDrawingMode && (
+          <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4 fixed top-0 left-0 right-0 lg:left-80 z-[2000]">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center">
+              {/* Mobile Menu Button */}
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="lg:hidden mr-4 p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              
+              {/* Page Title */}
+              <h1 className="text-xl font-semibold text-gray-900">VehiTrack Dashboard</h1>
+            </div>
+            
+            {/* User Dropdown */}
+            <UserDropdown />
+          </div>
+        </header>
+        )}
+
+                 {/* Map Container */}
+         <div className={`relative h-screen ${
+           isDrawingMode ? 'pt-0' : 'pt-[73px]'
+         }`}>
 
           {/* Map */}
         <MapComponent
@@ -622,15 +639,18 @@ export default function Dashboard() {
           vehicles={vehicles}
           selectedVehicle={selectedVehicle}
           isDrawingMode={isDrawingMode}
-          isMultiPolygon={isMultiPolygon}
+          drawingType={drawingType}
           onPolygonComplete={handlePolygonComplete}
+          onCircleComplete={handleCircleComplete}
             geofences={getVisibleGeofences()}
             allGeofences={geofences}
             onGeofenceDeleted={handleGeofenceDeleted}
           />
 
           {/* Geofence Notifications - positioned on the right */}
-          <div className="fixed top-4 right-4 z-[9999] space-y-3 max-w-[420px] w-full">
+          <div className={`fixed right-4 z-[9999] space-y-3 max-w-[420px] w-full transition-all duration-300 ${
+            isDrawingMode ? 'top-4' : 'top-20'
+          }`}>
             {geofenceNotifications.map((notification) => (
               <GeofenceNotification
                 key={notification.id}
@@ -661,7 +681,6 @@ export default function Dashboard() {
               onStartDrawing={handleStartDrawing}
               vehicles={vehicles}
               selectedVehicle={selectedVehicle}
-              onFinishMultiPolygon={handleFinishMultiPolygon}
             />
           )}
         </div>
@@ -676,7 +695,7 @@ export default function Dashboard() {
 
       {/* Error Alert */}
       {showErrorAlert && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
             <div className="bg-white p-8 rounded-lg shadow-2xl max-w-md w-full mx-4">
               <div className="text-center">
                 <div className="mx-auto h-16 w-16 text-red-500 flex items-center justify-center mb-4">
