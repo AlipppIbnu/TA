@@ -458,7 +458,7 @@ const MapComponent = forwardRef(({
 
   // SWR untuk data kendaraan real-time (kecepatan, dll.)
   const {} = useSWR(
-    'http://ec2-13-229-83-7.ap-southeast-1.compute.amazonaws.com:8055/items/vehicle_datas',
+    'http://vehitrack.my.id/directus/items/vehicle_datas',
     vehicleDataFetcher,
     {
       refreshInterval: 5000,

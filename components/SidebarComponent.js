@@ -71,7 +71,7 @@ const SidebarComponent = ({
   const { 
     data: vehicleData
   } = useSWR(
-    'http://ec2-13-229-83-7.ap-southeast-1.compute.amazonaws.com:8055/items/vehicle_datas',
+    'http://vehitrack.my.id/directus/items/vehicle_datas',
     vehicleDataFetcher,
     {
       refreshInterval: 5000,
@@ -108,7 +108,7 @@ const SidebarComponent = ({
   // Fungsi untuk menampilkan riwayat kendaraan
   const handleHistoryClick = () => {
     if (!selectedVehicleId) {
-      showErrorMessage("Pilih kendaraan terlebih dahulu.");
+      setShowSelectVehicleAlert(true);
       return;
     }
 
@@ -535,11 +535,11 @@ const SidebarComponent = ({
 
       {/* Modal peringatan pilih kendaraan */}
       {showSelectVehicleAlert && createPortal(
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
           <div className="bg-white p-6 rounded-md shadow-lg max-w-md">
             <h3 className="text-lg font-bold mb-4 text-red-500 text-center">Peringatan</h3>
             <p className="mb-4 text-center">
-              Anda harus memilih kendaraan terlebih dahulu untuk melihat history perjalanan.
+              Anda harus memilih kendaraan terlebih dahulu untuk melihat history perjalanan
             </p>
             <div className="flex justify-end mt-6">
               <button 
