@@ -6,7 +6,10 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { getCurrentUser } from "@/lib/authService";
-import useSWR from 'swr';
+import { useWebSocket } from '@/lib/hooks/useWebSocket';
+import ModalHistoryDateRange from './ModalHistoryDateRange';
+import ModalTambahKendaraan from './ModalTambahKendaraan';
+import UserDropdown from './UserDropdown';
 
 // SWR fetcher for vehicle data
 const vehicleDataFetcher = async (url) => {
@@ -40,6 +43,8 @@ const SidebarComponent = ({
   // State untuk kendaraan
   const [selectedVehicleId, setSelectedVehicleId] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [showHistoryDateRangeModal, setShowHistoryDateRangeModal] = useState(false);
+  const [showHistoryPeriodModal, setShowHistoryPeriodModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [vehicleToDelete, setVehicleToDelete] = useState(null);
   const [vehicleGeofenceVisibility, setVehicleGeofenceVisibility] = useState({});
@@ -67,18 +72,36 @@ const SidebarComponent = ({
   const [relayStatusChanged, setRelayStatusChanged] = useState(false);
   const [initialRelayStatus, setInitialRelayStatus] = useState('');
 
-  // SWR untuk mengambil data kendaraan real-time (speed, RPM, dll)
-  const { 
-    data: vehicleData
-  } = useSWR(
-    'http://vehitrack.my.id/directus/items/vehicle_datas',
-    vehicleDataFetcher,
-    {
-      refreshInterval: 5000,
-      revalidateOnFocus: false,
-      revalidateOnReconnect: true,
+  // State untuk vehicle data dari WebSocket
+  const [vehicleData, setVehicleData] = useState([]);
+
+  // Gunakan WebSocket untuk real-time data
+  const { data: wsData, isConnected } = useWebSocket();
+
+  // Update vehicle data ketika WebSocket mengirim data baru
+  useEffect(() => {
+    if (wsData && wsData.data && Array.isArray(wsData.data)) {
+      // Transform data menjadi array dengan format yang sesuai
+      const newVehicleData = wsData.data.map(data => ({
+        gps_id: data.gps_id,
+        speed: data.speed,
+        rpm: data.rpm,
+        fuel_level: data.fuel_level,
+        ignition_status: data.ignition_status,
+        battery_level: data.battery_level,
+        satellites_used: data.satellites_used,
+        timestamp: data.timestamp
+      }));
+      setVehicleData(newVehicleData);
     }
-  );
+  }, [wsData]);
+
+  // Monitor WebSocket connection status
+  useEffect(() => {
+    if (!isConnected) {
+      console.warn("⚠️ WebSocket disconnected - vehicle data may be stale");
+    }
+  }, [isConnected]);
 
   // Monitor perubahan status relay
   useEffect(() => {
@@ -90,6 +113,11 @@ const SidebarComponent = ({
       }
     }
   }, [vehicles, relayLoadingVehicleId, initialRelayStatus, showRelayLoadingModal]);
+
+  // Helper function untuk mendapatkan data kendaraan berdasarkan gps_id
+  const getVehicleDataByGpsId = (gpsId) => {
+    return vehicleData.find(data => data.gps_id === gpsId) || null;
+  };
 
   // Fungsi untuk memilih kendaraan
   const handleSelectVehicle = (vehicle) => {
@@ -119,14 +147,21 @@ const SidebarComponent = ({
       }
       setShowHistory(false);
     } else {
-      // Show history - use the parent's onHistoryClick function
-      if (onHistoryClick) {
-        onHistoryClick(selectedVehicleId);
-        setShowHistory(true);
-      } else {
-        showErrorMessage("Fungsi history tidak tersedia");
-      }
+      // Show history date range modal
+      setShowHistoryDateRangeModal(true);
     }
+  };
+
+  // Fungsi untuk handle pemilihan rentang waktu
+  const handleSelectDateRange = (startDate, endDate) => {
+    // Show history - use the parent's onHistoryClick function
+    if (onHistoryClick) {
+      onHistoryClick(selectedVehicleId, startDate, endDate);
+      setShowHistory(true);
+    } else {
+      showErrorMessage("Fungsi history tidak tersedia");
+    }
+    setShowHistoryDateRangeModal(false);
   };
 
   // Fungsi untuk set geofence
@@ -386,7 +421,7 @@ const SidebarComponent = ({
         {vehicles.length > 0 ? (
           vehicles.map((vehicle) => {
               // Find matching vehicle data for speed and RPM
-              const latestVehicleData = vehicleData?.find(data => data.gps_id === vehicle.gps_id);
+              const latestVehicleData = getVehicleDataByGpsId(vehicle.gps_id);
             
             return (
             <div
@@ -405,16 +440,7 @@ const SidebarComponent = ({
                     
                   {vehicle.sim_card_number && (
                       <p className="text-sm text-black mb-1">SIM Card: {vehicle.sim_card_number}</p>
-                  )}
-                  {vehicle.gps_device_id && (
-                      <p className="text-sm text-black mb-1">GPS Device: {vehicle.gps_device_id}</p>
-                  )}
-                  {vehicle.position && (
-                      <p className="text-sm text-black mb-2">
-                      Koordinat: {`${vehicle.position.lat.toFixed(5)}, ${vehicle.position.lng.toFixed(5)}`}
-                  </p>
-                  )}
-                    
+                  )}   
                     {vehicle.relay_status && (
                       <p className="text-sm text-black mb-2">
                       Status Mesin: {
@@ -430,11 +456,6 @@ const SidebarComponent = ({
                       <p className="mb-1">
                         Kecepatan: <span className="text-blue-600 font-semibold">{latestVehicleData?.speed || 0} km/h</span>
                       </p>
-                      {latestVehicleData?.fuel_level && (
-                        <p className="mb-1">
-                          Bahan Bakar: <span className="text-orange-600 font-semibold">{latestVehicleData.fuel_level}%</span>
-                    </p>
-                  )}
                 </div>
                     
                     {/* Button controls - GEO, ENGINE ON/OFF */}
@@ -739,6 +760,22 @@ const SidebarComponent = ({
         </div>
         </div>,
         document.body
+      )}
+
+      {/* Modal History Date Range */}
+      {showHistoryDateRangeModal && (
+        <ModalHistoryDateRange
+          onClose={() => setShowHistoryDateRangeModal(false)}
+          onSelectDateRange={handleSelectDateRange}
+        />
+      )}
+
+      {/* Modal History Period */}
+      {showHistoryPeriodModal && (
+        <ModalHistoryPeriod
+          onClose={() => setShowHistoryPeriodModal(false)}
+          onSelectPeriod={handleSelectPeriod}
+        />
       )}
     </>
   );

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Marker } from 'react-leaflet';
 
 // Simple AnimatedMarker component for smooth movement only
-const AnimatedMarker = ({ position, duration = 1500, ...markerProps }) => {
+const AnimatedMarker = ({ position, duration = 1000, ...markerProps }) => {
   const [currentPosition, setCurrentPosition] = useState(position);
   const animationRef = useRef(null);
   const startTimeRef = useRef(null);

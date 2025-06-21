@@ -1,9 +1,8 @@
-// pages/_app.js - Next.js App Component dengan SWR Provider
+// pages/_app.js - Next.js App Component
 import { useState, useEffect } from "react";
 import "../styles/globals.css";
 import "leaflet/dist/leaflet.css";
 import "leaflet-draw/dist/leaflet.draw.css";
-import SWRProvider from "../components/SWRProvider";
 import { useRouter } from 'next/router'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
@@ -46,9 +45,9 @@ export default function MyApp({ Component, pageProps }) {
     );
   }
 
-  // Render komponen halaman yang aktif dengan SWR Provider
+  // Render komponen halaman yang aktif
   return (
-    <SWRProvider>
+    <>
       <Component {...pageProps} />
       <ToastContainer
         position="top-right"
@@ -62,6 +61,6 @@ export default function MyApp({ Component, pageProps }) {
         pauseOnHover
         theme="light"
       />
-    </SWRProvider>
+    </>
   );
 }

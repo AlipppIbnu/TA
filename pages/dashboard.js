@@ -279,8 +279,8 @@ export default function Dashboard() {
       }
     };
 
-    // Reload positions every 30 seconds for fresh data (dipercepat untuk real-time yang lebih baik)
-    const positionInterval = setInterval(reloadVehiclePositions, 30000);
+    // Reload positions every second for fresh data
+    const positionInterval = setInterval(reloadVehiclePositions, 1000);
 
     return () => {
       clearInterval(positionInterval);
@@ -306,9 +306,9 @@ export default function Dashboard() {
   };
 
   // Fungsi untuk handle klik riwayat kendaraan
-  const handleHistoryClick = async (vehicleId) => {
+  const handleHistoryClick = async (vehicleId, startDate, endDate) => {
     if (!vehicleId) return;
-  
+
     try {
       // Pastikan kendaraan masih ada dalam daftar
       const existingVehicle = vehicles.find(v => v.vehicle_id === vehicleId);
@@ -324,7 +324,7 @@ export default function Dashboard() {
       }
 
       // Option 1: Use dedicated history API (cleaner)
-      const historyUrl = `/api/history?gps_id=${encodeURIComponent(existingVehicle.gps_id)}`;
+      const historyUrl = `/api/history?gps_id=${encodeURIComponent(existingVehicle.gps_id)}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`;
 
       const response = await fetch(historyUrl);
 
@@ -334,7 +334,7 @@ export default function Dashboard() {
       }
       
       const data = await response.json();
-  
+
       if (!data.success || !data.data || data.data.length === 0) {
         showErrorMessage(`Tidak ada data history untuk kendaraan ${existingVehicle.name}\n(${existingVehicle.license_plate})`);
         return;
@@ -342,17 +342,17 @@ export default function Dashboard() {
 
       // Data sudah difilter di API, tinggal transform ke format yang dibutuhkan map
       const pathCoords = data.data.map(coord => ({
-          lat: parseFloat(coord.latitude),
-          lng: parseFloat(coord.longitude),
+        lat: parseFloat(coord.latitude),
+        lng: parseFloat(coord.longitude),
         timestamp: coord.timestamp
-        }));
+      }));
 
       // Gunakan existingVehicle yang sudah diverifikasi
       setSelectedVehicle({
         ...existingVehicle,
         path: pathCoords
       });
-  
+
     } catch (err) {
       console.error("Gagal ambil riwayat koordinat:", err);
       showErrorMessage("Gagal memuat riwayat kendaraan: " + err.message);

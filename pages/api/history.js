@@ -6,17 +6,22 @@ export default async function handler(req, res) {
     return res.status(405).json({ success: false, message: 'Method not allowed' });
   }
 
-  const { gps_id } = req.query;
+  const { gps_id, start_date, end_date } = req.query;
 
   if (!gps_id) {
     return res.status(400).json({ success: false, message: 'gps_id parameter is required' });
   }
 
   try {
-    // console.log(`Fetching history for gps_id: ${gps_id}`); // Removed debugging log
+    // Build filter for date range if provided
+    let filter = `filter[gps_id][_eq]=${encodeURIComponent(gps_id)}`;
+    
+    if (start_date && end_date) {
+      filter += `&filter[timestamp][_between]=${encodeURIComponent([start_date, end_date].join(','))}`;
+    }
 
     // Construct API URL for fetching historical data for specific gps_id
-    const API_URL = `${directusConfig.baseURL}/items/vehicle_datas?filter[gps_id][_eq]=${encodeURIComponent(gps_id)}&sort=-timestamp&limit=1000`;
+    const API_URL = `${directusConfig.baseURL}/items/vehicle_datas?${filter}&sort=-timestamp&limit=100000`;
     
     // console.log(`History API URL: ${API_URL}`); // Removed debugging log
 

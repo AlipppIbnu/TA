@@ -1,12 +1,12 @@
 // components/MapComponent.js - Versi yang ditingkatkan dengan SWR dan pencocokan gps_id yang benar
-import { MapContainer, TileLayer, Popup, Polyline, Polygon, Circle, useMap, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Popup, Polyline, Polygon, Circle, useMap, useMapEvents, CircleMarker } from "react-leaflet";
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useMemo, useCallback } from "react";
-import useSWR from 'swr';
 import { useWebSocket } from '@/lib/hooks/useWebSocket';
 import L from "leaflet";
 import { getGeofenceStatus } from "@/utils/geofenceUtils";
 import { createPortal } from 'react-dom';
 import AnimatedMarker from './AnimatedMarker';
+import HistoryPath from './HistoryPath';
 
 // Ikon kendaraan
 const vehicleIcon = new L.Icon({
@@ -26,74 +26,6 @@ const polygonPointIcon = new L.Icon({
   iconSize: [16, 16],
   iconAnchor: [8, 8],
 });
-
-// Fungsi SWR Fetcher
-const fetcher = async (url) => {
-  // console.log("Fetching from:", url); // Log debugging dihapus
-  
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
-  
-  try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        'Cache-Control': 'no-cache'
-      }
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    
-    if (!data.success || !Array.isArray(data.data)) {
-      throw new Error('Invalid API response format');
-    }
-    
-    return data;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    throw error;
-  }
-};
-
-// Fungsi SWR Fetcher untuk data kendaraan
-const vehicleDataFetcher = async (url) => {
-  // console.log("Fetching vehicle data from:", url); // Log debugging dihapus
-  
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
-  
-  try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        'Cache-Control': 'no-cache'
-      }
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    
-    if (!data.data || !Array.isArray(data.data)) {
-      throw new Error('Invalid API response format');
-    }
-    
-    return data.data;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    throw error;
-  }
-};
 
 // Komponen FlyToPosition
 const FlyToPosition = ({ position }) => {
@@ -456,102 +388,15 @@ const MapComponent = forwardRef(({
   const mapRef = useRef(null);
   const mapReadyRef = useRef(false);
 
-  // SWR untuk data kendaraan real-time (kecepatan, dll.)
-  const {} = useSWR(
-    'http://vehitrack.my.id/directus/items/vehicle_datas',
-    vehicleDataFetcher,
-    {
-      refreshInterval: 5000,
-      revalidateOnFocus: false,
-      revalidateOnReconnect: true,
-      dedupingInterval: 2000,
-      errorRetryCount: 3,
-      errorRetryInterval: 5000,
-    }
-  );
-
-  // SWR untuk real-time vehicle coordinates
-  const swrKey = useMemo(() => {
-    // Don't use 'since' parameter on first load to ensure we get data
-    let url = "/api/KoordinatKendaraan?last_only=true";
-    
-    // Only add 'since' parameter if we have received data before
-    // This ensures first request always gets data
-    if (lastFetchTimestamp && hasReceivedDataBefore) {
-      url += `&since=${encodeURIComponent(lastFetchTimestamp)}`;
-    }
-    
-    return url;
-  }, [lastFetchTimestamp, hasReceivedDataBefore]);
-
-  const { 
-    data: coordinateData, 
-    error
-  } = useSWR(
-    swrKey,
-    fetcher,
-    {
-      refreshInterval: 2000, // Refresh setiap 2 detik untuk real-time yang lebih responsif
-      revalidateOnFocus: false,
-      revalidateOnReconnect: true,
-      dedupingInterval: 1000, // Kurangi dedupe interval
-      errorRetryCount: 3,
-      errorRetryInterval: 5000,
-      onSuccess: (data) => {
-        if (data && data.timestamp) {
-          setLastFetchTimestamp(data.timestamp);
-        }
-        // Mark that we've received data before
-        setHasReceivedDataBefore(true);
-      },
-      onError: (error) => {
-        console.error("SWR Error:", error);
-      }
-    }
-  );
-
-  // WebSocket untuk real-time coordinate updates
-  const { 
-    data: wsCoordinateData, 
-    ws: websocket
-  } = useWebSocket('/items/vehicle_datas');
+  // Gunakan WebSocket untuk real-time updates
+  const { data: wsData, isConnected } = useWebSocket();
 
   // Monitor WebSocket connection status
   useEffect(() => {
-    if (websocket) {
-      // WebSocket connected for real-time coordinates
+    if (!isConnected) {
+      console.warn("⚠️ WebSocket disconnected - vehicle positions may be stale");
     }
-  }, [websocket]);
-
-  // Monitor WebSocket data changes
-  useEffect(() => {
-    if (wsCoordinateData) {
-      // Update timestamp when we get WebSocket data
-      setLastFetchTimestamp(new Date().toISOString());
-      setHasReceivedDataBefore(true);
-    }
-  }, [wsCoordinateData]);
-
-  // Combine SWR and WebSocket data - prioritize WebSocket for real-time
-  const realTimeCoordinateData = useMemo(() => {
-    if (wsCoordinateData && wsCoordinateData.data) {
-      return wsCoordinateData;
-    }
-    return coordinateData;
-  }, [wsCoordinateData, coordinateData]);
-
-  // Monitor WebSocket health and fallback to faster SWR polling if needed
-  useEffect(() => {
-    // If WebSocket is not connected after 10 seconds, increase SWR refresh rate
-    const wsHealthCheck = setTimeout(() => {
-      if (!websocket || websocket.readyState !== WebSocket.OPEN) {
-        console.warn("⚠️ WebSocket not connected, increasing SWR polling frequency");
-        // The SWR config will handle this automatically
-      }
-    }, 10000);
-
-    return () => clearTimeout(wsHealthCheck);
-  }, [websocket]);
+  }, [isConnected]);
 
   // Process and merge coordinate data with initial vehicles using gps_id
   const updatedVehicles = useMemo(() => {
@@ -559,55 +404,48 @@ const MapComponent = forwardRef(({
       return [];
     }
 
-    // Always return vehicles with their current position, whether from initial load or SWR
+    // Always return vehicles with their current position
     let result = [...vehicles];
 
-    // If we have fresh coordinate data from SWR, update the positions
-    if (realTimeCoordinateData && realTimeCoordinateData.data && realTimeCoordinateData.data.length > 0) {
+    // If we have fresh coordinate data from WebSocket, update the positions
+    if (wsData && wsData.data && wsData.data.length > 0) {
       // Create coordinate updates map using gps_id
-    const coordinateUpdates = {};
-      realTimeCoordinateData.data.forEach(coord => {
+      const coordinateUpdates = {};
+      wsData.data.forEach(coord => {
         // Use gps_id for matching instead of vehicle_id
         if (coord && coord.gps_id) {
           coordinateUpdates[coord.gps_id] = coord;
         }
       });
 
-      // Update vehicles with new coordinates from SWR
+      // Update vehicles with new coordinates
       result = vehicles.map(vehicle => {
         // Match using gps_id field
         const update = coordinateUpdates[vehicle.gps_id];
-      
-      if (update) {
-        const newLat = parseFloat(update.latitude);
-        const newLng = parseFloat(update.longitude);
         
-        if (!isNaN(newLat) && !isNaN(newLng)) {
-          return {
-            ...vehicle,
-            position: {
-              lat: newLat,
-              lng: newLng,
-              timestamp: update.timestamp
-            }
-          };
+        if (update) {
+          const newLat = parseFloat(update.latitude);
+          const newLng = parseFloat(update.longitude);
+          
+          if (!isNaN(newLat) && !isNaN(newLng)) {
+            return {
+              ...vehicle,
+              position: {
+                lat: newLat,
+                lng: newLng,
+                timestamp: update.timestamp
+              }
+            };
           }
-      }
-      
-        // Return vehicle with existing position if no SWR update
-      return vehicle;
-    });
+        }
+        
+        // Return vehicle with existing position if no update
+        return vehicle;
+      });
     }
     
     return result;
-  }, [vehicles, realTimeCoordinateData]);
-
-  // Error handling
-  useEffect(() => {
-    if (error) {
-      console.error("SWR Error:", error);
-    }
-  }, [error]);
+  }, [vehicles, wsData]);
 
   // Initial map center
   const initialCenter = useMemo(() => {
@@ -736,34 +574,34 @@ const MapComponent = forwardRef(({
 
   return (
     <>
-      <MapContainer
-        ref={mapRef}
-        center={initialCenter}
-        zoom={12}
-        style={{ width: "100%", height: "100vh" }}
-        className="map-container"
-        dragging={!isDrawingMode}
-        scrollWheelZoom={!isDrawingMode}
-        doubleClickZoom={false}
-      >
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-        />
+    <MapContainer
+      ref={mapRef}
+      center={initialCenter}
+      zoom={12}
+      style={{ width: "100%", height: "100vh" }}
+      className="map-container"
+      dragging={!isDrawingMode}
+      scrollWheelZoom={!isDrawingMode}
+      doubleClickZoom={false}
+    >
+      <TileLayer
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+      />
 
-        {/* Fly to position when vehicle selected */}
-        {flyToPositionWhenSelected && (
-          <FlyToPosition position={flyToPositionWhenSelected} />
-        )}
+      {/* Fly to position when vehicle selected */}
+      {flyToPositionWhenSelected && (
+        <FlyToPosition position={flyToPositionWhenSelected} />
+      )}
 
-        <DrawingHandler 
-          isDrawingMode={isDrawingMode}
+      <DrawingHandler 
+        isDrawingMode={isDrawingMode}
           drawingType={drawingType}
-          onPolygonComplete={handlePolygonComplete}
-        />
+        onPolygonComplete={handlePolygonComplete}
+      />
 
-        {/* Vehicles markers */}
-        {!isDrawingMode && updatedVehicles.map((vehicle) => {
+      {/* Vehicles markers */}
+      {!isDrawingMode && updatedVehicles.map((vehicle) => {
           
           // Get geofence status untuk kendaraan ini - hanya cek geofence yang terkait
           let geofenceStatus = null;
@@ -776,34 +614,34 @@ const MapComponent = forwardRef(({
             }
           }
           // Jika vehicle.geofence_id null/undefined, geofenceStatus tetap null
-          
-          return vehicle.position ? (
+        
+        return vehicle.position ? (
             <AnimatedMarker
-              key={`vehicle-${vehicle.vehicle_id}`}
-              position={[vehicle.position.lat, vehicle.position.lng]}
-              icon={vehicleIcon}
-            >
-              <Popup maxWidth={320}>
+            key={`vehicle-${vehicle.vehicle_id}`}
+            position={[vehicle.position.lat, vehicle.position.lng]}
+            icon={vehicleIcon}
+          >
+            <Popup maxWidth={320}>
                 <div className="p-2 font-sans">
                   <h3 className="font-bold text-lg mb-3 text-blue-700 border-b border-gray-200 pb-2 text-center">
-                    {vehicle.name}
-                  </h3>
-                  
+                  {vehicle.name}
+                </h3>
+                
                   <div className="text-sm leading-relaxed">
-                    {/* Basic Info */}
+                  {/* Basic Info */}
                     <div className="mb-3">
                       <div className="flex justify-between mb-1.5">
                         <div className="flex-1 mr-2.5">
                           <div className="text-xs text-gray-500 uppercase mb-0.5">Plat Nomor</div>
                           <div className="font-semibold text-gray-700">{vehicle.license_plate}</div>
-                        </div>
+                      </div>
                         <div className="flex-1">
                           <div className="text-xs text-gray-500 uppercase mb-0.5">GPS ID</div>
                           <div className="font-semibold text-gray-700">{vehicle.gps_id}</div>
-                        </div>
                       </div>
                     </div>
-                    
+                  </div>
+                  
                     {/* Location & Vehicle ID */}
                     <div className="mb-3">
                       <div className="flex justify-between mb-1.5">
@@ -813,8 +651,8 @@ const MapComponent = forwardRef(({
                             <div className="mb-1">
                               <span className="text-gray-500">Lat: </span>
                               <span className="font-semibold text-gray-700">{vehicle.position.lat.toFixed(6)}</span>
-                            </div>
-                            <div>
+                      </div>
+                      <div>
                               <span className="text-gray-500">Lng: </span>
                               <span className="font-semibold text-gray-700">{vehicle.position.lng.toFixed(6)}</span>
                             </div>
@@ -823,14 +661,14 @@ const MapComponent = forwardRef(({
                         <div className="flex-1">
                           <div className="text-xs text-gray-500 uppercase mb-0.5">Vehicle ID</div>
                           <div className="font-semibold text-gray-700">{vehicle.vehicle_id}</div>
-                        </div>
                       </div>
                     </div>
-                    
-                    {/* Geofence Status */}
+                  </div>
+                  
+                  {/* Geofence Status */}
                     <div className="bg-gray-50 p-2.5 rounded-md mb-3">
                       <div className="font-semibold text-gray-700 mb-1.5">Status Geofence</div>
-                      {geofenceStatus ? (
+                    {geofenceStatus ? (
                         <div className={`px-2 py-1.5 rounded ${
                           geofenceStatus.inside 
                             ? 'border-l-4 border-green-500 bg-green-100' 
@@ -839,84 +677,67 @@ const MapComponent = forwardRef(({
                           <div className={`text-xs font-medium ${
                             geofenceStatus.inside ? 'text-green-800' : 'text-red-800'
                           }`}>
-                            {geofenceStatus.inside 
-                              ? `Dalam area: ${geofenceStatus.name}`
-                              : geofenceStatus.name 
-                                ? `Di luar area: ${geofenceStatus.name} (${(geofenceStatus.distance/1000).toFixed(2)} km)`
-                                : 'Di luar semua area'
-                            }
-                          </div>
+                          {geofenceStatus.inside 
+                            ? `Dalam area: ${geofenceStatus.name}`
+                            : geofenceStatus.name 
+                              ? `Di luar area: ${geofenceStatus.name} (${(geofenceStatus.distance/1000).toFixed(2)} km)`
+                              : 'Di luar semua area'
+                          }
                         </div>
-                      ) : (
+                      </div>
+                    ) : (
                         <div className="text-xs text-gray-500 italic">Tidak ada geofence</div>
-                      )}
-                    </div>
-                    
-                    {/* Timestamp */}
+                    )}
+                  </div>
+                  
+                  {/* Timestamp */}
                     <div className="border-t border-gray-200 pt-2 text-center">
                       <div className="text-xs text-gray-500">
                         <span className="font-semibold">Update Terakhir:</span><br/>
-                        {new Date(vehicle.position.timestamp).toLocaleString('id-ID', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit'
-                        })}
-                      </div>
+                      {new Date(vehicle.position.timestamp).toLocaleString('id-ID', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                      })}
                     </div>
                   </div>
                 </div>
-              </Popup>
+              </div>
+            </Popup>
             </AnimatedMarker>
-          ) : (
-            // console.log(`Vehicle ${vehicle.vehicle_id} has no position data`),
-            null
-          );
-        })}
+        ) : (
+          // console.log(`Vehicle ${vehicle.vehicle_id} has no position data`),
+          null
+        );
+      })}
 
-        {/* Vehicle path/history */}
-        {!isDrawingMode && selectedVehicle?.path && selectedVehicle.path.length > 1 && (() => {
-          // Validate path coordinates before rendering
-          const validPath = selectedVehicle.path.filter(coord => 
-            coord && 
-            !isNaN(coord.lat) && !isNaN(coord.lng) &&
-            coord.lat >= -90 && coord.lat <= 90 &&
-            coord.lng >= -180 && coord.lng <= 180
-          );
-          
-          // console.log(`Rendering path for vehicle ${selectedVehicle.vehicle_id}: ${validPath.length}/${selectedVehicle.path.length} valid coordinates`);
-          
-          return validPath.length > 1 ? (
-          <Polyline 
-              positions={validPath.map(coord => [coord.lat, coord.lng])}
-            color="blue" 
-            weight={3}
-            opacity={0.8}
-          />
-          ) : null;
-        })()}
+      {/* Vehicle path/history */}
+        {!isDrawingMode && selectedVehicle?.path && selectedVehicle.path.length > 1 && (
+          <HistoryPath path={selectedVehicle.path} />
+        )}
 
-        {/* Geofences - hidden during drawing */}
-        {!isDrawingMode && geofences.map((geofence) => {
-          // console.log('MapComponent rendering geofence:', geofence);
+      {/* Geofences - hidden during drawing */}
+      {!isDrawingMode && geofences.map((geofence) => {
+        // console.log('MapComponent rendering geofence:', geofence);
+        
+        try {
+          // Parse geofence definition
+          const geoData = typeof geofence.definition === 'string' 
+            ? JSON.parse(geofence.definition) 
+            : geofence.definition;
           
-          try {
-            // Parse geofence definition
-            const geoData = typeof geofence.definition === 'string' 
-              ? JSON.parse(geofence.definition) 
-              : geofence.definition;
-            
-            // console.log('Geofence geoData:', geoData);
-            
-            if (geoData && geoData.coordinates) {
+          // console.log('Geofence geoData:', geoData);
+          
+          if (geoData && geoData.coordinates) {
               // Check the original type field to distinguish between polygon and circle
               const originalType = geofence.type; // This is the type we set (polygon/circle)
               
               if (originalType === 'circle') {
                 // Circle stored as polygon - render as polygon but show circle info
-                const coords = geoData.coordinates[0].map(coord => [coord[1], coord[0]]);
+              const coords = geoData.coordinates[0].map(coord => [coord[1], coord[0]]);
                 
                 return (
                   <Polygon
@@ -1009,7 +830,7 @@ const MapComponent = forwardRef(({
                           {/* Delete Button */}
                           <div className="border-t border-gray-200 pt-3 text-center">
                             <button
-                              onClick={() => handleDeleteGeofence(geofence.geofence_id, geofence.name)}
+                              onClick={() => handleDeleteGeofence(geofence.geofence_id)}
                               className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-xs font-semibold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 min-w-[120px]"
                             >
                               Hapus Geofence
@@ -1025,16 +846,16 @@ const MapComponent = forwardRef(({
                 // Regular polygon
                 const coords = geoData.coordinates[0].map(coord => [coord[1], coord[0]]);
                 
-            return (
-              <Polygon
+          return (
+            <Polygon
                     key={`geofence-${geofence.geofence_id || geofence.id}`}
-                positions={coords}
-                color={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
-                fillColor={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
-                fillOpacity={0.1}
-                weight={2}
-                opacity={0.8}
-              >
+              positions={coords}
+              color={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
+              fillColor={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
+              fillOpacity={0.1}
+              weight={2}
+              opacity={0.8}
+            >
                 <Popup maxWidth={380}>
                   <div className="p-2 font-sans">
                     <h3 className="font-bold text-lg mb-3 text-blue-700 border-b border-gray-200 pb-2 text-center">
@@ -1075,10 +896,10 @@ const MapComponent = forwardRef(({
                       {/* Associated Vehicle */}
                       <div className="bg-blue-50 p-2.5 rounded-md mb-3">
                         <div className="font-semibold text-gray-700 mb-1.5">Kendaraan Terkait</div>
-                        {(() => {
-                          // Cari vehicle yang menggunakan geofence ini
-                          const vehicleUsingThisGeofence = vehicles.find(v => v.geofence_id === geofence.geofence_id);
-                          return vehicleUsingThisGeofence ? (
+                  {(() => {
+                    // Cari vehicle yang menggunakan geofence ini
+                    const vehicleUsingThisGeofence = vehicles.find(v => v.geofence_id === geofence.geofence_id);
+                    return vehicleUsingThisGeofence ? (
                             <div className="p-2 bg-white rounded border border-gray-200">
                               <div className="font-semibold text-xs text-blue-700 mb-0.5">
                                 {vehicleUsingThisGeofence.name}
@@ -1093,8 +914,8 @@ const MapComponent = forwardRef(({
                                 Tidak dikaitkan dengan kendaraan
                               </div>
                             </div>
-                          );
-                        })()}
+                    );
+                  })()}
                       </div>
 
                       {/* Date Created */}
@@ -1116,17 +937,17 @@ const MapComponent = forwardRef(({
                       {/* Delete Button */}
                       <div className="border-t border-gray-200 pt-3 text-center">
                         <button
-                          onClick={() => handleDeleteGeofence(geofence.geofence_id, geofence.name)}
+                          onClick={() => handleDeleteGeofence(geofence.geofence_id)}
                           className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-xs font-semibold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 min-w-[120px]"
                         >
                           Hapus Geofence
                         </button>
                       </div>
                     </div>
-                  </div>
-                </Popup>
-              </Polygon>
-            );
+                </div>
+              </Popup>
+            </Polygon>
+          );
               } else if (geoData.type === 'Circle') {
                 // Circle: render using Circle component
                 const center = [geoData.coordinates.center[1], geoData.coordinates.center[0]]; // Convert [lng, lat] to [lat, lng]
@@ -1224,7 +1045,7 @@ const MapComponent = forwardRef(({
                           {/* Delete Button */}
                           <div className="border-t border-gray-200 pt-3 text-center">
                             <button
-                              onClick={() => handleDeleteGeofence(geofence.geofence_id, geofence.name)}
+                              onClick={() => handleDeleteGeofence(geofence.geofence_id)}
                               className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-xs font-semibold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 min-w-[120px]"
                             >
                               Hapus Geofence
@@ -1243,10 +1064,10 @@ const MapComponent = forwardRef(({
             // console.error('Error parsing geofence data:', error);
             return null;
           }
-        })}
+      })}
 
-        {/* Drawing mode indicator */}
-        {isDrawingMode && (
+      {/* Drawing mode indicator */}
+      {isDrawingMode && (
           <div className="absolute top-2.5 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-5 py-2.5 rounded z-[1000] shadow-md">
             <span className="flex items-center">
               Mode Drawing Aktif ({drawingType === "circle" ? "Circle" : "Polygon"}) - 
@@ -1254,10 +1075,10 @@ const MapComponent = forwardRef(({
                 ? " klik kiri untuk titik, klik kanan untuk selesai (min 3 titik)"
                 : " klik kiri untuk center, klik kiri kedua untuk menentukan radius"
               }
-            </span>
-          </div>
-        )}
-      </MapContainer>
+          </span>
+        </div>
+      )}
+    </MapContainer>
 
       {/* Modal konfirmasi hapus geofence */}
       {showDeleteConfirm && geofenceToDelete && createPortal(
