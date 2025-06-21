@@ -1,5 +1,5 @@
 // components/MapComponent.js - Versi yang ditingkatkan dengan SWR dan pencocokan gps_id yang benar
-import { MapContainer, TileLayer, Popup, Polyline, Polygon, Circle, useMap, useMapEvents, CircleMarker } from "react-leaflet";
+import { MapContainer, TileLayer, Popup, Polygon, Circle, useMap, useMapEvents } from "react-leaflet";
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useMemo, useCallback } from "react";
 import { useWebSocket } from '@/lib/hooks/useWebSocket';
 import L from "leaflet";
@@ -373,8 +373,6 @@ const MapComponent = forwardRef(({
 }, ref) => {
   const [selectedVehicleId, setSelectedVehicleId] = useState(null);
   const [flyToPositionWhenSelected, setFlyToPositionWhenSelected] = useState(null);
-  const [lastFetchTimestamp, setLastFetchTimestamp] = useState(null);
-  const [hasReceivedDataBefore, setHasReceivedDataBefore] = useState(false);
   
   // State untuk modal konfirmasi hapus geofence
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);

@@ -8,24 +8,6 @@ import Image from "next/image";
 import { getCurrentUser } from "@/lib/authService";
 import { useWebSocket } from '@/lib/hooks/useWebSocket';
 import ModalHistoryDateRange from './ModalHistoryDateRange';
-import ModalTambahKendaraan from './ModalTambahKendaraan';
-import UserDropdown from './UserDropdown';
-
-// SWR fetcher for vehicle data
-const vehicleDataFetcher = async (url) => {
-  const response = await fetch(url, {
-    headers: {
-      'Cache-Control': 'no-cache'
-    }
-  });
-  
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-  }
-  
-  const data = await response.json();
-  return data.data || [];
-};
 
 const SidebarComponent = ({ 
   vehicles = [], 
@@ -44,7 +26,6 @@ const SidebarComponent = ({
   const [selectedVehicleId, setSelectedVehicleId] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showHistoryDateRangeModal, setShowHistoryDateRangeModal] = useState(false);
-  const [showHistoryPeriodModal, setShowHistoryPeriodModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [vehicleToDelete, setVehicleToDelete] = useState(null);
   const [vehicleGeofenceVisibility, setVehicleGeofenceVisibility] = useState({});
@@ -767,14 +748,6 @@ const SidebarComponent = ({
         <ModalHistoryDateRange
           onClose={() => setShowHistoryDateRangeModal(false)}
           onSelectDateRange={handleSelectDateRange}
-        />
-      )}
-
-      {/* Modal History Period */}
-      {showHistoryPeriodModal && (
-        <ModalHistoryPeriod
-          onClose={() => setShowHistoryPeriodModal(false)}
-          onSelectPeriod={handleSelectPeriod}
         />
       )}
     </>
