@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Marker } from 'react-leaflet';
 
-// Simple AnimatedMarker component for smooth movement only
-const AnimatedMarker = ({ position, duration = 1000, ...markerProps }) => {
+// AnimatedMarker component with optimized smooth movement
+const AnimatedMarker = ({ position, duration = 500, ...markerProps }) => {
   const [currentPosition, setCurrentPosition] = useState(position);
   const animationRef = useRef(null);
   const startTimeRef = useRef(null);
@@ -11,12 +11,24 @@ const AnimatedMarker = ({ position, duration = 1000, ...markerProps }) => {
   useEffect(() => {
     if (!position || !currentPosition) return;
 
-    // Check if position actually changed
+    // Check if position actually changed and is significant enough to animate
     const hasChanged = 
-      Math.abs(position[0] - currentPosition[0]) > 0.00001 ||
-      Math.abs(position[1] - currentPosition[1]) > 0.00001;
+      Math.abs(position[0] - currentPosition[0]) > 0.000001 ||
+      Math.abs(position[1] - currentPosition[1]) > 0.000001;
 
     if (!hasChanged) return;
+
+    // Calculate distance for adaptive duration
+    const distance = Math.sqrt(
+      Math.pow(position[0] - currentPosition[0], 2) +
+      Math.pow(position[1] - currentPosition[1], 2)
+    );
+
+    // Adjust duration based on distance (longer distance = longer animation)
+    const adaptiveDuration = Math.min(
+      Math.max(distance * 5000, 200), // minimum 200ms, scales with distance
+      1000 // maximum 1000ms
+    );
 
     // Cancel any existing animation
     if (animationRef.current) {
@@ -33,16 +45,18 @@ const AnimatedMarker = ({ position, duration = 1000, ...markerProps }) => {
       }
 
       const elapsed = timestamp - startTimeRef.current;
-      const progress = Math.min(elapsed / duration, 1);
+      const progress = Math.min(elapsed / adaptiveDuration, 1);
 
-      // Simple easing function for smooth animation
-      const easeOut = 1 - Math.pow(1 - progress, 2);
+      // Cubic easing function for smoother animation
+      const easeInOutCubic = progress < 0.5
+        ? 4 * progress * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
 
       // Interpolate between start and end positions
       const lat = startPositionRef.current[0] + 
-        (position[0] - startPositionRef.current[0]) * easeOut;
+        (position[0] - startPositionRef.current[0]) * easeInOutCubic;
       const lng = startPositionRef.current[1] + 
-        (position[1] - startPositionRef.current[1]) * easeOut;
+        (position[1] - startPositionRef.current[1]) * easeInOutCubic;
 
       setCurrentPosition([lat, lng]);
 

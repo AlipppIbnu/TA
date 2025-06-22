@@ -58,26 +58,22 @@ export async function saveAlert(alertData) {
 
 /**
  * Generate alert message berdasarkan event type dan data kendaraan
- * @param {string} eventType - Tipe event (violation_enter, violation_exit, enter, exit)
+ * @param {string} eventType - Tipe event (violation_enter atau violation_exit)
  * @param {Object} vehicleData - Data kendaraan
  * @param {Object} geofenceData - Data geofence
  * @returns {string} - Alert message
  */
 export function generateAlertMessage(eventType, vehicleData, geofenceData) {
-  const vehicleName = vehicleData.vehicle_name || 'Kendaraan';
-  const geofenceName = geofenceData.geofence_name || 'area geofence';
+  const vehicleName = vehicleData.vehicle_name || vehicleData.name || 'Kendaraan';
+  const geofenceName = geofenceData.geofence_name || geofenceData.name || 'area geofence';
   
   switch (eventType) {
     case 'violation_enter':
-      return `PELANGGARAN: ${vehicleName} memasuki geofence ${geofenceName} (FORBIDDEN)`;
+      return `PELANGGARAN: ${vehicleName} memasuki geofence terlarang ${geofenceName} (FORBIDDEN)`;
     case 'violation_exit':
       return `PELANGGARAN: ${vehicleName} keluar dari geofence ${geofenceName} (REQUIRED STAY)`;
-    case 'enter':
-      return `INFO: ${vehicleName} memasuki geofence ${geofenceName}`;
-    case 'exit':
-      return `INFO: ${vehicleName} keluar dari geofence ${geofenceName}`;
     default:
-      return `Event ${eventType}: ${vehicleName} pada ${geofenceName}`;
+      return `PELANGGARAN: ${vehicleName} pada ${geofenceName}`;
   }
 }
 
@@ -85,21 +81,30 @@ export function generateAlertMessage(eventType, vehicleData, geofenceData) {
  * Menentukan apakah event merupakan violation berdasarkan rule_type geofence
  * @param {string} eventType - Tipe event (enter/exit)
  * @param {string} ruleType - Rule type geofence (STAY_IN/FORBIDDEN)
- * @returns {boolean} - Apakah ini violation
+ * @returns {Object} - Tipe violation dan status
  */
-export function isViolation(eventType, ruleType) {
-  // STAY_IN: kendaraan harus tetap di dalam, keluar = violation
-  // FORBIDDEN: area terlarang, masuk = violation
+export function getViolationType(eventType, ruleType) {
+  // STAY_IN: kendaraan harus tetap di dalam, keluar = violation_exit
+  // FORBIDDEN: area terlarang, masuk = violation_enter
   
   if (ruleType === 'STAY_IN' && eventType === 'exit') {
-    return true;
+    return {
+      isViolation: true,
+      violationType: 'violation_exit'
+    };
   }
   
   if (ruleType === 'FORBIDDEN' && eventType === 'enter') {
-    return true;
+    return {
+      isViolation: true,
+      violationType: 'violation_enter'
+    };
   }
   
-  return false;
+  return {
+    isViolation: false,
+    violationType: null
+  };
 }
 
 /**
@@ -118,45 +123,39 @@ export async function handleGeofenceViolation({
   timestamp
 }) {
   try {
-    const isViolationEvent = isViolation(eventType, geofence.rule_type || 'STAY_IN');
-    const finalEventType = isViolationEvent ? `violation_${eventType}` : eventType;
+    const { isViolation, violationType } = getViolationType(eventType, geofence.rule_type || 'STAY_IN');
     
-    // Data untuk geofence event
-    const geofenceEventData = {
-      vehicle_id: vehicle.vehicle_id,
-      geofence_id: geofence.geofence_id || geofence.id,
-      event: finalEventType,
-      event_timestamp: timestamp
-    };
+    // Hanya proses jika ini adalah violation
+    if (!isViolation) {
+      return {
+        success: true,
+        isViolation: false
+      };
+    }
     
-    // Data untuk alert (hanya untuk violation atau event penting)
+    // Data untuk alert violation
     const alertData = {
       vehicle_id: vehicle.vehicle_id,
-      alert_type: finalEventType,
-      alert_message: generateAlertMessage(finalEventType, vehicle, geofence),
+      alert_type: violationType,
+      alert_message: generateAlertMessage(violationType, vehicle, geofence),
       lokasi: vehicle.position ? `${vehicle.position.lat}, ${vehicle.position.lng}` : null,
       timestamp: timestamp
     };
 
     console.log('🔔 Processing geofence violation:', {
-      eventType: finalEventType,
+      eventType: violationType,
       vehicle: vehicle.vehicle_name || vehicle.name,
       geofence: geofence.name,
-      ruleType: geofence.rule_type,
-      isViolation: isViolationEvent
+      ruleType: geofence.rule_type
     });
-
-    // Simpan geofence event
-    const eventResult = await saveGeofenceEvent(geofenceEventData);
     
     // Simpan alert
     const alertResult = await saveAlert(alertData);
 
     return {
       success: true,
-      geofenceEvent: eventResult,
       alert: alertResult,
-      isViolation: isViolationEvent
+      isViolation: true
     };
 
   } catch (error) {

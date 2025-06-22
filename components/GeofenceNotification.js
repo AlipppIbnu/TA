@@ -12,16 +12,16 @@ const GeofenceNotification = ({ notification, onRemove }) => {
   const handleClose = () => {
     setIsClosing(true);
     setTimeout(() => {
-      onRemove(notification.id);
+      onRemove(notification.alert_id);
     }, 300); // Match animation duration
   };
 
   // Determine notification type and styling
   const getNotificationStyle = () => {
-    const eventType = notification.event_type;
+    const alertType = notification.alert_type;
     
     // Violation enter - KUNING (masuk area terlarang/forbidden)
-    if (eventType === 'violation_enter') {
+    if (alertType === 'violation_enter') {
       return {
         bgColor: 'bg-yellow-100',
         borderColor: 'border-yellow-500',
@@ -33,7 +33,7 @@ const GeofenceNotification = ({ notification, onRemove }) => {
       };
     }
     // Violation exit - MERAH BANGET (keluar dari area wajib/stay_in)
-    else if (eventType === 'violation_exit') {
+    else {
         return {
         bgColor: 'bg-red-100',
         borderColor: 'border-red-500',
@@ -44,67 +44,9 @@ const GeofenceNotification = ({ notification, onRemove }) => {
         title: 'KELUAR AREA WAJIB'
         };
     }
-    // Normal enter events - HIJAU
-    else if (eventType === 'enter' || eventType === 'entered') {
-        return {
-        bgColor: 'bg-green-50',
-        borderColor: 'border-green-400',
-        textColor: 'text-green-800',
-          iconBg: 'bg-green-100',
-        iconColor: 'text-green-600',
-        progressColor: 'bg-green-500',
-        title: 'Masuk Area'
-      };
-    } 
-    // Normal exit events - BIRU (keluar dari area terlarang - hal baik)
-    else if (eventType === 'exit' || eventType === 'exited') {
-      return {
-        bgColor: 'bg-blue-50',
-        borderColor: 'border-blue-400',
-        textColor: 'text-blue-800',
-        iconBg: 'bg-blue-100',
-        iconColor: 'text-blue-600',
-        progressColor: 'bg-blue-500',
-        title: 'Keluar Area Terlarang'
-      };
-    } 
-    // Info lainnya - BIRU
-    else {
-        return {
-        bgColor: 'bg-blue-50',
-        borderColor: 'border-blue-200',
-        textColor: 'text-blue-800',
-          iconBg: 'bg-blue-100',
-        iconColor: 'text-blue-600',
-        progressColor: 'bg-blue-500',
-        title: 'Info Geofence'
-        };
-    }
   };
 
   const style = getNotificationStyle();
-
-  // Generate message
-  const getMessage = () => {
-    const vehicleName = notification.vehicle_name || 'Kendaraan';
-    const geofenceName = notification.geofence_name || 'area geofence';
-    const eventType = notification.event_type;
-    
-    switch (eventType) {
-      case 'violation_enter':
-        return `${vehicleName} melanggar aturan dengan memasuki ${geofenceName}`;
-      case 'violation_exit':
-        return `${vehicleName} melanggar aturan dengan keluar dari ${geofenceName}`;
-      case 'enter':
-      case 'entered':
-        return `${vehicleName} memasuki ${geofenceName}`;
-      case 'exit':
-      case 'exited':
-        return `${vehicleName} keluar dari ${geofenceName}`;
-      default:
-        return `${vehicleName} - ${eventType} pada ${geofenceName}`;
-    }
-  };
 
   const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString('id-ID', {
@@ -171,7 +113,7 @@ const GeofenceNotification = ({ notification, onRemove }) => {
       {/* Message */}
       <div className="mt-3">
         <p className="text-sm leading-5 font-medium">
-          {getMessage()}
+          {notification.alert_message}
                   </p>
                 </div>
 
@@ -179,12 +121,12 @@ const GeofenceNotification = ({ notification, onRemove }) => {
       <div className="mt-3 pt-3 border-t border-current border-opacity-20">
         <div className="grid grid-cols-1 gap-1 text-xs opacity-75">
           <div className="flex justify-between">
-            <span>Kendaraan:</span>
-            <span className="font-mono">{notification.vehicle_name}</span>
+            <span>Vehicle ID:</span>
+            <span className="font-mono">{notification.vehicle_id}</span>
           </div>
           <div className="flex justify-between">
-            <span>Geofence:</span>
-            <span className="font-mono">{notification.geofence_name}</span>
+            <span>Lokasi:</span>
+            <span className="font-mono">{notification.lokasi}</span>
                   </div>
                 </div>
               </div>
