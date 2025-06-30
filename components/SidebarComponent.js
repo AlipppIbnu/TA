@@ -691,21 +691,21 @@ const SidebarComponent = ({
               </div>
               
               <div className="flex flex-col gap-1 justify-center">
-                <button 
-                  onClick={handleCancelDelete}
+              <button 
+                onClick={handleCancelDelete}
                   className="px-3 py-1 bg-gray-300 text-gray-700 rounded text-xs hover:bg-gray-400 transition-colors duration-200 font-medium"
-                >
-                  Batal
-                </button>
-                <button 
+              >
+                Batal
+              </button>
+              <button 
                   onClick={() => handleDeleteVehicle(vehicleToDelete)}
                   className="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition-colors duration-200 font-medium"
-                >
+              >
                   Ya, Hapus Kendaraan
-                </button>
-              </div>
+              </button>
             </div>
           </div>
+        </div>
         </div>,
         document.body
       )}

@@ -54,7 +54,7 @@ function ModalTambahKendaraan({ onClose, onSucceed }) {
   // Fungsi untuk memeriksa License Plate
   const checkLicensePlate = async (licensePlate) => {
     try {
-      const response = await fetch(`/api/CheckVehicle?license_plate=${licensePlate}`);
+      const response = await fetch(`/api/vehicles?action=check-license&license_plate=${licensePlate}`);
       const data = await response.json();
 
       if (data.exists) {
@@ -73,7 +73,7 @@ function ModalTambahKendaraan({ onClose, onSucceed }) {
   const checkGpsDeviceId = async (gpsId) => {
     try {
       setIsCheckingGps(true);
-      const response = await fetch(`/api/CheckGpsDevice?gps_id=${gpsId}`);
+      const response = await fetch(`/api/vehicles?action=check-gps&gps_id=${gpsId}`);
       const data = await response.json();
 
       if (data.exists) {
@@ -365,7 +365,7 @@ export default function Dashboard() {
   // Muat geofences dari API
   const loadGeofences = async () => {
     try {
-      const response = await fetch('/api/geofences');
+      const response = await fetch('/api/geofence-combined?action=get');
       
       if (!response.ok) {
         throw new Error('Failed to fetch geofences');

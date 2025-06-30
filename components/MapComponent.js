@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Popup, Polygon, Circle, useMap, useMapEvents }
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useMemo, useCallback } from "react";
 import { useWebSocket } from '@/lib/hooks/useWebSocket';
 import L from "leaflet";
-import { getGeofenceStatus } from "@/utils/geofenceUtils";
+import { getGeofenceStatus } from "@/utils/geofence-combined";
 import { createPortal } from 'react-dom';
 import AnimatedMarker from './AnimatedMarker';
 
@@ -66,19 +66,19 @@ const HistoryPath = ({ path }) => {
 const vehicleIcon = new L.Icon({
   iconUrl: "/icon/logo_mobil.png",
   iconSize: [22, 22],
-  iconAnchor: [11, 22],
-  popupAnchor: [0, -22],
+  iconAnchor: [11, 11],
+  popupAnchor: [0, -11],
 });
 
 // Polygon point icon - menggunakan styling asli Anda
 const polygonPointIcon = new L.Icon({
   iconUrl: "data:image/svg+xml;base64," + btoa(`
-    <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="8" cy="8" r="7" fill="#ff0000" stroke="white" stroke-width="2"/>
+    <svg width="10" height="10" viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="5" cy="5" r="4" fill="#ff0000" stroke="white" stroke-width="1"/>
     </svg>
   `),
-  iconSize: [16, 16],
-  iconAnchor: [8, 8],
+  iconSize: [10, 10],
+  iconAnchor: [5, 5],
 });
 
 // FlyToPosition component - tidak berubah dari asli
@@ -178,7 +178,7 @@ const DrawingHandler = forwardRef((props, ref) => {
           
           const polyline = L.polyline(newPolygon, {
             color: 'red',
-            weight: 2,
+            weight: 1,
             dashArray: '5, 5'
           }).addTo(map);
           
@@ -243,7 +243,7 @@ const DrawingHandler = forwardRef((props, ref) => {
           color: 'red',
           fillColor: 'red',
           fillOpacity: 0.2,
-          weight: 2,
+          weight: 1,
           dashArray: '5, 5'
         }).addTo(map);
         
@@ -351,7 +351,7 @@ const DrawingHandler = forwardRef((props, ref) => {
           color="red" 
           fillColor="red" 
           fillOpacity={0.2}
-          weight={2}
+          weight={1}
           dashArray="5, 5"
         />
       )}
@@ -634,7 +634,7 @@ const MapComponent = forwardRef(({
     if (!geofenceToDelete) return;
 
     try {
-      const response = await fetch(`/api/HapusGeofence?geofence_id=${geofenceToDelete.geofence_id}`, {
+              const response = await fetch(`/api/geofence-combined?action=delete&geofence_id=${geofenceToDelete.geofence_id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -875,7 +875,7 @@ const MapComponent = forwardRef(({
                     color={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
                     fillColor={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
                     fillOpacity={0.1}
-                    weight={2}
+                    weight={1}
                     opacity={0.8}
                   >
                     <Popup maxWidth={300}>
@@ -975,7 +975,7 @@ const MapComponent = forwardRef(({
                     color={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
                     fillColor={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
                     fillOpacity={0.1}
-                    weight={2}
+                    weight={1}
                     opacity={0.8}
                   >
                     <Popup maxWidth={220}>
@@ -1076,7 +1076,7 @@ const MapComponent = forwardRef(({
                     color={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
                     fillColor={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
                     fillOpacity={0.1}
-                    weight={2}
+                    weight={1}
                     opacity={0.8}
                   >
                     <Popup maxWidth={220}>
@@ -1188,43 +1188,43 @@ const MapComponent = forwardRef(({
         )}
       </MapContainer>
 
-      {/* Modal konfirmasi hapus geofence - menggunakan styling asli */}
+      {/* Modal konfirmasi hapus geofence - dikecilkan */}
       {showDeleteConfirm && geofenceToDelete && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
-          <div className="bg-white p-8 rounded-lg shadow-2xl max-w-md w-full mx-4">
+          <div className="bg-white p-3 rounded shadow-lg max-w-xs w-full mx-4">
             <div className="text-center">
-              <div className="mx-auto h-16 w-16 text-red-500 flex items-center justify-center mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-16 h-16">
+              <div className="mx-auto h-8 w-8 text-red-500 flex items-center justify-center mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-8 h-8">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                 </svg>
               </div>
               
-              <h3 className="text-xl font-bold mb-4 text-gray-800">Konfirmasi Hapus Geofence</h3>
+              <h3 className="text-base font-bold mb-2 text-gray-800">Konfirmasi Hapus Geofence</h3>
               
-              <div className="mb-6">
-                <p className="text-gray-600 mb-2">
+              <div className="mb-3">
+                <p className="text-gray-600 mb-1 text-xs">
                   Apakah Anda yakin ingin menghapus geofence:
                 </p>
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <p className="font-semibold text-gray-800">{geofenceToDelete.name}</p>
-                  <p className="text-sm text-gray-600">Tipe: {geofenceToDelete.rule_type}</p>
-                  <p className="text-sm text-gray-600">Status: {geofenceToDelete.status}</p>
+                <div className="bg-gray-50 p-2 rounded">
+                  <p className="font-semibold text-gray-800 text-sm">{geofenceToDelete.name}</p>
+                  <p className="text-xs text-gray-600">Tipe: {geofenceToDelete.rule_type}</p>
+                  <p className="text-xs text-gray-600">Status: {geofenceToDelete.status}</p>
                 </div>
-                <p className="text-red-600 text-sm mt-3 font-medium">
+                <p className="text-red-600 text-xs mt-1 font-medium">
                   Geofence yang dihapus tidak dapat dikembalikan
                 </p>
               </div>
               
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <div className="flex flex-col gap-1 justify-center">
                 <button 
                   onClick={handleCancelDelete}
-                  className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors duration-200 font-medium"
+                  className="px-3 py-1 bg-gray-300 text-gray-700 rounded text-xs hover:bg-gray-400 transition-colors duration-200 font-medium"
                 >
                   Batal
                 </button>
                 <button 
                   onClick={handleConfirmDelete}
-                  className="px-6 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200 font-medium"
+                  className="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition-colors duration-200 font-medium"
                 >
                   Ya, Hapus Geofence
                 </button>
@@ -1235,16 +1235,16 @@ const MapComponent = forwardRef(({
         document.body
       )}
 
-      {/* Modal notifikasi sukses - menggunakan styling asli */}
+      {/* Modal notifikasi sukses - dikecilkan */}
       {showSuccessNotification && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
-          <div className="bg-white p-6 rounded-md shadow-lg max-w-md">
-            <h3 className="text-lg font-bold mb-4 text-green-600 text-center">Berhasil Menghapus Geofence!</h3>
-            <p className="mb-4">{successMessage}</p>
-            <div className="flex justify-end mt-6">
+          <div className="bg-white p-4 rounded-md shadow-lg max-w-xs">
+            <h3 className="text-base font-bold mb-3 text-green-600 text-center">Berhasil Menghapus Geofence!</h3>
+            <p className="mb-3 text-sm">{successMessage}</p>
+            <div className="flex justify-end mt-4">
               <button 
                 onClick={() => setShowSuccessNotification(false)}
-                className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200"
+                className="px-3 py-1.5 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200 text-sm"
               >
                 OK
               </button>

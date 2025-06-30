@@ -24,7 +24,7 @@ export default function ForgotPassword() {
 
     try {
       // Kirim request reset password melalui API proxy
-      const response = await fetch('/api/auth/forgot-password', {
+      const response = await fetch('/api/auth-combined?action=forgot-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

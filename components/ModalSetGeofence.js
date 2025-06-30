@@ -215,7 +215,7 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
 
     // Kirim data ke API
     try {
-      const response = await fetch("/api/TambahGeofence", {
+              const response = await fetch("/api/geofence-combined?action=add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(geofenceData),
