@@ -20,37 +20,37 @@ html, body {
   flex-direction: column;
 }
 
-/* Container Utama */
+/* Container Utama - dikecilkan dari 400px ke 200px */
 .container {
-  width: 400px;
+  width: 200px;
   background: white;
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+  padding: 10px;
+  border-radius: 5px;
+  box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.1);
 }
 
-/* Typography */
+/* Typography - dikecilkan dari 24px ke 12px */
 h1 {
-  font-size: 24px;
+  font-size: 12px;
   text-align: center;
 }
 
 input {
   width: 100%;
-  padding: 10px;
-  margin: 10px 0;
+  padding: 5px;
+  margin: 5px 0;
   border: 1px solid #ccc;
-  border-radius: 5px;
+  border-radius: 2.5px;
 }
 
-/* Button */
+/* Button - dikecilkan padding dari 10px ke 5px */
 button {
   width: 100%;
-  padding: 10px;
+  padding: 5px;
   background: #007bff;
   color: white;
   border: none;
-  border-radius: 5px;
+  border-radius: 2.5px;
   cursor: pointer;
 }
 
@@ -63,12 +63,12 @@ a {
   text-decoration: none;
 }
 
-/* Sidebar */
+/* Sidebar - dikecilkan dari 250px ke 125px */
 .sidebar {
-  width: 250px;
+  width: 125px;
   background: #1f2937;
   color: white;
-  padding: 15px;
+  padding: 7.5px;
   height: 100vh;
   display: flex;
   flex-direction: column;
@@ -79,12 +79,12 @@ a {
   background: #374151;
   color: white;
   border: none;
-  padding: 10px;
-  border-radius: 5px;
+  padding: 5px;
+  border-radius: 2.5px;
 }
 
 .sidebar button {
-  margin-top: 10px;
+  margin-top: 5px;
 }
 
 /* Dashboard Layout */
@@ -101,12 +101,12 @@ a {
   display: flex;
 }
 
-/* Bottom Section */
+/* Bottom Section - dikecilkan padding dari 20px ke 10px */
 .bottom-container {
   width: 100%;
   display: flex;
   justify-content: space-between;
-  padding: 20px;
+  padding: 10px;
   background: white;
 }
 
@@ -155,7 +155,7 @@ a {
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
+    --radius: 0.25rem;
   }
   .dark {
     --background: 0 0% 3.9%;
@@ -192,5 +192,27 @@ a {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Notification Button Override */
+.notification-btn {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  width: auto !important;
+  color: rgb(107, 114, 128) !important; /* text-gray-500 */
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.notification-btn:hover {
+  background: transparent !important;
+  color: rgb(55, 65, 81) !important; /* text-gray-700 */
+}
+
+.notification-btn:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
 }
 

@@ -81,126 +81,133 @@ export default function Register() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      {/* Navbar Logo */}
-      <nav className="w-full h-40 flex items-center px-16 border-b">
+      {/* Navbar Logo - diperbaiki untuk mencegah terpotong */}
+      <nav className="w-full h-24 flex items-center px-8 border-b bg-white">
         <Link href="/auth/login">
           <Image
             src="/icon/logo_web.png"
             alt="Vehitrack Logo"
-            width={300}
-            height={0}
+            width={120}
+            height={40}
             className="cursor-pointer"
+            priority
           />
         </Link>
       </nav>
 
-      {/* Main Content */}
-      <div className="flex justify-center items-center flex-1 px-16 py-8">
-        <div className="w-full max-w-[500px]">
-          <h1 className="text-3xl font-bold text-center mb-8">Create Account</h1>
+      {/* Main Content - dikecilkan dengan spacing yang diperbaiki */}
+      <div className="flex justify-center items-center flex-1 px-8 py-6">
+        <div className="w-full max-w-[350px]">
+          <h1 className="text-xl font-bold text-center mb-4">Create Account</h1>
 
-          {/* Error Message */}
+          {/* Error Message - dikecilkan */}
           {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <div className="flex justify-center mb-2">
+              <div className="bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded text-xs text-center max-w-[300px]">
               {error}
+              </div>
             </div>
           )}
 
-          {/* Success Message */}
+          {/* Success Message - dikecilkan */}
           {success && (
-            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+            <div className="flex justify-center mb-2">
+              <div className="bg-green-100 border border-green-400 text-green-700 px-3 py-2 rounded text-xs text-center max-w-[300px]">
               {success}
+              </div>
             </div>
           )}
 
-          {/* Registration Form */}
-          <form onSubmit={handleRegister} className="space-y-4">
-            {/* Full Name */}
+          {/* Registration Form - dikecilkan */}
+          <form onSubmit={handleRegister} className="space-y-3">
+            {/* Full Name - dikecilkan */}
             <div>
-              <label className="block text-gray-700 mb-2">Full Name</label>
+              <label className="block text-gray-700 mb-1 text-xs">Full Name</label>
               <input
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:border-blue-500"
+                className="w-full border border-gray-300 p-2 rounded-md focus:outline-none focus:border-blue-500 text-sm"
                 placeholder="Enter your full name"
               />
             </div>
 
-            {/* Username */}
+            {/* Username - dikecilkan */}
             <div>
-              <label className="block text-gray-700 mb-2">Username</label>
+              <label className="block text-gray-700 mb-1 text-xs">Username</label>
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:border-blue-500"
+                className="w-full border border-gray-300 p-2 rounded-md focus:outline-none focus:border-blue-500 text-sm"
                 placeholder="Choose a username"
               />
             </div>
 
-            {/* Email */}
+            {/* Email - dikecilkan */}
             <div>
-              <label className="block text-gray-700 mb-2">Email</label>
+              <label className="block text-gray-700 mb-1 text-xs">Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-                className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:border-blue-500"
+                className="w-full border border-gray-300 p-2 rounded-md focus:outline-none focus:border-blue-500 text-sm"
                 placeholder="Enter your email"
               />
             </div>
 
-            {/* Phone Number */}
+            {/* Phone Number - dikecilkan */}
             <div>
-              <label className="block text-gray-700 mb-2">Phone Number (Optional)</label>
+              <label className="block text-gray-700 mb-1 text-xs">Phone Number (Optional)</label>
               <input
                 type="tel"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
-                className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:border-blue-500"
+                className="w-full border border-gray-300 p-2 rounded-md focus:outline-none focus:border-blue-500 text-sm"
                 placeholder="Enter your phone number"
               />
             </div>
 
-            {/* Password */}
+            {/* Password - dikecilkan */}
             <div>
-              <label className="block text-gray-700 mb-2">Password</label>
+              <label className="block text-gray-700 mb-1 text-xs">Password</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-                className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:border-blue-500"
+                className="w-full border border-gray-300 p-2 rounded-md focus:outline-none focus:border-blue-500 text-sm"
                 placeholder="Create a password"
             />
             </div>
             
-            {/* Confirm Password */}
+            {/* Confirm Password - dikecilkan */}
             <div>
-              <label className="block text-gray-700 mb-2">Confirm Password</label>
+              <label className="block text-gray-700 mb-1 text-xs">Confirm Password</label>
             <input
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:border-blue-500"
+                className="w-full border border-gray-300 p-2 rounded-md focus:outline-none focus:border-blue-500 text-sm"
                 placeholder="Confirm your password"
             />
             </div>
 
-            {/* Submit Button */}
+            {/* Submit Button - dikecilkan */}
+            <div className="flex justify-center">
             <button
               type="submit"
               disabled={loading}
-              className={`w-full bg-blue-500 text-white p-4 rounded-lg font-semibold text-lg ${
+                className={`max-w-[200px] px-8 py-3 bg-blue-500 text-white rounded-md font-semibold text-base ${
                 loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'
-              }`}
+                } transition`}
             >
               {loading ? 'Creating Account...' : 'Create Account'}
             </button>
+            </div>
           </form>
 
           {/* Login Link */}
-          <p className="text-center mt-6">
+          <p className="text-center mt-4 text-sm">
             Already have an account?{' '}
             <Link href="/auth/login" className="text-blue-500 hover:text-blue-600">
               Log in

@@ -288,33 +288,33 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
       }}
     >
       <div 
-        className={`bg-white p-8 rounded-md shadow-lg max-h-[90vh] overflow-y-auto ${
+        className={`bg-white p-4 rounded shadow-lg max-h-[90vh] overflow-y-auto ${
           isDrawing 
-            ? 'fixed top-20 right-4 w-80 z-[10000]'
-            : 'w-full max-w-md'
+            ? 'fixed top-20 right-4 w-56 z-[10000]'
+            : 'w-full max-w-xs'
         }`}
         style={{ pointerEvents: 'auto' }}
       >
-        <h2 className="text-xl font-bold mb-4">Set Geofence</h2>
+        <h2 className="text-lg font-bold mb-3">Set Geofence</h2>
         
         {/* Pesan sukses */}
         {successMessage && (
-          <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-md border border-green-300">
+          <div className="mb-2 p-2 bg-green-100 text-green-700 rounded text-xs border border-green-300">
             ✅ {successMessage}
           </div>
         )}
 
         {/* Pesan error */}
         {error && (
-          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md border border-red-300">
+          <div className="mb-2 p-2 bg-red-100 text-red-700 rounded text-xs border border-red-300">
             ❌ {error}
           </div>
         )}
         
-        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
+        <form onSubmit={handleSubmit} className="space-y-3" autoComplete="off">
           {/* Input nama geofence */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-700 mb-1">
               Nama Geofence
             </label>
             <input
@@ -323,27 +323,27 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
               placeholder="Nama Geofence"
               value={formData.name}
               onChange={handleChange}
-              className="w-full border p-2 rounded"
+              className="w-full border p-1.5 rounded text-sm"
               disabled={isDrawing}
             />
           </div>
 
           {/* Select type */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-700 mb-1">
               Tipe Geofence
             </label>
             <select
               name="type"
               value={formData.type}
               onChange={handleChange}
-              className="w-full border p-2 rounded"
+              className="w-full border p-1.5 rounded text-sm"
               disabled={isDrawing || polygonCoordinates.length > 0 || (circleData.center && circleData.radius > 0)}
             >
               <option value="polygon">Polygon (Area Berbentuk Poligon)</option>
               <option value="circle">Circle (Area Berbentuk Lingkaran)</option>
             </select>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-500 mt-0.5">
               {formData.type === "polygon" 
                 ? "Polygon memungkinkan Anda membuat area dengan bentuk bebas"
                 : "Circle memungkinkan Anda membuat area berbentuk lingkaran dengan radius tertentu"
@@ -353,14 +353,14 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
 
           {/* Select kendaraan - WAJIB */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-700 mb-1">
               Pilih Kendaraan
             </label>
             <select
               name="vehicle_id"
               value={formData.vehicle_id}
               onChange={handleChange}
-              className={`w-full border p-2 rounded ${
+              className={`w-full border p-1.5 rounded text-sm ${
                 !formData.vehicle_id ? 'border-red-500' : ''
               }`}
               disabled={isDrawing}
@@ -376,7 +376,7 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
               ))}
             </select>
             {!formData.vehicle_id && (
-              <p className="text-xs text-red-500 mt-1">
+              <p className="text-xs text-red-500 mt-0.5">
                 * Wajib pilih kendaraan untuk geofence
               </p>
             )}
@@ -384,14 +384,14 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
 
           {/* Select rule_type */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-700 mb-1">
               Tipe Aturan
             </label>
             <select
               name="rule_type"
               value={formData.rule_type}
               onChange={handleChange}
-              className="w-full border p-2 rounded"
+              className="w-full border p-1.5 rounded text-sm"
               disabled={isDrawing}
             >
               <option value="STAY_IN">Stay In (Harus tetap di dalam area)</option>
@@ -401,14 +401,14 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
 
           {/* Select status */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-700 mb-1">
               Status
             </label>
             <select
               name="status"
               value={formData.status}
               onChange={handleChange}
-              className="w-full border p-2 rounded"
+              className="w-full border p-1.5 rounded text-sm"
               disabled={isDrawing}
             >
               <option value="active">Active</option>
@@ -418,14 +418,14 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
 
           {/* Status drawing */}
           {(isDrawing || polygonCoordinates.length > 0 || (circleData.center && circleData.radius > 0)) && (
-            <div className="p-3 bg-blue-50 rounded-md border border-blue-200">
-              <p className="text-sm font-medium text-blue-800">Status Drawing:</p>
+            <div className="p-2 bg-blue-50 rounded border border-blue-200">
+              <p className="text-xs font-medium text-blue-800">Status Drawing:</p>
               <p className="text-xs text-blue-600">
                 Status: {getAreaStatus()} | {getAreaInfo()}
               </p>
              
               {isDrawing && (
-                <p className="text-xs text-blue-600 mt-1">
+                <p className="text-xs text-blue-600 mt-0.5">
                   {formData.type === "polygon" 
                     ? "Klik kiri untuk titik, klik kanan untuk selesai polygon (min 3 titik)."
                     : "Klik kiri pertama untuk center, klik kiri kedua untuk menentukan radius circle."
@@ -436,14 +436,14 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
           )}
 
           {/* Tombol-tombol aksi */}
-          <div className="flex gap-2">
+          <div className="flex gap-1">
             {!isDrawing ? (
               <>
                 {/* Tombol Batal */}
                 <button
                   type="button"
                   onClick={onClose}
-                  className="flex-1 bg-red-500 text-white p-2 rounded hover:bg-red-600 transition-colors duration-200"
+                  className="flex-1 bg-red-500 text-white p-2 rounded hover:bg-red-600 transition-colors duration-200 text-sm"
                   disabled={loading}
                 >
                   Batal
@@ -453,7 +453,7 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
                 <button
                   type="button"
                   onClick={handleStartDrawing}
-                  className="flex-1 bg-green-500 text-white p-2 rounded hover:bg-green-600 transition-colors duration-200 disabled:bg-gray-400"
+                  className="flex-1 bg-green-500 text-white p-2 rounded hover:bg-green-600 transition-colors duration-200 disabled:bg-gray-400 text-sm"
                   disabled={loading || !formData.vehicle_id}
                 >
                   Gambar {formData.type === "circle" ? "Circle" : "Polygon"}
@@ -465,7 +465,7 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
                   <button
                     type="submit"
                     disabled={loading || !formData.vehicle_id}
-                    className="flex-1 bg-green-500 text-white p-2 rounded hover:bg-green-600 disabled:bg-gray-400"
+                    className="flex-1 bg-green-500 text-white p-2 rounded hover:bg-green-600 disabled:bg-gray-400 text-sm"
                   >
                     {loading ? "Menyimpan..." : "Simpan"}
                   </button>
@@ -475,7 +475,7 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
               <button
                 type="button"
                 onClick={handleResetArea}
-                className="flex-1 bg-red-500 text-white p-2 rounded hover:bg-red-600"
+                className="flex-1 bg-red-500 text-white p-2 rounded hover:bg-red-600 text-sm"
               >
                 Batal Gambar
               </button>

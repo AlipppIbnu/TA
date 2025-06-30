@@ -34,7 +34,7 @@ const UserDropdown = () => {
       <DropdownMenuTrigger asChild>
         <div className="flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
           {/* User Avatar */}
-          <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+          <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium text-sm">
             {user.fullName ? user.fullName.charAt(0).toUpperCase() : 'U'}
           </div>
           
@@ -64,7 +64,7 @@ const UserDropdown = () => {
         {/* User Info Header */}
         <DropdownMenuLabel className="pb-2 mb-2">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium text-sm">
               {user.fullName ? user.fullName.charAt(0).toUpperCase() : 'U'}
             </div>
             <div className="flex flex-col">

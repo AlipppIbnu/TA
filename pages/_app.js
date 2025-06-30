@@ -40,7 +40,7 @@ export default function MyApp({ Component, pageProps }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p className="text-lg font-semibold">Loading...</p>
+        <p className="text-sm font-medium">Loading...</p>
       </div>
     );
   }

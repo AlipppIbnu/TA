@@ -3,20 +3,288 @@ import dynamic from "next/dynamic";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import SidebarComponent from "../components/SidebarComponent";
-import ModalTambahKendaraan from "@/components/ModalTambahKendaraan"; 
 import ModalSetGeofence from "@/components/ModalSetGeofence";
 import useGeofenceNotifications from "@/components/hooks/useGeofenceNotifications";
 import { getCurrentUser, isAuthenticated } from "@/lib/authService";
-import { getUserVehicles } from "@/lib/vehicleService";
+import { getUserVehicles, addVehicle } from "@/lib/vehicleService";
 import directusConfig from "@/lib/directusConfig";
-import { getGeofenceStatus } from "@/utils/geofenceUtils";
 import { ToastContainer } from 'react-toastify';
-import { handleGeofenceViolation } from '@/utils/geofenceApi';
 import GeofenceNotification from '@/components/GeofenceNotification';
 import UserDropdown from '@/components/UserDropdown';
 
 // Import dinamis untuk MapComponent (tanpa SSR)
 const MapComponent = dynamic(() => import("../components/MapComponent"), { ssr: false });
+
+// Modal Tambah Kendaraan - dipindahkan dari komponen terpisah
+function ModalTambahKendaraan({ onClose, onSucceed }) {
+  // State untuk form data
+  const [formData, setFormData] = useState({
+    license_plate: "",
+    name: "",
+    make: "",
+    model: "",
+    year: "",
+    sim_card_number: "",
+    gps_id: ""
+  });
+  
+  // State untuk loading dan pesan
+  const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [error, setError] = useState("");
+  const [isCheckingGps, setIsCheckingGps] = useState(false);
+  const [gpsError, setGpsError] = useState("");
+  const [licensePlateError, setLicensePlateError] = useState("");
+
+  // Handle perubahan input form
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+
+    // Reset error messages when user types
+    if (name === 'gps_id') {
+      setGpsError('');
+    }
+    if (name === 'license_plate') {
+      setLicensePlateError('');
+    }
+    setError('');
+  };
+
+  // Fungsi untuk memeriksa License Plate
+  const checkLicensePlate = async (licensePlate) => {
+    try {
+      const response = await fetch(`/api/CheckVehicle?license_plate=${licensePlate}`);
+      const data = await response.json();
+
+      if (data.exists) {
+        setLicensePlateError('Nomor plat sudah digunakan');
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error('Error checking License Plate:', err);
+      setLicensePlateError('Gagal memeriksa nomor plat');
+      return false;
+    }
+  };
+
+  // Fungsi untuk memeriksa GPS device ID
+  const checkGpsDeviceId = async (gpsId) => {
+    try {
+      setIsCheckingGps(true);
+      const response = await fetch(`/api/CheckGpsDevice?gps_id=${gpsId}`);
+      const data = await response.json();
+
+      if (data.exists) {
+        setGpsError('GPS Device ID sudah digunakan oleh kendaraan lain');
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error('Error checking GPS device ID:', err);
+      setGpsError('Gagal memeriksa GPS Device ID');
+      return false;
+    } finally {
+      setIsCheckingGps(false);
+    }
+  };
+
+  // Validasi dan kirim data ke API 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setSuccessMessage("");
+  
+    try {
+      // Validasi form
+      if (!formData.license_plate || !formData.name || 
+          !formData.make || !formData.model || !formData.year) {
+        throw new Error("Mohon isi semua field yang wajib!");
+      }
+
+      // Validasi License Plate
+      const isLicensePlateAvailable = await checkLicensePlate(formData.license_plate);
+      if (!isLicensePlateAvailable) {
+        setLoading(false);
+        return;
+      }
+
+      // Validasi GPS device ID jika diisi
+      if (formData.gps_id) {
+        const isGpsAvailable = await checkGpsDeviceId(formData.gps_id);
+        if (!isGpsAvailable) {
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Add vehicle through API
+      const newVehicle = await addVehicle(formData);
+      
+      setSuccessMessage(`Kendaraan ${formData.make} ${formData.model} berhasil ditambahkan!`);
+        
+      // Tunggu 1 detik sebelum menutup modal
+      setTimeout(() => {
+        onSucceed(newVehicle); // Pass the new vehicle data to parent
+      }, 1000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+      <div className="bg-white rounded-lg w-[280px] overflow-hidden">
+        {/* Header - diperbesar sedikit */}
+        <div className="px-4 py-3 border-b border-black">
+          <h2 className="text-base font-semibold">Tambah Kendaraan Baru</h2>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="px-4 py-3 space-y-3">
+            {/* Nomor Plat - diperbesar sedikit */}
+            <div>
+              <label className="block text-sm mb-1"> Nomor Plat </label>
+              <input
+                type="text"
+                name="license_plate"
+                value={formData.license_plate}
+                onChange={handleChange}
+                className={`w-full px-2 py-1.5 border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm ${
+                  licensePlateError ? 'border-red-500' : 'border-gray-300'
+                }`}
+                required
+              />
+              {licensePlateError && (
+                <p className="mt-1 text-xs text-red-600">{licensePlateError}</p>
+              )}
+            </div>
+          
+            {/* Nama Kendaraan - diperbesar sedikit */}
+            <div>
+              <label className="block text-sm mb-1"> Nama Kendaraan </label>
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+                required
+              />
+            </div>
+          
+            {/* Merek - diperbesar sedikit */}
+            <div>
+              <label className="block text-sm mb-1"> Merek </label>
+              <input
+                type="text"
+                name="make"
+                value={formData.make}
+                onChange={handleChange}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+                required
+              />
+            </div>
+          
+            {/* Model - diperbesar sedikit */}
+            <div>
+              <label className="block text-sm mb-1"> Model </label>
+              <input
+                type="text"
+                name="model"
+                value={formData.model}
+                onChange={handleChange}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+                required
+              />
+            </div>
+          
+            {/* Tahun - diperbesar sedikit */}
+            <div>
+              <label className="block text-sm mb-1"> Tahun </label>
+              <input
+                type="number"
+                name="year"
+                value={formData.year}
+                onChange={handleChange}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+                required
+              />
+            </div>
+
+            {/* Nomor SIM Card - diperbesar sedikit */}
+            <div>
+              <label className="block text-sm mb-1"> Nomor SIM Card </label>
+              <input
+                type="text"
+                name="sim_card_number"
+                value={formData.sim_card_number}
+                onChange={handleChange}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+              />
+            </div>
+          
+            {/* GPS Device ID - diperbesar sedikit */}
+            <div>
+              <label className="block text-sm mb-1"> GPS Device ID </label>
+              <p className="text-xs text-gray-500 mb-1">Masukkan UUID yang ada pada alat GPS (opsional)</p>
+              <input
+                type="text"
+                name="gps_id"
+                value={formData.gps_id}
+                onChange={handleChange}
+                placeholder="Contoh: 123e4567-e89b-12d3-a456-426614174000"
+                className={`w-full px-2 py-1.5 border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm ${
+                  gpsError ? 'border-red-500' : 'border-gray-300'
+                }`}
+              />
+              {gpsError && (
+                <p className="mt-1 text-xs text-red-600">{gpsError}</p>
+              )}
+            </div>
+
+            {/* Error message - diperbesar sedikit */}
+            {error && (
+              <div className="text-red-600 text-sm bg-red-50 p-2 rounded">
+                {error}
+              </div>
+            )}
+
+            {/* Success message - diperbesar sedikit */}
+            {successMessage && (
+              <div className="text-green-600 text-sm bg-green-50 p-2 rounded">
+                {successMessage}
+              </div>
+            )}
+          </div>
+
+          {/* Footer dengan tombol - diperbesar sedikit */}
+          <div className="px-4 py-3 border-t border-gray-200 flex justify-end space-x-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-2 text-gray-600 bg-gray-100 rounded hover:bg-gray-200 text-sm"
+              disabled={loading}
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm"
+              disabled={loading || isCheckingGps}
+            >
+              {loading ? "Menyimpan..." : "Simpan"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const router = useRouter();
@@ -24,15 +292,14 @@ export default function Dashboard() {
   // Refs
   const mapRef = useRef(null);
   const geofenceModalRef = useRef(null);
-  const lastGeofenceStatusRef = useRef({});
 
-  // Hook notifikasi geofence
+  // Hook notifikasi geofence dengan real-time detection
   const {
     notifications: geofenceNotifications,
-    addNotification: addGeofenceNotification,
     removeNotification: removeGeofenceNotification,
-    removeAllNotifications: removeAllGeofenceNotifications
-  } = useGeofenceNotifications(5, 8000); // Maksimal 5 notifikasi, otomatis hapus setelah 8 detik
+    removeAllNotifications: removeAllGeofenceNotifications,
+    checkVehicleGeofenceViolations
+  } = useGeofenceNotifications(10000); // Otomatis hapus setelah 10 detik
 
   // State untuk user dan loading
   const [loading, setLoading] = useState(true);
@@ -119,179 +386,58 @@ export default function Dashboard() {
     }
   };
 
-  // Monitor perubahan status geofence untuk notifikasi
+
+
+
+
+  // REMOVED: Polling untuk reload vehicle positions - kini menggunakan WebSocket 100%
+  // Vehicle positions akan diupdate secara real-time melalui WebSocket di MapComponent
+  // Ini menghilangkan redundansi dan mengurangi beban server secara signifikan
+  
+  // Optional: Update selected vehicle if it exists in new data from initial load only
   useEffect(() => {
-    if (!vehicles.length || !geofences.length) {
-      return;
+    if (selectedVehicle && vehicles.length > 0) {
+      const updatedSelectedVehicle = vehicles.find(v => v.vehicle_id === selectedVehicle.vehicle_id);
+      if (updatedSelectedVehicle && !selectedVehicle.path) {
+        setSelectedVehicle(prev => ({
+          ...updatedSelectedVehicle,
+          path: prev.path // Keep existing path if any
+        }));
+      }
     }
-    
-    // Fungsi untuk memeriksa status geofence
-    const checkGeofenceStatus = async () => {
-      for (const vehicle of vehicles) {
-        if (!vehicle.position) {
-          continue;
-        }
-      
-        try {
-      const currentVehicleId = vehicle.vehicle_id;
-          
-          // Hanya cek geofence yang terkait dengan kendaraan ini
-          let geofenceStatus = null;
-          if (vehicle.geofence_id) {
-            // Cari geofence yang terkait dengan kendaraan ini
-            const vehicleGeofence = geofences.find(g => g.geofence_id === vehicle.geofence_id);
-            if (vehicleGeofence) {
-              // Hanya cek status untuk geofence yang terkait dengan kendaraan ini
-              geofenceStatus = getGeofenceStatus(vehicle, [vehicleGeofence]);
-            }
-          }
-          // Jika vehicle tidak memiliki geofence_id, skip monitoring
-          if (!geofenceStatus) {
-            continue;
-          }
-          
-          // Generate key unik untuk kendaraan ini
-          const statusKey = `${currentVehicleId}`;
-      
-      // Bandingkan dengan status sebelumnya
-      const prevStatus = lastGeofenceStatusRef.current[statusKey];
-      
-          // Tentukan status saat ini
-          const currentInside = geofenceStatus && geofenceStatus.inside;
-          
-          // Jika ini adalah pengecekan pertama, set status dan trigger notifikasi jika di luar
-          if (prevStatus === undefined) {
-            lastGeofenceStatusRef.current[statusKey] = currentInside;
-            
-            // Jika kendaraan berada di luar geofence saat pertama kali dimonitor, buat notifikasi
-            if (!currentInside && geofenceStatus) {
-              const vehicleName = `${vehicle.make || ''} ${vehicle.model || ''} (${vehicle.license_plate || vehicle.name || 'Unknown'})`.trim();
-              
-              const notificationData = {
-                event_id: Date.now(),
-                vehicle_id: currentVehicleId,
-                vehicle_name: vehicleName,
-                geofence_id: geofenceStatus?.id || 'unknown',
-                geofence_name: geofenceStatus?.name || 'area yang ditentukan',
-                event_type: 'exit',
-                timestamp: new Date().toISOString()
-              };
-              
-              addGeofenceNotification(notificationData);
-            }
-            continue;
-          }
-      
-          // Jika status berubah, buat notifikasi DAN simpan ke Directus
-          if (prevStatus !== currentInside) {
-            const timestamp = new Date().toISOString();
-            const eventType = currentInside ? 'enter' : 'exit';
-            const vehicleName = `${vehicle.make || ''} ${vehicle.model || ''} (${vehicle.license_plate || vehicle.name || 'Unknown'})`.trim();
-            
-            // Prepare vehicle data for API
-            const vehicleData = {
-              vehicle_id: currentVehicleId,
-              vehicle_name: vehicleName,
-              name: vehicle.name,
-              make: vehicle.make,
-              model: vehicle.model,
-              license_plate: vehicle.license_plate,
-              position: vehicle.position
-            };
+  }, [vehicles]); // Only on vehicles change, not polling
 
-            // Prepare geofence data for API
-            const geofenceData = {
-              geofence_id: geofenceStatus?.id || 'unknown',
-              geofence_name: geofenceStatus?.name || 'area yang ditentukan',
-              name: geofenceStatus?.name || 'area yang ditentukan',
-              rule_type: geofenceStatus?.type || 'STAY_IN'
-            };
 
-            // 1. Tampilkan notifikasi lokal terlebih dahulu (untuk response cepat)
-            const notificationData = {
-              event_id: Date.now(),
-              vehicle_id: currentVehicleId,
-              vehicle_name: vehicleName,
-              geofence_id: geofenceStatus?.id || 'unknown',
-              geofence_name: geofenceStatus?.name || 'area yang ditentukan',
-              event_type: eventType,
-              timestamp: timestamp
-            };
-            
-            addGeofenceNotification(notificationData);
 
-            // 2. Simpan ke Directus (geofence_events dan alerts)
-            try {
-              const result = await handleGeofenceViolation({
-                eventType: eventType,
-                vehicle: vehicleData,
-                geofence: geofenceData,
-                timestamp: timestamp
-              });
-
-              if (!result.success) {
-                console.error('Failed to save to Directus:', result.error);
-              }
-            } catch (error) {
-              console.error('Error in handleGeofenceViolation:', error);
-            }
-      }
-      
-      // Update status untuk pengecekan berikutnya
-          lastGeofenceStatusRef.current[statusKey] = currentInside;
-        } catch (error) {
-          console.error(`Error checking geofence status for vehicle ${vehicle.vehicle_id}:`, error);
-        }
-      }
-    };
-
-    // Initial check
-    checkGeofenceStatus();
-
-    // Set up interval for real-time monitoring (every 10 seconds)
-    const monitoringInterval = setInterval(checkGeofenceStatus, 10000);
-
-    // Cleanup interval on unmount or dependency change
-    return () => {
-      clearInterval(monitoringInterval);
-    };
-  }, [vehicles, geofences, addGeofenceNotification, vehicleGeofenceVisibility]);
-
-  // Monitor untuk reload vehicle positions secara berkala
+  // REAL-TIME GEOFENCE VIOLATION DETECTION - Now handled in MapComponent with WebSocket data
   useEffect(() => {
-    const reloadVehiclePositions = async () => {
-      try {
-        const userVehicles = await getUserVehicles();
-        setVehicles(userVehicles);
-        
-        // Update selected vehicle if it exists in new data
-        if (selectedVehicle) {
-          const updatedSelectedVehicle = userVehicles.find(v => v.vehicle_id === selectedVehicle.vehicle_id);
-          if (updatedSelectedVehicle) {
-            setSelectedVehicle(prev => ({
-              ...updatedSelectedVehicle,
-              path: prev.path // Keep existing path if any
-            }));
-          }
-        }
-      } catch (error) {
-        console.error('Error reloading vehicle positions:', error);
-      }
-    };
-
-    // Reload positions every second for fresh data
-    const positionInterval = setInterval(reloadVehiclePositions, 1000);
-
-    return () => {
-      clearInterval(positionInterval);
-    };
-  }, [selectedVehicle]);
+    console.log('🔄 Dashboard: Geofence detection now handled in MapComponent with WebSocket data');
+    console.log('   Dashboard vehicles (API data):', vehicles.length);
+    console.log('   MapComponent updatedVehicles (WebSocket data) will be used for detection');
+    
+    // DISABLED: Old detection using API data
+    // if (vehicles.length > 0 && geofences.length > 0) {
+    //   checkVehicleGeofenceViolations(vehicles, geofences);
+    // }
+    
+    // Detection now happens in MapComponent using real-time WebSocket data
+  }, [vehicles, geofences, checkVehicleGeofenceViolations]);
 
   // Monitor geofence notifications untuk production
   useEffect(() => {
-    // if (geofenceNotifications.length > 0) {
-    //   console.log(`📱 Active geofence notifications: ${geofenceNotifications.length}`);
-    // }
+    if (geofenceNotifications.length > 0) {
+      console.log(`📱 Active geofence notifications: ${geofenceNotifications.length}`, 
+        geofenceNotifications.map(n => ({
+          id: n.id,
+          vehicle: n.vehicle_name,
+          type: n.event_type || n.alert_type,
+          geofence: n.geofence_name,
+          timestamp: n.timestamp
+        }))
+      );
+    } else {
+      console.log('📱 No active geofence notifications');
+    }
   }, [geofenceNotifications]);
 
   // Error handling functions
@@ -560,7 +706,7 @@ export default function Dashboard() {
   // Tampilkan loading screen
   if (loading) return (
     <div className="flex items-center justify-center h-screen">
-      Loading...
+      <p className="text-sm font-medium">Loading...</p>
     </div>
   );
 
@@ -576,7 +722,7 @@ export default function Dashboard() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 z-50 w-80 h-full bg-white shadow-xl border-r border-gray-200 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 z-50 w-64 h-full bg-white shadow-xl border-r border-gray-200 transform transition-transform duration-300 ease-in-out ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         } lg:translate-x-0`}
       >
@@ -594,38 +740,57 @@ export default function Dashboard() {
       />
       </aside>
 
-      {/* Main Content */}
+      {/* Main Content - disesuaikan dengan sidebar yang lebih compact */}
       <main
-        className={`transition-all duration-300 ease-in-out lg:ml-80`}
+        className={`transition-all duration-300 ease-in-out lg:ml-64 flex flex-col h-screen`}
       >
         {/* Header */}
         {!isDrawingMode && (
-          <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4 fixed top-0 left-0 right-0 lg:left-80 z-[2000]">
+          <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4 fixed top-0 left-0 right-0 lg:left-64 z-[2000]">
           <div className="flex justify-between items-center">
             <div className="flex items-center">
               {/* Mobile Menu Button */}
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="lg:hidden mr-4 p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="lg:hidden mr-3 p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300"
               >
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </button>
               
               {/* Page Title */}
-              <h1 className="text-xl font-semibold text-gray-900">VehiTrack Dashboard</h1>
+              <h1 className="text-lg font-semibold text-gray-900">VehiTrack Dashboard</h1>
             </div>
+            
+            {/* Notification Icon and User Dropdown */}
+            <div className="flex items-center gap-3">
+              {/* Notification Icon */}
+              <button
+                onClick={() => router.push('/notifications')}
+                className="notification-btn relative"
+                title="Riwayat Notifikasi"
+              >
+                <svg 
+                  className="w-5 h-5" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                </svg>
+              </button>
             
             {/* User Dropdown */}
             <UserDropdown />
+            </div>
           </div>
         </header>
         )}
 
                  {/* Map Container */}
-         <div className={`relative h-screen ${
-           isDrawingMode ? 'pt-0' : 'pt-[73px]'
+         <div className={`relative w-full ${
+           isDrawingMode ? 'flex-1' : 'flex-1'
          }`}>
 
           {/* Map */}
@@ -640,17 +805,19 @@ export default function Dashboard() {
             geofences={getVisibleGeofences()}
             allGeofences={geofences}
             onGeofenceDeleted={handleGeofenceDeleted}
+            checkVehicleGeofenceViolations={checkVehicleGeofenceViolations}
           />
 
           {/* Geofence Notifications - positioned on the right */}
-          <div className={`fixed right-4 z-[9999] space-y-3 max-w-[420px] w-full transition-all duration-300 ${
-            isDrawingMode ? 'top-4' : 'top-20'
+          <div className={`fixed right-4 z-[9999] space-y-1.5 max-w-[220px] w-full transition-all duration-300 ${
+            isDrawingMode ? 'top-8' : 'top-24'
           }`}>
             {geofenceNotifications.map((notification) => (
               <GeofenceNotification
                 key={notification.id}
                 notification={notification}
                 onRemove={removeGeofenceNotification}
+                autoRemoveDelay={10000}
               />
             ))}
             
@@ -659,7 +826,7 @@ export default function Dashboard() {
               <div className="flex justify-end">
               <button 
                   onClick={removeAllGeofenceNotifications}
-                  className="bg-gray-800 hover:bg-gray-900 text-white text-xs px-3 py-1.5 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 backdrop-blur-sm font-medium"
+                  className="bg-gray-800 hover:bg-gray-900 text-white text-xs px-2.5 py-1 rounded-md transition-all duration-200 shadow-sm hover:shadow-md font-medium"
               >
                   Tutup Semua ({geofenceNotifications.length})
               </button>
@@ -688,33 +855,21 @@ export default function Dashboard() {
         />
       )}
 
-      {/* Error Alert */}
+      {/* Error Alert - dikecilkan */}
       {showErrorAlert && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
-            <div className="bg-white p-8 rounded-lg shadow-2xl max-w-md w-full mx-4">
-              <div className="text-center">
-                <div className="mx-auto h-16 w-16 text-red-500 flex items-center justify-center mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-16 h-16">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-                  </svg>
-                </div>
-                
-                <h3 className="text-xl font-bold mb-4 text-red-600">Tidak Ada Data History</h3>
-                
-                <div className="mb-6">
-                  <div className="text-gray-700 whitespace-pre-line leading-relaxed">
+          <div className="bg-white p-4 rounded shadow-lg max-w-sm">
+            <h3 className="text-base font-bold mb-3 text-red-500 text-center">Tidak Ada Data History</h3>
+            <p className="mb-3 text-center text-sm">
                     {errorMessage}
-                  </div>
-                </div>
-                
-                <div className="flex justify-center">
+            </p>
+            <div className="flex justify-end mt-4">
               <button 
                 onClick={handleCloseErrorAlert}
-                    className="px-6 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200 font-medium"
+                className="px-3 py-2 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition-colors duration-200"
               >
                 OK
               </button>
-                </div>
             </div>
           </div>
         </div>

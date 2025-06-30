@@ -44,146 +44,129 @@ export default function Login() {
   // Loading screen saat cek autentikasi
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen" data-testid="loading-screen">
-        <p className="text-lg font-semibold">Loading...</p>
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-sm font-medium">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col" data-testid="login-page">
-      {/* Navbar Logo */}
-      <nav className="w-full h-40 flex items-center px-16 border-b" data-testid="navbar">
+    <div className="min-h-screen bg-white flex flex-col">
+      {/* Navbar Logo - diperbaiki untuk mencegah terpotong */}
+      <nav className="w-full h-24 flex items-center px-8 border-b bg-white">
         <Link href="/auth/login">
           <Image
             src="/icon/logo_web.png"
             alt="Vehitrack Logo"
-            width={300}
-            height={0}
+            width={120}
+            height={40}
             className="cursor-pointer"
-            data-testid="navbar-logo"
+            priority
           />
         </Link>
       </nav>
 
-      {/* Konten Utama */}
-      <div className="flex justify-center items-center flex-1 px-16" data-testid="main-content">
-        <div className="flex w-full max-w-[1400px] space-x-24 items-center">
-          {/* Kiri - Gambar */}
-          <div className="flex-1" data-testid="image-section">
+      {/* Konten Utama - ukuran dikecilkan dengan spacing yang diperbaiki */}
+      <div className="flex justify-center items-center flex-1 px-8 py-6">
+        <div className="flex w-full max-w-[700px] space-x-12 items-center">
+          {/* Kiri - Gambar - dikecilkan */}
+          <div className="flex-1">
             <Image
               src="/icon/map.png"
               alt="Map Preview"
-              width={1000}
-              height={600}
+              width={500}
+              height={300}
               className="rounded-lg shadow-md object-cover w-full h-auto"
-              data-testid="map-preview-image"
             />
           </div>
 
-          {/* Kanan - Form Login */}
-          <div className="w-[400px] flex flex-col items-center" data-testid="login-form-section">
+          {/* Kanan - Form Login - diperbesar sedikit */}
+          <div className="w-[280px] flex flex-col items-center">
             {/* Logo kecil */}
-            <div className="mb-6" data-testid="form-logo-container">
+            <div className="mb-4">
               <Link href="/auth/login">
                 <Image
                   src="/icon/logo_web.png"
                   alt="Vehitrack Logo"
-                  width={300}
-                  height={60}
+                  width={120}
+                  height={35}
                   className="cursor-pointer"
-                  data-testid="form-logo"
                 />
               </Link>
             </div>
 
-            {/* Tampilkan pesan error jika ada */}
+            {/* Tampilkan pesan error jika ada - dikecilkan */}
             {error && (
               <div 
-                className="mb-4 w-full"
-                data-testid="error-message-container"
+                className="mb-2 w-full"
               >
                 <p 
-                  className="text-red-500 text-sm text-center"
-                  id="error-message"
-                  data-testid="error-message"
+                  className="text-red-500 text-xs text-center"
                 >
                   {error}
                 </p>
               </div>
             )}
 
-            {/* Form Login */}
+            {/* Form Login - diperbesar sedikit */}
             <form 
               onSubmit={handleLogin} 
-              className="space-y-4 w-full"
-              id="login-form"
-              data-testid="login-form"
+              className="space-y-3 w-full"
             >
-              {/* Input Email */}
-              <div className="w-full" data-testid="email-input-container">
+              {/* Input Email - diperbesar sedikit */}
+              <div className="w-full">
                 <input
-                  id="email-input"
                   name="email"
                   type="email"
                   placeholder="Enter Email"
-                  className="w-full border border-gray-300 p-4 rounded-lg focus:outline-none focus:border-blue-500 text-lg"
+                  className="w-full border border-gray-300 p-3 rounded-md focus:outline-none focus:border-blue-500 text-base"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  data-testid="email-input"
                   aria-label="Email address"
                   required
                 />
               </div>
 
-              {/* Input Password dengan toggle show/hide */}
-              <div className="relative w-full" data-testid="password-input-container">
+              {/* Input Password dengan toggle show/hide - diperbesar sedikit */}
+              <div className="relative w-full">
                 <input
-                  id="password-input"
                   name="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="Password"
-                  className="w-full border border-gray-300 p-4 rounded-lg focus:outline-none focus:border-blue-500 text-lg"
+                  className="w-full border border-gray-300 p-3 rounded-md focus:outline-none focus:border-blue-500 text-base"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  data-testid="password-input"
                   aria-label="Password"
                   required
                 />
                 <button
-                  id="password-toggle-button"
                   type="button"
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 w-auto h-auto p-0 m-0 bg-transparent text-gray-700 hover:text-gray-900 focus:outline-none"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 w-auto h-auto p-0 m-0 bg-transparent text-gray-700 hover:text-gray-900 focus:outline-none"
                   onClick={() => setShowPassword(!showPassword)}
-                  data-testid="password-toggle"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? 
-                    <FaEyeSlash size={20} data-testid="hide-password-icon" /> : 
-                    <FaEye size={20} data-testid="show-password-icon" />
+                    <FaEyeSlash size={14} /> : 
+                    <FaEye size={14} />
                   }
                 </button>
               </div>
 
-              {/* Forgot Password */}
-              <div className="flex justify-end text-md" data-testid="forgot-password-container">
+              {/* Forgot Password - diperbesar sedikit */}
+                <div className="flex justify-end text-sm">
                 <Link 
                   href="/reset-password" 
-                  className="text-blue-500"
-                  id="forgot-password-link"
-                  data-testid="forgot-password-link"
+                  className="text-blue-500"     
                 >
                   Forgot Password?
                 </Link>
               </div>
 
-              {/* Tombol Login */}
-              <div className="w-full" data-testid="login-button-container">
+              {/* Tombol Login - diperbesar sedikit */}
+              <div className="w-full">
                 <button
-                  id="login-submit-button"
                   type="submit"
-                  className="w-full bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-lg transition font-semibold text-lg"
-                  data-testid="login-submit-button"
+                  className="w-full bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-md transition font-semibold text-base"
                   aria-label="Log in to your account"
                 >
                   Log in
@@ -191,13 +174,11 @@ export default function Login() {
               </div>
             </form>
 
-            {/* Link ke Register */}
-            <div className="text-center mt-5 text-md" data-testid="register-link-container">
+            {/* Link ke Register - diperbesar sedikit */}
+            <div className="text-center mt-3 text-sm">
               <Link 
                 href="/auth/register" 
-                className="text-blue-500"
-                id="register-link"
-                data-testid="register-link"
+                className="text-blue-500"                   
               >
                 Register
               </Link>

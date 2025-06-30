@@ -7,7 +7,86 @@ import { createPortal } from "react-dom";
 import Image from "next/image";
 import { getCurrentUser } from "@/lib/authService";
 import { useWebSocket } from '@/lib/hooks/useWebSocket';
-import ModalHistoryDateRange from './ModalHistoryDateRange';
+// Modal History Date Range - dipindahkan ke dalam komponen ini
+function ModalHistoryDateRange({ onClose, onSelectDateRange }) {
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = () => {
+    if (!startDate || !endDate) {
+      setError('Silakan pilih tanggal mulai dan tanggal akhir');
+      return;
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999); // Set end date to end of day
+
+    if (end < start) {
+      setError('Tanggal akhir tidak boleh lebih awal dari tanggal mulai');
+      return;
+    }
+
+    // Set start date to start of day
+    start.setHours(0, 0, 0, 0);
+
+    onSelectDateRange(start.toISOString(), end.toISOString());
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+      <div className="bg-white p-4 rounded shadow-lg max-w-[300px] w-full mx-2">
+        <h3 className="text-sm font-bold mb-3 text-center">Pilih Rentang Waktu History</h3>
+        
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tanggal Mulai
+            </label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full px-2 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tanggal Akhir
+            </label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full px-2 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          {error && (
+            <p className="text-red-500 text-sm">{error}</p>
+          )}
+        </div>
+
+        <div className="flex justify-end space-x-2 mt-4">
+          <button 
+            onClick={onClose}
+            className="px-3 py-2 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400 transition-colors duration-200"
+          >
+            Batal
+          </button>
+          <button 
+            onClick={handleSubmit}
+            className="px-3 py-2 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition-colors duration-200"
+          >
+            Lihat History
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const SidebarComponent = ({ 
   vehicles = [], 
@@ -389,13 +468,13 @@ const SidebarComponent = ({
 
   return (
     <>
-    <div className="w-80 bg-white shadow-md h-screen flex flex-col p-4">
+    <div className="w-64 bg-white shadow-md h-screen flex flex-col p-3">
       {/* Logo aplikasi */}
-      <div className="flex justify-center mb-6 mt-4">
-        <Image src="/icon/logo_web.png" alt="VehiTrack Logo" width={150} height={50} />
+      <div className="flex justify-center mb-2 mt-1">
+        <Image src="/icon/logo_web.png" alt="VehiTrack Logo" width={100} height={32} />
       </div>
 
-      <h2 className="text-center font-bold text-lg mb-3">Daftar Kendaraan</h2>
+      <h2 className="text-center font-bold text-base mb-2">Daftar Kendaraan</h2>
 
       {/* Daftar kendaraan */}
       <div className="flex-grow overflow-y-auto">
@@ -407,23 +486,23 @@ const SidebarComponent = ({
             return (
             <div
               key={vehicle.vehicle_id}
-              className={`p-3 mb-2 rounded-md cursor-pointer relative ${
-                selectedVehicleId === vehicle.vehicle_id ? "bg-blue-200" : "bg-gray-200 hover:bg-gray-300"
+              className={`p-2 mb-2 rounded cursor-pointer relative ${
+                selectedVehicleId === vehicle.vehicle_id ? "bg-blue-100" : "bg-gray-200"
               }`}
               onClick={() => handleSelectVehicle(vehicle)}
             >
               <div className="flex justify-between items-start">
-                <div>
-                    <p className="font-bold mb-1">{vehicle.name || 'Tidak ada nama'}</p>
-                    <p className="text-sm text-black mb-1">{vehicle.license_plate}</p>
-                    <p className="text-sm text-black mb-1">{vehicle.make} {vehicle.model}</p>
-                    <p className="text-sm text-black mb-2">Tahun {vehicle.year}</p>
+                <div className="flex-grow">
+                    <p className="font-bold mb-0.5 text-sm text-black">{vehicle.name || 'Tidak ada nama'}</p>
+                    <p className="text-xs text-black mb-0.5">{vehicle.license_plate}</p>
+                    <p className="text-xs text-black mb-0.5">{vehicle.make} {vehicle.model}</p>
+                    <p className="text-xs text-black mb-0.5">Tahun {vehicle.year}</p>
                     
                   {vehicle.sim_card_number && (
-                      <p className="text-sm text-black mb-1">SIM Card: {vehicle.sim_card_number}</p>
+                      <p className="text-xs text-black mb-0.5">SIM Card: {vehicle.sim_card_number}</p>
                   )}   
                     {vehicle.relay_status && (
-                      <p className="text-sm text-black mb-2">
+                      <p className="text-xs text-black mb-0.5">
                       Status Mesin: {
                           vehicle.relay_status === 'ON'
                           ? <span className="text-green-600 font-semibold">ON</span>
@@ -433,14 +512,19 @@ const SidebarComponent = ({
                   )}
                   
                     {/* Data kendaraan real-time (speed) - selalu tampil */}
-                    <div className="text-sm text-black mt-2 mb-2">
-                      <p className="mb-1">
+                    <div className="text-xs text-black mb-1">
+                      <p className="mb-0.5">
                         Kecepatan: <span className="text-blue-600 font-semibold">{latestVehicleData?.speed || 0} km/h</span>
                       </p>
-                </div>
+                      <p className="mb-1">
+                        Status: <span className={`font-semibold ${latestVehicleData?.speed > 0 ? 'text-green-600' : 'text-orange-600'}`}>
+                          {latestVehicleData?.speed > 0 ? 'MOVED' : 'PARKED'}
+                        </span>
+                      </p>
+                    </div>
                     
                     {/* Button controls - GEO, ENGINE ON/OFF */}
-                    <div className="flex gap-1 mt-2">
+                    <div className="flex gap-0.5">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -450,7 +534,7 @@ const SidebarComponent = ({
                         vehicleGeofenceVisibility[vehicle.vehicle_id] === true
                           ? 'bg-green-600 hover:bg-green-700' 
                           : 'bg-blue-400 hover:bg-blue-500'
-                      } text-white rounded text-center font-bold transition-colors duration-200 w-10 h-6 text-[10px] flex items-center justify-center`}
+                      } text-white rounded text-center font-bold transition-colors duration-200 px-1.5 py-0.5 text-xs`}
                         title={`${vehicleGeofenceVisibility[vehicle.vehicle_id] === true ? 'Sembunyikan' : 'Tampilkan'} geofence untuk ${vehicle.name}`}
                         >
                         GEO
@@ -467,7 +551,7 @@ const SidebarComponent = ({
                             loadingVehicles[vehicle.vehicle_id] ? 'bg-gray-400' : 
                             vehicle.relay_status === 'ON' ? 'bg-gray-500' :
                             'bg-green-500 hover:bg-green-600'
-                          } text-white rounded text-center font-bold transition-colors duration-200 w-10 h-6 text-[10px] flex items-center justify-center`}
+                          } text-white rounded text-center font-bold transition-colors duration-200 px-1.5 py-0.5 text-xs`}
                           title={vehicle.relay_status === 'ON' ? 'Mesin sudah menyala' : 'Nyalakan mesin'}
                         >
                           {loadingVehicles[vehicle.vehicle_id] ? '...' : 'ON'}
@@ -484,20 +568,19 @@ const SidebarComponent = ({
                             loadingVehicles[vehicle.vehicle_id] ? 'bg-gray-400' : 
                             vehicle.relay_status === 'OFF' ? 'bg-gray-500' :
                             'bg-red-500 hover:bg-red-600'
-                          } text-white rounded text-center font-bold transition-colors duration-200 w-12 h-6 text-[10px] flex items-center justify-center`}
+                          } text-white rounded text-center font-bold transition-colors duration-200 px-1.5 py-0.5 text-xs`}
                           title={vehicle.relay_status === 'OFF' ? 'Mesin sudah mati' : 'Matikan mesin'}
                         >
                           {loadingVehicles[vehicle.vehicle_id] ? '...' : 'OFF'}
                     </button>
                       </div>
 
-
                   </div>
                     
                   {/* Button hapus kendaraan - tetap di pojok kanan */}
                   <button 
                     onClick={(e) => handleShowDeleteConfirm(vehicle, e)}
-                    className="bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold transition-colors duration-200"
+                    className="bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold transition-colors duration-200 absolute top-1 right-1"
                     title={`Hapus kendaraan ${vehicle.name}`}
                   >
                     ×
@@ -506,47 +589,47 @@ const SidebarComponent = ({
             </div>
           )})
         ) : (
-          <p className="text-center text-gray-500">Tidak ada kendaraan</p>
+          <p className="text-center text-gray-500 text-xs">Tidak ada kendaraan</p>
         )}
       </div>
 
       {/* Tombol aksi */}
-      <div className="mt-4 space-y-2">
+      <div className="mt-2 space-y-2">
         <button 
           onClick={onTambahKendaraan} 
-          className="w-full py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200"
+          className="w-full py-2 bg-blue-500 text-white rounded text-sm font-semibold hover:bg-blue-600 transition-colors duration-200"
         >
           TAMBAH KENDARAAN
         </button>
         
         <button 
           onClick={handleSetGeofence}
-          className="w-full py-2 bg-green-600 text-white rounded-md hover:bg-green-500 transition-colors duration-200"
+          className="w-full py-2 bg-green-600 text-white rounded text-sm font-semibold hover:bg-green-700 transition-colors duration-200"
         >
           SET GEOFENCE
         </button>
         
         <button 
           onClick={handleHistoryClick} 
-          className="w-full py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200"
+          className="w-full py-2 bg-blue-500 text-white rounded text-sm font-semibold hover:bg-blue-600 transition-colors duration-200"
         >
           {showHistory ? "HIDE HISTORY" : "SHOW HISTORY"}
         </button>
       </div>
       </div>
 
-      {/* Modal peringatan pilih kendaraan */}
+      {/* Modal peringatan pilih kendaraan - diperbesar sedikit */}
       {showSelectVehicleAlert && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
-          <div className="bg-white p-6 rounded-md shadow-lg max-w-md">
-            <h3 className="text-lg font-bold mb-4 text-red-500 text-center">Peringatan</h3>
-            <p className="mb-4 text-center">
+          <div className="bg-white p-4 rounded shadow-lg max-w-sm">
+            <h3 className="text-base font-bold mb-3 text-red-500 text-center">Peringatan</h3>
+            <p className="mb-3 text-center text-sm">
               Anda harus memilih kendaraan terlebih dahulu untuk melihat history perjalanan
             </p>
-            <div className="flex justify-end mt-6">
+            <div className="flex justify-end mt-4">
               <button 
                 onClick={() => setShowSelectVehicleAlert(false)}
-                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-yellow-600 transition-colors duration-200"
+                className="px-3 py-2 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition-colors duration-200"
               >
                 OK
               </button>
@@ -556,21 +639,21 @@ const SidebarComponent = ({
         document.body
       )}
 
-      {/* Modal notifikasi tidak ada history */}
+      {/* Modal notifikasi tidak ada history - dikecilkan */}
       {showNoHistoryAlert && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-md shadow-lg max-w-md">
-            <h3 className="text-lg font-bold mb-4 text-red-500">⚠️ Tidak Ada History</h3>
-            <p className="mb-4">
+          <div className="bg-white p-3 rounded shadow-lg max-w-xs">
+            <h3 className="text-sm font-bold mb-2 text-red-500">⚠️ Tidak Ada History</h3>
+            <p className="mb-2 text-xs">
               Kendaraan <strong>
                 {vehicles.find(v => v.vehicle_id === selectedVehicleId)?.name} (
                 {vehicles.find(v => v.vehicle_id === selectedVehicleId)?.license_plate})
               </strong> tidak memiliki data lokasi. History perjalanan tidak tersedia.
             </p>
-            <div className="flex justify-end mt-6">
+            <div className="flex justify-end mt-3">
               <button 
                 onClick={() => setShowNoHistoryAlert(false)}
-                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200"
+                className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition-colors duration-200"
               >
                 OK
               </button>
@@ -580,43 +663,43 @@ const SidebarComponent = ({
         document.body
       )}
 
-      {/* Modal konfirmasi hapus */}
+      {/* Modal konfirmasi hapus - dikecilkan */}
       {showDeleteConfirm && vehicleToDelete && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
-          <div className="bg-white p-8 rounded-lg shadow-2xl max-w-md w-full mx-4">
+          <div className="bg-white p-4 rounded shadow-2xl max-w-sm w-full mx-2">
             <div className="text-center">
-              <div className="mx-auto h-16 w-16 text-red-500 flex items-center justify-center mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-16 h-16">
+              <div className="mx-auto h-8 w-8 text-red-500 flex items-center justify-center mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-8 h-8">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                 </svg>
               </div>
               
-              <h3 className="text-xl font-bold mb-4 text-gray-800">Konfirmasi Hapus Kendaraan</h3>
+              <h3 className="text-sm font-bold mb-2 text-gray-800">Konfirmasi Hapus Kendaraan</h3>
               
-              <div className="mb-6">
-                <p className="text-gray-600 mb-2">
+              <div className="mb-3">
+                <p className="text-gray-600 mb-1 text-xs">
                   Apakah Anda yakin ingin menghapus kendaraan:
                 </p>
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <p className="font-semibold text-gray-800">{vehicleToDelete.name}</p>
-                  <p className="text-sm text-gray-600">Nomor: {vehicleToDelete.license_plate}</p>
-                  <p className="text-sm text-gray-600">{vehicleToDelete.make} {vehicleToDelete.model}</p>
+                <div className="bg-gray-50 p-1 rounded">
+                  <p className="font-semibold text-gray-800 text-xs">{vehicleToDelete.name}</p>
+                  <p className="text-xs text-gray-600">Nomor: {vehicleToDelete.license_plate}</p>
+                  <p className="text-xs text-gray-600">{vehicleToDelete.make} {vehicleToDelete.model}</p>
                 </div>
-                <p className="text-red-600 text-sm mt-3 font-medium">
+                <p className="text-red-600 text-xs mt-1 font-medium">
                   ⚠️ Tindakan ini tidak dapat dibatalkan
                 </p>
               </div>
               
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <div className="flex flex-col gap-1 justify-center">
               <button 
                 onClick={handleCancelDelete}
-                  className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors duration-200 font-medium"
+                  className="px-3 py-1 bg-gray-300 text-gray-700 rounded text-xs hover:bg-gray-400 transition-colors duration-200 font-medium"
               >
                 Batal
               </button>
               <button 
                   onClick={() => handleDeleteVehicle(vehicleToDelete)}
-                  className="px-6 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200 font-medium"
+                  className="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition-colors duration-200 font-medium"
               >
                   Ya, Hapus Kendaraan
               </button>
@@ -744,11 +827,12 @@ const SidebarComponent = ({
       )}
 
       {/* Modal History Date Range */}
-      {showHistoryDateRangeModal && (
+      {showHistoryDateRangeModal && createPortal(
         <ModalHistoryDateRange
           onClose={() => setShowHistoryDateRangeModal(false)}
           onSelectDateRange={handleSelectDateRange}
-        />
+        />,
+        document.body
       )}
     </>
   );

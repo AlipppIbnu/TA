@@ -128,23 +128,52 @@ function toRadians(degrees) {
  * @returns {Object|null} - status geofence atau null
  */
 export function getGeofenceStatus(vehicle, geofences) {
-  if (!vehicle.position) return null;
+  console.group('🔍 getGeofenceStatus Debug');
+  console.log('Input vehicle:', {
+    vehicleId: vehicle.vehicle_id,
+    name: vehicle.name,
+    hasPosition: !!vehicle.position,
+    position: vehicle.position ? `${vehicle.position.lat}, ${vehicle.position.lng}` : 'No position'
+  });
+  console.log('Input geofences:', geofences.map(g => ({
+    id: g.geofence_id,
+    name: g.name,
+    ruleType: g.rule_type,
+    type: g.type,
+    hasDefinition: !!g.definition
+  })));
+  
+  if (!vehicle.position) {
+    console.log('❌ No vehicle position, returning null');
+    console.groupEnd();
+    return null;
+  }
   
   const vehiclePosition = [vehicle.position.lat, vehicle.position.lng];
+  console.log('🎯 Vehicle position:', vehiclePosition);
+  
   let nearestGeofence = null;
   let minDistance = Infinity;
   
   // Periksa apakah kendaraan berada di dalam geofence mana pun
   for (const geofence of geofences) {
+    console.log(`\n📍 Checking geofence: ${geofence.name} (ID: ${geofence.geofence_id})`);
+    console.log('   Rule type:', geofence.rule_type);
+    console.log('   Type:', geofence.type);
+    
     try {
       // Parse data geofence 
       const geoData = typeof geofence.definition === 'string' 
         ? JSON.parse(geofence.definition) 
         : geofence.definition;
       
+      console.log('   Geo data type:', geoData?.type);
+      console.log('   Has coordinates:', !!geoData?.coordinates);
+      
       if (geoData && geoData.coordinates) {
         // Check the original type field to distinguish between polygon and circle
         const originalType = geofence.type; // This is the type we set (polygon/circle)
+        console.log('   Original type:', originalType);
         
         if (originalType === 'circle') {
           // Circle stored as polygon - we need to reconstruct circle properties
@@ -153,18 +182,29 @@ export function getGeofenceStatus(vehicle, geofences) {
           const polygonCoords = geoData.coordinates[0]
             .map(coord => [coord[1], coord[0]]); // Konversi [lng, lat] ke [lat, lng]
           
+          console.log('   Circle as polygon coords count:', polygonCoords.length);
+          console.log('   First few coords:', polygonCoords.slice(0, 3));
+          
           // Periksa apakah kendaraan berada di polygon (circle) ini
-          if (isPointInPolygon(vehiclePosition, polygonCoords)) {
-            return {
+          const isInside = isPointInPolygon(vehiclePosition, polygonCoords);
+          console.log('   Vehicle inside circle?', isInside);
+          
+          if (isInside) {
+            const result = {
               inside: true,
               name: geofence.name,
               id: geofence.geofence_id || geofence.id,
               type: geofence.rule_type || 'STAY_IN'
             };
+            console.log('✅ INSIDE CIRCLE GEOFENCE! Returning:', result);
+            console.groupEnd();
+            return result;
           }
           
           // Jika tidak di dalam, hitung jarak ke polygon terdekat
           const distance = distanceToPolygon(vehiclePosition, polygonCoords);
+          console.log('   Distance to circle:', distance, 'meters');
+          
           if (distance < minDistance) {
             minDistance = distance;
             nearestGeofence = {
@@ -174,6 +214,7 @@ export function getGeofenceStatus(vehicle, geofences) {
               distance: distance, // Jarak dalam meter
               type: geofence.rule_type || 'STAY_IN'
             };
+            console.log('   Updated nearest geofence (circle)');
           }
         }
         else if (geoData.type === 'Polygon') {
@@ -181,18 +222,29 @@ export function getGeofenceStatus(vehicle, geofences) {
           const polygonCoords = geoData.coordinates[0]
             .map(coord => [coord[1], coord[0]]); // Konversi [lng, lat] ke [lat, lng]
           
+          console.log('   Polygon coords count:', polygonCoords.length);
+          console.log('   First few coords:', polygonCoords.slice(0, 3));
+          
           // Periksa apakah kendaraan berada di geofence ini
-          if (isPointInPolygon(vehiclePosition, polygonCoords)) {
-            return {
+          const isInside = isPointInPolygon(vehiclePosition, polygonCoords);
+          console.log('   Vehicle inside polygon?', isInside);
+          
+          if (isInside) {
+            const result = {
               inside: true,
               name: geofence.name,
               id: geofence.geofence_id || geofence.id,
               type: geofence.rule_type || 'STAY_IN'
             };
+            console.log('✅ INSIDE POLYGON GEOFENCE! Returning:', result);
+            console.groupEnd();
+            return result;
           }
           
           // Jika tidak di dalam, hitung jarak ke geofence terdekat
           const distance = distanceToPolygon(vehiclePosition, polygonCoords);
+          console.log('   Distance to polygon:', distance, 'meters');
+          
           if (distance < minDistance) {
             minDistance = distance;
             nearestGeofence = {
@@ -202,6 +254,7 @@ export function getGeofenceStatus(vehicle, geofences) {
               distance: distance, // Jarak dalam meter
               type: geofence.rule_type || 'STAY_IN'
             };
+            console.log('   Updated nearest geofence (polygon)');
           }
         } 
         else if (geoData.type === 'Circle') {
@@ -209,18 +262,29 @@ export function getGeofenceStatus(vehicle, geofences) {
           const center = [geoData.coordinates.center[1], geoData.coordinates.center[0]]; // Konversi [lng, lat] ke [lat, lng]
           const radius = geoData.coordinates.radius;
           
+          console.log('   Legacy circle center:', center);
+          console.log('   Legacy circle radius:', radius);
+          
           // Periksa apakah kendaraan berada di circle ini
-          if (isPointInCircle(vehiclePosition, center, radius)) {
-            return {
+          const isInside = isPointInCircle(vehiclePosition, center, radius);
+          console.log('   Vehicle inside legacy circle?', isInside);
+          
+          if (isInside) {
+            const result = {
               inside: true,
               name: geofence.name,
               id: geofence.geofence_id || geofence.id,
               type: geofence.rule_type || 'STAY_IN'
             };
+            console.log('✅ INSIDE LEGACY CIRCLE GEOFENCE! Returning:', result);
+            console.groupEnd();
+            return result;
           }
           
           // Jika tidak di dalam, hitung jarak ke center circle
           const distance = distanceToCircle(vehiclePosition, center) - radius;
+          console.log('   Distance to legacy circle:', distance, 'meters');
+          
           if (distance >= 0 && distance < minDistance) {
             minDistance = distance;
             nearestGeofence = {
@@ -230,13 +294,22 @@ export function getGeofenceStatus(vehicle, geofences) {
               distance: distance, // Jarak dalam meter
               type: geofence.rule_type || 'STAY_IN'
             };
+            console.log('   Updated nearest geofence (legacy circle)');
           }
+        } else {
+          console.log('   ⚠️ Unknown geofence data type:', geoData.type);
         }
+      } else {
+        console.log('   ⚠️ No geofence coordinates found');
       }
     } catch (e) {
-      console.error('Error processing geofence:', e);
+      console.error('   ❌ Error processing geofence:', e);
     }
   }
   
-  return nearestGeofence || { inside: false, name: null };
+  const finalResult = nearestGeofence || { inside: false, name: null };
+  console.log('🏁 Final result:', finalResult);
+  console.groupEnd();
+  
+  return finalResult;
 } 

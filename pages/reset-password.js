@@ -49,64 +49,71 @@ export default function ResetPassword() {
       </Head>
 
       <div className="min-h-screen bg-white flex flex-col">
-        {/* Navbar Logo */}
-        <nav className="w-full h-40 flex items-center px-16 border-b">
+        {/* Navbar Logo - dikecilkan */}
+        <nav className="w-full h-24 flex items-center px-8 border-b bg-white">
           <Link href="/auth/login">
             <Image
               src="/icon/logo_web.png"
               alt="Vehitrack Logo"
-              width={300}
-              height={0}
+              width={120}
+              height={40}
               className="cursor-pointer"
+              priority
             />
           </Link>
         </nav>
 
-        {/* Main Content */}
-        <div className="flex justify-center items-center flex-1 px-16 py-8">
-          <div className="w-full max-w-[500px]">
-            <h1 className="text-3xl font-bold text-center mb-2">Reset Password</h1>
-            <p className="text-center text-gray-600 mb-8">Masukkan email Anda untuk menerima kode OTP</p>
+        {/* Main Content - dikecilkan */}
+        <div className="flex justify-center items-center flex-1 px-8 py-6">
+          <div className="w-full max-w-[350px]">
+            <h1 className="text-xl font-bold text-center mb-2">Reset Password</h1>
+            <p className="text-center text-gray-600 mb-6 text-sm">Masukkan email Anda untuk menerima kode OTP</p>
 
-            {/* Error Message */}
+            {/* Error Message - dikecilkan */}
             {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              <div className="flex justify-center mb-2">
+                <div className="bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded text-xs text-center max-w-[250px]">
                 {error}
+                </div>
               </div>
             )}
 
-            {/* Success Message */}
+            {/* Success Message - dikecilkan */}
             {message && (
-              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+              <div className="flex justify-center mb-2">
+                <div className="bg-green-100 border border-green-400 text-green-700 px-3 py-2 rounded text-xs text-center max-w-[250px]">
                 {message}
+                </div>
               </div>
             )}
 
-            {/* Reset Password Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Reset Password Form - dikecilkan */}
+            <form onSubmit={handleSubmit} className="space-y-3">
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full border border-gray-300 p-4 rounded-lg focus:outline-none focus:border-blue-500 text-lg"
+                className="w-full border border-gray-300 p-3 rounded-md focus:outline-none focus:border-blue-500 text-base"
                 placeholder="Enter Email"
                 required
               />
 
+              <div className="flex justify-center">
               <button
                 type="submit"
                 disabled={loading}
-                className={`w-full bg-blue-500 text-white p-4 rounded-lg font-semibold text-lg ${
+                  className={`max-w-[200px] px-8 py-3 bg-blue-500 text-white rounded-md font-semibold text-base ${
                   loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'
                 } transition`}
               >
                 {loading ? 'Mengirim...' : 'Kirim Kode OTP'}
               </button>
+              </div>
             </form>
 
-            {/* Back to Login */}
-            <div className="text-center mt-6">
-              <Link href="/auth/login" className="text-blue-500 text-lg">
+            {/* Back to Login - dikecilkan */}
+            <div className="text-center mt-4">
+              <Link href="/auth/login" className="text-blue-500 text-sm">
                 Kembali ke Login
               </Link>
             </div>
