@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import directusConfig from "../../lib/directusConfig";
+// Removed directusConfig import as we're using API proxy
 
 export default function ForgotPassword() {
   // State management
@@ -23,32 +23,22 @@ export default function ForgotPassword() {
     setLoading(true);
 
     try {
-      // Cek apakah email terdaftar
-      const checkResponse = await fetch(
-        `${directusConfig.endpoints.users}?filter[email][_eq]=${encodeURIComponent(email)}`,
-        {
-          headers: directusConfig.headers,
-        }
-      );
-
-      const checkResult = await checkResponse.json();
-      
-      if (!checkResult.data || checkResult.data.length === 0) {
-        throw new Error("Email tidak terdaftar");
-      }
-
-      // Kirim request reset password ke endpoint Directus
-      const response = await fetch(`${directusConfig.baseURL}/auth/password/request`, {
+      // Kirim request reset password melalui API proxy
+      const response = await fetch('/api/auth/forgot-password', {
         method: 'POST',
-        headers: directusConfig.headers,
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ email })
       });
 
+      const result = await response.json();
+
       if (!response.ok) {
-        throw new Error("Gagal mengirim email reset password");
+        throw new Error(result.error || "Gagal mengirim email reset password");
       }
 
-      setMessage("✅ Link reset password telah dikirim ke email Anda.");
+      setMessage("✅ " + result.message);
     } catch (error) {
       setError("❌ " + error.message);
     } finally {

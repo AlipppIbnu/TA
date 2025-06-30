@@ -663,10 +663,10 @@ const SidebarComponent = ({
         document.body
       )}
 
-      {/* Modal konfirmasi hapus - dikecilkan */}
+      {/* Modal konfirmasi hapus - disesuaikan dengan modal geofence */}
       {showDeleteConfirm && vehicleToDelete && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
-          <div className="bg-white p-4 rounded shadow-2xl max-w-sm w-full mx-2">
+          <div className="bg-white p-3 rounded shadow-lg max-w-xs w-full mx-4">
             <div className="text-center">
               <div className="mx-auto h-8 w-8 text-red-500 flex items-center justify-center mb-2">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-8 h-8">
@@ -674,52 +674,52 @@ const SidebarComponent = ({
                 </svg>
               </div>
               
-              <h3 className="text-sm font-bold mb-2 text-gray-800">Konfirmasi Hapus Kendaraan</h3>
+              <h3 className="text-base font-bold mb-2 text-gray-800">Konfirmasi Hapus Kendaraan</h3>
               
               <div className="mb-3">
                 <p className="text-gray-600 mb-1 text-xs">
                   Apakah Anda yakin ingin menghapus kendaraan:
                 </p>
-                <div className="bg-gray-50 p-1 rounded">
-                  <p className="font-semibold text-gray-800 text-xs">{vehicleToDelete.name}</p>
+                <div className="bg-gray-50 p-2 rounded">
+                  <p className="font-semibold text-gray-800 text-sm">{vehicleToDelete.name}</p>
                   <p className="text-xs text-gray-600">Nomor: {vehicleToDelete.license_plate}</p>
                   <p className="text-xs text-gray-600">{vehicleToDelete.make} {vehicleToDelete.model}</p>
                 </div>
                 <p className="text-red-600 text-xs mt-1 font-medium">
-                  ⚠️ Tindakan ini tidak dapat dibatalkan
+                  Kendaraan yang dihapus tidak dapat dikembalikan
                 </p>
               </div>
               
               <div className="flex flex-col gap-1 justify-center">
-              <button 
-                onClick={handleCancelDelete}
+                <button 
+                  onClick={handleCancelDelete}
                   className="px-3 py-1 bg-gray-300 text-gray-700 rounded text-xs hover:bg-gray-400 transition-colors duration-200 font-medium"
-              >
-                Batal
-              </button>
-              <button 
+                >
+                  Batal
+                </button>
+                <button 
                   onClick={() => handleDeleteVehicle(vehicleToDelete)}
                   className="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition-colors duration-200 font-medium"
-              >
+                >
                   Ya, Hapus Kendaraan
-              </button>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
         </div>,
         document.body
       )}
 
-      {/* Modal notifikasi sukses */}
+      {/* Modal notifikasi sukses - dikecilkan */}
       {showSuccessNotification && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
-          <div className="bg-white p-6 rounded-md shadow-lg max-w-md">
-            <h3 className="text-lg font-bold mb-4 text-green-600 text-center">Berhasil Menghapus Kendaraan!</h3>
-            <p className="mb-4">{successMessage}</p>
-            <div className="flex justify-end mt-6">
+          <div className="bg-white p-4 rounded-md shadow-lg max-w-xs">
+            <h3 className="text-base font-bold mb-3 text-green-600 text-center">Berhasil Menghapus Kendaraan!</h3>
+            <p className="mb-3 text-sm">{successMessage}</p>
+            <div className="flex justify-end mt-4">
               <button 
                 onClick={() => setShowSuccessNotification(false)}
-                className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200"
+                className="px-3 py-1.5 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200 text-sm"
               >
                 OK
               </button>
@@ -762,33 +762,33 @@ const SidebarComponent = ({
         document.body
       )}
 
-      {/* Modal Loading Relay - Menunggu Status Berubah */}
+      {/* Modal Loading Relay - dikecilkan setengah dari sebelumnya */}
       {showRelayLoadingModal && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
-          <div className="bg-white p-6 rounded-md shadow-lg max-w-md">
+          <div className="bg-white p-4 rounded shadow-lg max-w-[200px] w-full mx-2">
             <div className="text-center">
-              <div className="mb-4">
+              <div className="mb-2">
                 {relayStatusChanged ? (
                   // Icon sukses ketika status sudah berubah
-                  <div className="mx-auto h-12 w-12 text-green-500 flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-12 h-12">
+                  <div className="mx-auto h-8 w-8 text-green-500 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-8 h-8">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
                 ) : (
                   // Spinner loading ketika masih menunggu
-                  <svg className="animate-spin mx-auto h-12 w-12 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin mx-auto h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
                 )}
               </div>
               
-              <h3 className={`text-lg font-bold mb-4 ${relayStatusChanged ? 'text-green-600' : 'text-blue-600'}`}>
+              <h3 className={`text-base font-bold mb-2 ${relayStatusChanged ? 'text-green-600' : 'text-blue-600'}`}>
                 {relayStatusChanged ? 'Berhasil!' : 'Mohon Tunggu...'}
               </h3>
               
-              <p className="mb-4 text-gray-700">
+              <p className="mb-2 text-gray-700 text-sm">
                 {relayStatusChanged 
                   ? `Status mesin kendaraan ${relayLoadingVehicleName} ${relayLoadingVehiclePlate} sudah ${relayLoadingAction}`
                   : (
@@ -802,16 +802,16 @@ const SidebarComponent = ({
               </p>
               
               {!relayStatusChanged && (
-                <div className="text-sm text-gray-500 mb-4">
+                <div className="text-xs text-gray-500 mb-2">
                   Menunggu konfirmasi dari relay
                 </div>
               )}
               
-              <div className="flex justify-center mt-6">
+              <div className="flex justify-center mt-3">
                 <button 
                   onClick={handleRelayLoadingComplete}
                   disabled={!relayStatusChanged}
-                  className={`px-6 py-2 rounded-md transition-colors duration-200 ${
+                  className={`px-4 py-1 rounded text-sm transition-colors duration-200 ${
                     relayStatusChanged 
                       ? 'bg-green-500 hover:bg-green-600 text-white cursor-pointer'
                       : 'bg-gray-300 text-gray-500 cursor-not-allowed'

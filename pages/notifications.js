@@ -78,7 +78,7 @@ const NotificationsPage = () => {
       router.push("/auth/login");
       return;
     }
-    
+
     // Fetch initial alerts data
     fetchInitialAlerts();
     
@@ -438,7 +438,7 @@ const NotificationsPage = () => {
 
           {/* Scrollable notifications area */}
           <div className="max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-            <div className="divide-y divide-gray-200">
+          <div className="divide-y divide-gray-200">
             {currentAlerts.length > 0 ? (
               currentAlerts.map((alert) => (
                 <div key={alert.alert_id} className="p-4 hover:bg-gray-50 transition-colors">
