@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-// Removed directusConfig import as we're using API proxy
+import directusConfig from "../../lib/directusConfig";
 
 export default function ForgotPassword() {
   // State management
@@ -23,22 +23,32 @@ export default function ForgotPassword() {
     setLoading(true);
 
     try {
-      // Kirim request reset password melalui API proxy
-      const response = await fetch('/api/auth-combined?action=forgot-password', {
+      // Cek apakah email terdaftar
+      const checkResponse = await fetch(
+        `${directusConfig.endpoints.users}?filter[email][_eq]=${encodeURIComponent(email)}`,
+        {
+          headers: directusConfig.headers,
+        }
+      );
+
+      const checkResult = await checkResponse.json();
+      
+      if (!checkResult.data || checkResult.data.length === 0) {
+        throw new Error("Email tidak terdaftar");
+      }
+
+      // Kirim request reset password ke endpoint Directus
+      const response = await fetch(`${directusConfig.baseURL}/auth/password/request`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: directusConfig.headers,
         body: JSON.stringify({ email })
       });
 
-      const result = await response.json();
-
       if (!response.ok) {
-        throw new Error(result.error || "Gagal mengirim email reset password");
+        throw new Error("Gagal mengirim email reset password");
       }
 
-      setMessage("✅ " + result.message);
+      setMessage("✅ Link reset password telah dikirim ke email Anda.");
     } catch (error) {
       setError("❌ " + error.message);
     } finally {
@@ -63,35 +73,35 @@ export default function ForgotPassword() {
 
       {/* Main Content */}
       <div className="flex justify-center items-center flex-1 px-16">
-        <div className="w-full max-w-[400px]">
-          <h1 className="text-3xl font-bold text-center mb-6">Reset Password</h1>
-          <p className="text-gray-600 text-center mb-8">
+        <div className="w-full max-w-[420px]">
+          <h1 className="text-3xl font-bold text-center mb-8">Reset Password</h1>
+          <p className="text-gray-600 text-center mb-10 text-base">
             Enter your email address and we&apos;ll send you instructions to reset your password.
           </p>
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6 text-sm">
               {error}
             </div>
           )}
 
           {/* Success Message */}
           {message && (
-            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6 text-sm">
               {message}
             </div>
           )}
 
           {/* Reset Password Form */}
-          <form onSubmit={handleReset} className="space-y-4">
+          <form onSubmit={handleReset} className="space-y-6">
             <div>
-              <label className="block text-gray-700 mb-2">Email Address</label>
+              <label className="block text-gray-700 mb-2 text-sm font-medium">Email Address</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-                className="w-full border border-gray-300 p-4 rounded-lg focus:outline-none focus:border-blue-500"
+                className="w-full border border-gray-300 p-4 rounded-lg focus:outline-none focus:border-blue-500 text-base"
                 placeholder="Enter your email"
               required
             />
@@ -109,7 +119,7 @@ export default function ForgotPassword() {
           </form>
 
           {/* Back to Login Link */}
-          <p className="text-center mt-6">
+          <p className="text-center mt-8 text-base">
             Remember your password?{' '}
             <Link href="/auth/login" className="text-blue-500 hover:text-blue-600">
               Back to Login

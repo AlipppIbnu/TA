@@ -1,7 +1,7 @@
 // API handler untuk mengambil data koordinat kendaraan dari Directus
 
 // Directus base API URL - Updated to use new endpoint
-const DIRECTUS_API_URL = 'http://vehitrack.my.id/directus/items/vehicle_datas';
+const DIRECTUS_API_URL = 'https://vehitrack.my.id/directus/items/vehicle_datas';
 
 /**
  * API handler untuk mengambil data koordinat kendaraan dari Directus

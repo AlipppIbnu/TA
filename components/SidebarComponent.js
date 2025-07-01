@@ -494,15 +494,15 @@ const SidebarComponent = ({
               <div className="flex justify-between items-start">
                 <div className="flex-grow">
                     <p className="font-bold mb-0.5 text-sm text-black">{vehicle.name || 'Tidak ada nama'}</p>
-                    <p className="text-xs text-black mb-0.5">{vehicle.license_plate}</p>
-                    <p className="text-xs text-black mb-0.5">{vehicle.make} {vehicle.model}</p>
-                    <p className="text-xs text-black mb-0.5">Tahun {vehicle.year}</p>
+                    <p className="text-sm text-black mb-0.5">{vehicle.license_plate}</p>
+                    <p className="text-sm text-black mb-0.5">{vehicle.make} {vehicle.model}</p>
+                    <p className="text-sm text-black mb-0.5">Tahun {vehicle.year}</p>
                     
                   {vehicle.sim_card_number && (
-                      <p className="text-xs text-black mb-0.5">SIM Card: {vehicle.sim_card_number}</p>
+                      <p className="text-sm text-black mb-0.5">SIM Card: {vehicle.sim_card_number}</p>
                   )}   
                     {vehicle.relay_status && (
-                      <p className="text-xs text-black mb-0.5">
+                      <p className="text-sm text-black mb-0.5">
                       Status Mesin: {
                           vehicle.relay_status === 'ON'
                           ? <span className="text-green-600 font-semibold">ON</span>
@@ -512,7 +512,7 @@ const SidebarComponent = ({
                   )}
                   
                     {/* Data kendaraan real-time (speed) - selalu tampil */}
-                    <div className="text-xs text-black mb-1">
+                    <div className="text-sm text-black mb-1">
                       <p className="mb-0.5">
                         Kecepatan: <span className="text-blue-600 font-semibold">{latestVehicleData?.speed || 0} km/h</span>
                       </p>
@@ -666,40 +666,40 @@ const SidebarComponent = ({
       {/* Modal konfirmasi hapus - disesuaikan dengan modal geofence */}
       {showDeleteConfirm && vehicleToDelete && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
-          <div className="bg-white p-3 rounded shadow-lg max-w-xs w-full mx-4">
+          <div className="bg-white p-4 rounded-lg shadow-2xl max-w-xs w-full mx-4">
             <div className="text-center">
-              <div className="mx-auto h-8 w-8 text-red-500 flex items-center justify-center mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-8 h-8">
+              <div className="mx-auto h-10 w-10 text-red-500 flex items-center justify-center mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-10 h-10">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                 </svg>
               </div>
               
-              <h3 className="text-base font-bold mb-2 text-gray-800">Konfirmasi Hapus Kendaraan</h3>
+              <h3 className="text-lg font-bold mb-3 text-gray-800">Konfirmasi Hapus Kendaraan</h3>
               
-              <div className="mb-3">
-                <p className="text-gray-600 mb-1 text-xs">
+              <div className="mb-4">
+                <p className="text-gray-600 mb-2 text-sm">
                   Apakah Anda yakin ingin menghapus kendaraan:
                 </p>
-                <div className="bg-gray-50 p-2 rounded">
+                <div className="bg-gray-50 p-2 rounded-md">
                   <p className="font-semibold text-gray-800 text-sm">{vehicleToDelete.name}</p>
                   <p className="text-xs text-gray-600">Nomor: {vehicleToDelete.license_plate}</p>
                   <p className="text-xs text-gray-600">{vehicleToDelete.make} {vehicleToDelete.model}</p>
                 </div>
-                <p className="text-red-600 text-xs mt-1 font-medium">
+                <p className="text-red-600 text-xs mt-2 font-medium">
                   Kendaraan yang dihapus tidak dapat dikembalikan
                 </p>
               </div>
               
-              <div className="flex flex-col gap-1 justify-center">
+              <div className="flex flex-col sm:flex-row gap-2 justify-center">
               <button 
                 onClick={handleCancelDelete}
-                  className="px-3 py-1 bg-gray-300 text-gray-700 rounded text-xs hover:bg-gray-400 transition-colors duration-200 font-medium"
+                  className="px-4 py-1.5 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors duration-200 font-medium text-sm"
               >
                 Batal
               </button>
               <button 
                   onClick={() => handleDeleteVehicle(vehicleToDelete)}
-                  className="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition-colors duration-200 font-medium"
+                  className="px-4 py-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200 font-medium text-sm"
               >
                   Ya, Hapus Kendaraan
               </button>
@@ -713,10 +713,10 @@ const SidebarComponent = ({
       {/* Modal notifikasi sukses - dikecilkan */}
       {showSuccessNotification && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
-          <div className="bg-white p-4 rounded-md shadow-lg max-w-xs">
-            <h3 className="text-base font-bold mb-3 text-green-600 text-center">Berhasil Menghapus Kendaraan!</h3>
+          <div className="bg-white p-3 rounded-md shadow-lg max-w-xs">
+            <h3 className="text-base font-bold mb-2 text-green-600 text-center">Berhasil Menghapus Kendaraan!</h3>
             <p className="mb-3 text-sm">{successMessage}</p>
-            <div className="flex justify-end mt-4">
+            <div className="flex justify-end mt-3">
               <button 
                 onClick={() => setShowSuccessNotification(false)}
                 className="px-3 py-1.5 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200 text-sm"

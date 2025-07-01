@@ -130,77 +130,71 @@ export default function VerifyResetOTP() {
 
         {/* Main Content - dikecilkan */}
         <div className="flex justify-center items-center flex-1 px-8 py-6">
-                     <div className="w-full max-w-[350px]">
-            <h1 className="text-xl font-bold text-center mb-2">Verifikasi OTP</h1>
-            <p className="text-center text-gray-600 mb-6 text-sm">
+          <div className="w-full max-w-[420px]">
+            <h1 className="text-2xl font-bold text-center mb-4">Verifikasi OTP</h1>
+            <p className="text-center text-gray-600 mb-8 text-base">
               Masukkan kode OTP yang dikirim ke<br />
               <span className="font-medium text-blue-600">{email}</span>
             </p>
 
             {/* Error Message - dikecilkan */}
             {error && (
-              <div className="flex justify-center mb-2">
-                <div className="bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded text-xs text-center max-w-[250px]">
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 text-sm">
                 {error}
-                </div>
               </div>
             )}
 
             {/* Success Message - dikecilkan */}
             {successMessage && (
-              <div className="flex justify-center mb-2">
-                <div className="bg-green-100 border border-green-400 text-green-700 px-3 py-2 rounded text-xs text-center max-w-[250px]">
-                  {successMessage}
-                </div>
+              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4 text-sm">
+                {successMessage}
               </div>
             )}
 
             {/* Countdown Timer - dikecilkan */}
-            <div className="text-center mb-4">
-              <p className="text-sm text-gray-600">
+            <div className="text-center mb-6">
+              <p className="text-base text-gray-600">
                 Kode akan kedaluwarsa dalam:{' '}
                 <span className={`font-semibold ${countdown < 60 ? 'text-red-600' : 'text-blue-600'}`}>
                   {formatTime(countdown)}
                 </span>
               </p>
               {countdown === 0 && (
-                <p className="text-red-600 text-xs mt-1">
+                <p className="text-red-600 text-sm mt-2">
                   Kode OTP telah kedaluwarsa. Silakan minta kode baru.
                 </p>
               )}
             </div>
 
             {/* OTP Form - dikecilkan */}
-            <form onSubmit={handleSubmit} className="space-y-3">
+            <form onSubmit={handleSubmit} className="space-y-6">
               <input
                 type="text"
                 value={otp}
                 onChange={handleOtpChange}
                 maxLength="6"
-                className="w-full border border-gray-300 p-3 rounded-md focus:outline-none focus:border-blue-500 text-center text-lg font-mono tracking-widest"
+                className="w-full border border-gray-300 p-4 rounded-lg focus:outline-none focus:border-blue-500 text-center text-xl font-mono tracking-widest"
                 placeholder="123456"
                 required
               />
 
-              <div className="flex justify-center">
               <button
                 type="submit"
                 disabled={loading || countdown === 0 || otp.length !== 6}
-                  className={`max-w-[200px] px-8 py-3 bg-blue-500 text-white rounded-md font-semibold text-base ${
+                className={`w-full px-8 py-4 bg-blue-500 text-white rounded-lg font-semibold text-lg ${
                   (loading || countdown === 0 || otp.length !== 6) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'
                 } transition`}
               >
                 {loading ? 'Memverifikasi...' : 'Verifikasi OTP'}
               </button>
-              </div>
             </form>
 
             {/* Resend OTP - dikecilkan */}
-            <div className="text-center mt-4">
+            <div className="text-center mt-6">
               <button
                 onClick={handleResendOTP}
                 disabled={countdown > 0 || resendLoading}
-                className={`max-w-[180px] px-4 py-2 rounded-md text-sm font-medium transition ${
+                className={`w-full px-4 py-3 rounded-lg text-base font-medium transition ${
                   countdown > 0
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed hover:bg-gray-100' 
                     : resendLoading
@@ -213,8 +207,8 @@ export default function VerifyResetOTP() {
             </div>
 
             {/* Back to Reset Password - dikecilkan */}
-            <div className="text-center mt-4">
-              <Link href="/reset-password" className="text-blue-500 text-sm">
+            <div className="text-center mt-6">
+              <Link href="/reset-password" className="text-blue-500 text-base">
                 Kembali ke Reset Password
               </Link>
             </div>

@@ -108,83 +108,82 @@ export default function NewPassword() {
 
         {/* Main Content - dikecilkan */}
         <div className="flex justify-center items-center flex-1 px-8 py-6">
-                     <div className="w-full max-w-[350px]">
-            <h1 className="text-xl font-bold text-center mb-2">Buat Password Baru</h1>
-            <p className="text-center text-gray-600 mb-6 text-sm">
+          <div className="w-full max-w-[420px]">
+            <h1 className="text-2xl font-bold text-center mb-4">Buat Password Baru</h1>
+            <p className="text-center text-gray-600 mb-8 text-base">
               Untuk akun: <span className="font-medium text-blue-600">{email}</span>
             </p>
 
             {/* Error Message - dikecilkan */}
             {error && (
-              <div className="flex justify-center mb-2">
-                <div className="bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded text-xs text-center max-w-[250px]">
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 text-sm">
                 {error}
-                </div>
               </div>
             )}
 
             {/* Success Message - dikecilkan */}
             {success && (
-              <div className="flex justify-center mb-2">
-                <div className="bg-green-100 border border-green-400 text-green-700 px-3 py-2 rounded text-xs text-center max-w-[250px]">
+              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4 text-sm">
                 {success}
-                </div>
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-3">
+            <form onSubmit={handleSubmit} className="space-y-6">
               {/* Input Password dengan toggle show/hide - dikecilkan */}
               <div className="relative w-full">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full border border-gray-300 p-3 rounded-md focus:outline-none focus:border-blue-500 text-base"
-                  placeholder="Password"
-                  required
-                />
-                <button
-                  type="button"
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 w-auto h-auto p-0 m-0 bg-transparent text-gray-700 hover:text-gray-900 focus:outline-none"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <FaEyeSlash size={14} /> : <FaEye size={14} />}
-                </button>
+                <label className="block text-gray-700 mb-2 text-sm font-medium">Password Baru</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full border border-gray-300 p-4 rounded-lg focus:outline-none focus:border-blue-500 text-base"
+                    placeholder="Masukkan password baru"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 w-auto h-auto p-0 m-0 bg-transparent text-gray-700 hover:text-gray-900 focus:outline-none"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <FaEyeSlash size={16} /> : <FaEye size={16} />}
+                  </button>
+                </div>
               </div>
-
-
 
               {/* Input Konfirmasi Password dengan toggle show/hide - dikecilkan */}
               <div className="relative w-full">
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full border border-gray-300 p-3 rounded-md focus:outline-none focus:border-blue-500 text-base"
-                  placeholder="Confirm Password"
-                  required
-                />
-                <button
-                  type="button"
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 w-auto h-auto p-0 m-0 bg-transparent text-gray-700 hover:text-gray-900 focus:outline-none"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                >
-                  {showConfirmPassword ? <FaEyeSlash size={14} /> : <FaEye size={14} />}
-                </button>
+                <label className="block text-gray-700 mb-2 text-sm font-medium">Konfirmasi Password</label>
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full border border-gray-300 p-4 rounded-lg focus:outline-none focus:border-blue-500 text-base"
+                    placeholder="Konfirmasi password baru"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 w-auto h-auto p-0 m-0 bg-transparent text-gray-700 hover:text-gray-900 focus:outline-none"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    {showConfirmPassword ? <FaEyeSlash size={16} /> : <FaEye size={16} />}
+                  </button>
+                </div>
               </div>
 
               {confirmPassword && password !== confirmPassword && (
-                <p className="mt-1 text-xs text-red-600">Password tidak cocok</p>
+                <p className="mt-2 text-sm text-red-600">Password tidak cocok</p>
               )}
               {confirmPassword && password === confirmPassword && (
-                <p className="mt-1 text-xs text-green-600">Password cocok</p>
+                <p className="mt-2 text-sm text-green-600">Password cocok</p>
               )}
 
-              <div className="flex justify-center">
               <button
                 type="submit"
                 disabled={loading || password !== confirmPassword || password.length < 6}
-                  className={`max-w-[220px] px-8 py-3 bg-blue-500 text-white rounded-md font-semibold text-base ${
+                className={`w-full px-8 py-4 bg-blue-500 text-white rounded-lg font-semibold text-lg ${
                   (loading || password !== confirmPassword || password.length < 6) 
                     ? 'opacity-50 cursor-not-allowed' 
                     : 'hover:bg-blue-600'
@@ -192,7 +191,6 @@ export default function NewPassword() {
               >
                 {loading ? 'Memperbarui Password...' : 'Perbarui Password'}
               </button>
-              </div>
             </form>
           </div>
         </div>

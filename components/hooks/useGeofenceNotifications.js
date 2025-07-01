@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { handleGeofenceViolation, getGeofenceStatus } from '@/utils/geofence-combined';
+import { handleGeofenceViolation } from '@/utils/geofenceApi';
+import { getGeofenceStatus } from '@/utils/geofenceUtils';
 import { getCurrentUser } from '@/lib/authService';
 
 const useGeofenceNotifications = (autoRemoveDelay = 10000) => {

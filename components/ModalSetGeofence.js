@@ -13,7 +13,6 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
     name: "",
     type: "polygon",
     rule_type: "STAY_IN",
-    status: "active",
     vehicle_id: ""
   });
   const [loading, setLoading] = useState(false);
@@ -207,7 +206,6 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
         coordinates: formattedCoordinates
       },
       rule_type: formData.rule_type,
-      status: formData.status,
       vehicle_id: formData.vehicle_id,
       user_id: currentUser.userId,
       date_created: new Date().toISOString()
@@ -215,7 +213,7 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
 
     // Kirim data ke API
     try {
-              const response = await fetch("/api/geofence-combined?action=add", {
+      const response = await fetch("/api/TambahGeofence", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(geofenceData),
@@ -396,23 +394,6 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
             >
               <option value="STAY_IN">Stay In (Harus tetap di dalam area)</option>
               <option value="FORBIDDEN">Forbidden (Area terlarang)</option>
-            </select>
-          </div>
-
-          {/* Select status */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Status
-            </label>
-            <select
-              name="status"
-              value={formData.status}
-              onChange={handleChange}
-              className="w-full border p-1.5 rounded text-sm"
-              disabled={isDrawing}
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
             </select>
           </div>
 

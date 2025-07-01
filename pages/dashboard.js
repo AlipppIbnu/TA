@@ -54,7 +54,7 @@ function ModalTambahKendaraan({ onClose, onSucceed }) {
   // Fungsi untuk memeriksa License Plate
   const checkLicensePlate = async (licensePlate) => {
     try {
-      const response = await fetch(`/api/vehicles?action=check-license&license_plate=${licensePlate}`);
+      const response = await fetch(`/api/CheckVehicle?license_plate=${licensePlate}`);
       const data = await response.json();
 
       if (data.exists) {
@@ -73,7 +73,7 @@ function ModalTambahKendaraan({ onClose, onSucceed }) {
   const checkGpsDeviceId = async (gpsId) => {
     try {
       setIsCheckingGps(true);
-      const response = await fetch(`/api/vehicles?action=check-gps&gps_id=${gpsId}`);
+      const response = await fetch(`/api/CheckGpsDevice?gps_id=${gpsId}`);
       const data = await response.json();
 
       if (data.exists) {
@@ -365,7 +365,7 @@ export default function Dashboard() {
   // Muat geofences dari API
   const loadGeofences = async () => {
     try {
-      const response = await fetch('/api/geofence-combined?action=get');
+      const response = await fetch('/api/geofences');
       
       if (!response.ok) {
         throw new Error('Failed to fetch geofences');
@@ -390,37 +390,45 @@ export default function Dashboard() {
 
 
 
-  // REMOVED: Polling untuk reload vehicle positions - kini menggunakan WebSocket 100%
-  // Vehicle positions akan diupdate secara real-time melalui WebSocket di MapComponent
-  // Ini menghilangkan redundansi dan mengurangi beban server secara signifikan
-  
-  // Optional: Update selected vehicle if it exists in new data from initial load only
+    // Monitor untuk reload vehicle positions secara berkala
   useEffect(() => {
-    if (selectedVehicle && vehicles.length > 0) {
-      const updatedSelectedVehicle = vehicles.find(v => v.vehicle_id === selectedVehicle.vehicle_id);
-      if (updatedSelectedVehicle && !selectedVehicle.path) {
-        setSelectedVehicle(prev => ({
-          ...updatedSelectedVehicle,
-          path: prev.path // Keep existing path if any
-        }));
+    const reloadVehiclePositions = async () => {
+      try {
+        const userVehicles = await getUserVehicles();
+        setVehicles(userVehicles);
+        
+        // Update selected vehicle if it exists in new data
+        if (selectedVehicle) {
+          const updatedSelectedVehicle = userVehicles.find(v => v.vehicle_id === selectedVehicle.vehicle_id);
+          if (updatedSelectedVehicle) {
+            setSelectedVehicle(prev => ({
+              ...updatedSelectedVehicle,
+              path: prev.path // Keep existing path if any
+            }));
+          }
+        }
+        
+
+      } catch (error) {
+        console.error('Error reloading vehicle positions:', error);
       }
-    }
-  }, [vehicles]); // Only on vehicles change, not polling
+    };
+
+    // Reload positions every 3 seconds (reduced from 1 second for better performance)
+    const positionInterval = setInterval(reloadVehiclePositions, 3000);
+
+    return () => {
+      clearInterval(positionInterval);
+    };
+  }, [selectedVehicle]);
 
 
 
-  // REAL-TIME GEOFENCE VIOLATION DETECTION - Now handled in MapComponent with WebSocket data
+  // REAL-TIME GEOFENCE VIOLATION DETECTION
   useEffect(() => {
-    console.log('🔄 Dashboard: Geofence detection now handled in MapComponent with WebSocket data');
-    console.log('   Dashboard vehicles (API data):', vehicles.length);
-    console.log('   MapComponent updatedVehicles (WebSocket data) will be used for detection');
-    
-    // DISABLED: Old detection using API data
-    // if (vehicles.length > 0 && geofences.length > 0) {
-    //   checkVehicleGeofenceViolations(vehicles, geofences);
-    // }
-    
-    // Detection now happens in MapComponent using real-time WebSocket data
+    if (vehicles.length > 0 && geofences.length > 0) {
+      checkVehicleGeofenceViolations(vehicles, geofences);
+    }
   }, [vehicles, geofences, checkVehicleGeofenceViolations]);
 
   // Monitor geofence notifications untuk production
@@ -809,7 +817,7 @@ export default function Dashboard() {
           />
 
           {/* Geofence Notifications - positioned on the right */}
-          <div className={`fixed right-4 z-[9999] space-y-1.5 max-w-[220px] w-full transition-all duration-300 ${
+          <div className={`fixed right-4 z-[9999] space-y-2 max-w-[260px] w-full transition-all duration-300 ${
             isDrawingMode ? 'top-8' : 'top-24'
           }`}>
             {geofenceNotifications.map((notification) => (
@@ -826,7 +834,7 @@ export default function Dashboard() {
               <div className="flex justify-end">
               <button 
                   onClick={removeAllGeofenceNotifications}
-                  className="bg-gray-800 hover:bg-gray-900 text-white text-xs px-2.5 py-1 rounded-md transition-all duration-200 shadow-sm hover:shadow-md font-medium"
+                  className="bg-gray-800 hover:bg-gray-900 text-white text-sm px-3 py-1.5 rounded-md transition-all duration-200 shadow-sm hover:shadow-md font-medium"
               >
                   Tutup Semua ({geofenceNotifications.length})
               </button>

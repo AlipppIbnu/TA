@@ -129,7 +129,7 @@ const GeofenceNotification = ({ notification, onRemove, autoRemoveDelay = 10000 
   return (
     <div
       className={`
-        relative overflow-hidden rounded-lg shadow-lg border-l-4 p-1.5 mb-1.5 min-w-[180px] max-w-[220px]
+        relative overflow-hidden rounded-lg shadow-lg border-l-4 p-3 mb-2 min-w-[200px] max-w-[260px]
         ${style.bgColor} ${style.borderColor} ${style.textColor}
         transform transition-all duration-300 ease-in-out
         ${isVisible && !isClosing 
@@ -156,12 +156,12 @@ const GeofenceNotification = ({ notification, onRemove, autoRemoveDelay = 10000 
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center">
-          <div className={`flex-shrink-0 w-4 h-4 rounded-full ${style.iconBg} flex items-center justify-center mr-1.5`}>
-            <span className="text-xs">{style.icon}</span>
+          <div className={`flex-shrink-0 w-6 h-6 rounded-full ${style.iconBg} flex items-center justify-center mr-2`}>
+            <span className="text-sm">{style.icon}</span>
           </div>
           <div className="flex-1">
-            <h4 className="text-xs font-bold mb-0.5">{style.title}</h4>
-            <div className="flex items-center gap-0.5 text-xs opacity-75">
+            <h4 className="text-sm font-bold mb-1">{style.title}</h4>
+            <div className="flex items-center gap-1 text-xs opacity-75">
               <span>{formatTime(notification.timestamp)}</span>
               <span>•</span>
               <span>{formatDate(notification.timestamp)}</span>
@@ -173,8 +173,8 @@ const GeofenceNotification = ({ notification, onRemove, autoRemoveDelay = 10000 
         <button
           onClick={handleClose}
           className={`
-            flex-shrink-0 w-4 h-4 rounded-full ${style.iconBg} ${style.iconColor}
-            flex items-center justify-center text-xs font-bold
+            flex-shrink-0 w-6 h-6 rounded-full ${style.iconBg} ${style.iconColor}
+            flex items-center justify-center text-sm font-bold
             hover:opacity-75 transition-opacity duration-200
             focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-current
           `}
@@ -185,15 +185,15 @@ const GeofenceNotification = ({ notification, onRemove, autoRemoveDelay = 10000 
       </div>
 
       {/* Message */}
-      <div className="mt-1">
-        <p className="text-xs leading-3 font-semibold">
+      <div className="mt-2">
+        <p className="text-sm leading-4 font-semibold">
           {getMessage()}
         </p>
       </div>
 
       {/* Details */}
-      <div className="mt-1 pt-1 border-t border-current border-opacity-20">
-        <div className="grid grid-cols-1 gap-0.5 text-xs opacity-75">
+      <div className="mt-2 pt-2 border-t border-current border-opacity-20">
+        <div className="grid grid-cols-1 gap-1 text-xs opacity-75">
           <div className="flex justify-between">
             <span className="font-medium text-xs">Kendaraan:</span>
             <span className="font-mono text-xs">{notification.vehicle_name || 'N/A'}</span>
@@ -212,9 +212,9 @@ const GeofenceNotification = ({ notification, onRemove, autoRemoveDelay = 10000 
       </div>
 
       {/* Violation type badge */}
-      <div className="mt-1 flex items-center justify-center">
-        <div className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium ${style.iconBg} ${style.iconColor}`}>
-          <span className="mr-0.5 text-xs">{style.icon}</span>
+      <div className="mt-2 flex items-center justify-center">
+        <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${style.iconBg} ${style.iconColor}`}>
+          <span className="mr-1 text-xs">{style.icon}</span>
           <span className="text-xs">{notification.event_type === 'violation_enter' ? 'Area Terlarang' : 'Area Wajib'}</span>
         </div>
       </div>

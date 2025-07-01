@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Popup, Polygon, Circle, useMap, useMapEvents }
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useMemo, useCallback } from "react";
 import { useWebSocket } from '@/lib/hooks/useWebSocket';
 import L from "leaflet";
-import { getGeofenceStatus } from "@/utils/geofence-combined";
+import { getGeofenceStatus } from "@/utils/geofenceUtils";
 import { createPortal } from 'react-dom';
 import AnimatedMarker from './AnimatedMarker';
 
@@ -73,12 +73,12 @@ const vehicleIcon = new L.Icon({
 // Polygon point icon - menggunakan styling asli Anda
 const polygonPointIcon = new L.Icon({
   iconUrl: "data:image/svg+xml;base64," + btoa(`
-    <svg width="10" height="10" viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="5" cy="5" r="4" fill="#ff0000" stroke="white" stroke-width="1"/>
+    <svg width="8" height="8" viewBox="0 0 8 8" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="4" cy="4" r="3" fill="#ff0000" stroke="white" stroke-width="1"/>
     </svg>
   `),
-  iconSize: [10, 10],
-  iconAnchor: [5, 5],
+  iconSize: [8, 8],
+  iconAnchor: [4, 4],
 });
 
 // FlyToPosition component - tidak berubah dari asli
@@ -179,7 +179,7 @@ const DrawingHandler = forwardRef((props, ref) => {
           const polyline = L.polyline(newPolygon, {
             color: 'red',
             weight: 1,
-            dashArray: '5, 5'
+            dashArray: '3, 3'
           }).addTo(map);
           
           tempPolylineRef.current = polyline;
@@ -242,9 +242,9 @@ const DrawingHandler = forwardRef((props, ref) => {
           radius: radius,
           color: 'red',
           fillColor: 'red',
-          fillOpacity: 0.2,
+          fillOpacity: 0.1,
           weight: 1,
-          dashArray: '5, 5'
+          dashArray: '3, 3'
         }).addTo(map);
         
         tempCircleRef.current = circle;
@@ -350,9 +350,9 @@ const DrawingHandler = forwardRef((props, ref) => {
           positions={currentPolygon} 
           color="red" 
           fillColor="red" 
-          fillOpacity={0.2}
+          fillOpacity={0.1}
           weight={1}
-          dashArray="5, 5"
+          dashArray="3, 3"
         />
       )}
     </>
@@ -523,9 +523,21 @@ const MapComponent = forwardRef(({
     }
   }, [updatedVehicles, allGeofences, checkVehicleGeofenceViolations]);
 
-  // REMOVED: Debugging interval - WebSocket status is now monitored via events and callbacks
-  // This eliminates unnecessary polling and reduces CPU usage in production
-  // Connection status is still available via getConnectionStats() when needed
+  // ENHANCED: Connection status indicator untuk debugging
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const stats = getConnectionStats();
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔗 WebSocket Status:', {
+          connected: isConnected,
+          dataPoints: stats.totalDataPoints,
+          readyState: stats.readyState
+        });
+      }
+    }, 30000); // Log every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [isConnected, getConnectionStats]);
 
   // Initial map center calculation
   const initialCenter = useMemo(() => {
@@ -634,7 +646,7 @@ const MapComponent = forwardRef(({
     if (!geofenceToDelete) return;
 
     try {
-              const response = await fetch(`/api/geofence-combined?action=delete&geofence_id=${geofenceToDelete.geofence_id}`, {
+      const response = await fetch(`/api/HapusGeofence?geofence_id=${geofenceToDelete.geofence_id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -875,7 +887,7 @@ const MapComponent = forwardRef(({
                     color={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
                     fillColor={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
                     fillOpacity={0.1}
-                    weight={1}
+                    weight={2}
                     opacity={0.8}
                   >
                     <Popup maxWidth={300}>
@@ -886,9 +898,9 @@ const MapComponent = forwardRef(({
                         
                         <div className="text-sm leading-relaxed">
                           <div className="mb-3">
-                            <div className="flex justify-between mb-2">
-                              <div className="flex-1 mr-2.5">
-                                <div className="text-xs text-gray-500 uppercase mb-0.5">Tipe</div>
+                            <div className="flex justify-center mb-2">
+                              <div>
+                                <div className="text-xs text-gray-500 uppercase mb-0.5 text-center">Tipe Aturan</div>
                                 <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
                                   geofence.rule_type === 'FORBIDDEN' 
                                     ? 'bg-red-100 text-red-800' 
@@ -897,19 +909,9 @@ const MapComponent = forwardRef(({
                                   {geofence.rule_type === 'FORBIDDEN' ? 'TERLARANG' : 'STAY_IN'}
                                 </span>
                               </div>
-                              <div className="flex-1">
-                                <div className="text-xs text-gray-500 uppercase mb-0.5">Status</div>
-                                <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
-                                  geofence.status === 'active' 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-yellow-100 text-yellow-800'
-                                }`}>
-                                  {geofence.status === 'active' ? 'AKTIF' : 'INACTIVE'}
-                                </span>
-                              </div>
                             </div>
-                            <div className="text-xs text-gray-600 mt-2">
-                              <span className="font-medium">Bentuk:</span> Circle (Area Lingkaran)
+                            <div className="text-xs text-gray-600 mt-2 text-center">
+                              <span className="font-medium">Bentuk:</span> Circle 
                             </div>
                           </div>
 
@@ -975,7 +977,7 @@ const MapComponent = forwardRef(({
                     color={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
                     fillColor={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
                     fillOpacity={0.1}
-                    weight={1}
+                    weight={2}
                     opacity={0.8}
                   >
                     <Popup maxWidth={220}>
@@ -986,9 +988,9 @@ const MapComponent = forwardRef(({
                         
                         <div className="text-xs leading-relaxed">
                           <div className="mb-2">
-                            <div className="flex justify-between mb-1">
-                              <div className="flex-1 mr-2">
-                                <div className="text-xs text-gray-500 uppercase mb-0.5">Tipe</div>
+                            <div className="flex justify-center mb-1">
+                              <div>
+                                <div className="text-xs text-gray-500 uppercase mb-0.5 text-center">Tipe Aturan</div>
                                 <span className={`inline-block px-1.5 py-0.5 rounded-full text-xs font-semibold ${
                                   geofence.rule_type === 'FORBIDDEN' 
                                     ? 'bg-red-100 text-red-800' 
@@ -997,19 +999,9 @@ const MapComponent = forwardRef(({
                                   {geofence.rule_type === 'FORBIDDEN' ? 'TERLARANG' : 'STAY_IN'}
                                 </span>
                               </div>
-                              <div className="flex-1">
-                                <div className="text-xs text-gray-500 uppercase mb-0.5">Status</div>
-                                <span className={`inline-block px-1.5 py-0.5 rounded-full text-xs font-semibold ${
-                                  geofence.status === 'active' 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-yellow-100 text-yellow-800'
-                                }`}>
-                                  {geofence.status === 'active' ? 'AKTIF' : 'INACTIVE'}
-                                </span>
-                              </div>
                             </div>
-                            <div className="text-xs text-gray-600 mt-1">
-                              <span className="font-medium">Bentuk:</span> Polygon (Area Custom)
+                            <div className="text-xs text-gray-600 mt-1 text-center">
+                              <span className="font-medium">Bentuk:</span> Polygon
                             </div>
                           </div>
 
@@ -1076,7 +1068,7 @@ const MapComponent = forwardRef(({
                     color={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
                     fillColor={geofence.rule_type === 'FORBIDDEN' ? 'red' : 'green'}
                     fillOpacity={0.1}
-                    weight={1}
+                    weight={2}
                     opacity={0.8}
                   >
                     <Popup maxWidth={220}>
@@ -1087,9 +1079,9 @@ const MapComponent = forwardRef(({
                         
                         <div className="text-xs leading-relaxed">
                           <div className="mb-2">
-                            <div className="flex justify-between mb-1">
-                              <div className="flex-1 mr-2">
-                                <div className="text-xs text-gray-500 uppercase mb-0.5">Tipe</div>
+                            <div className="flex justify-center mb-1">
+                              <div>
+                                <div className="text-xs text-gray-500 uppercase mb-0.5 text-center">Tipe Aturan</div>
                                 <span className={`inline-block px-1.5 py-0.5 rounded-full text-xs font-semibold ${
                                   geofence.rule_type === 'FORBIDDEN' 
                                     ? 'bg-red-100 text-red-800' 
@@ -1098,18 +1090,8 @@ const MapComponent = forwardRef(({
                                   {geofence.rule_type === 'FORBIDDEN' ? 'TERLARANG' : 'STAY_IN'}
                                 </span>
                               </div>
-                              <div className="flex-1">
-                                <div className="text-xs text-gray-500 uppercase mb-0.5">Status</div>
-                                <span className={`inline-block px-1.5 py-0.5 rounded-full text-xs font-semibold ${
-                                  geofence.status === 'active' 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-yellow-100 text-yellow-800'
-                                }`}>
-                                  {geofence.status === 'active' ? 'AKTIF' : 'INACTIVE'}
-                                </span>
-                              </div>
                             </div>
-                            <div className="text-xs text-gray-600 mt-1">
+                            <div className="text-xs text-gray-600 mt-1 text-center">
                               <span className="font-medium">Radius:</span> {Math.round(radius)}m
                             </div>
                           </div>
@@ -1188,43 +1170,42 @@ const MapComponent = forwardRef(({
         )}
       </MapContainer>
 
-      {/* Modal konfirmasi hapus geofence - dikecilkan */}
+      {/* Modal konfirmasi hapus geofence - menggunakan styling asli */}
       {showDeleteConfirm && geofenceToDelete && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
-          <div className="bg-white p-3 rounded shadow-lg max-w-xs w-full mx-4">
+          <div className="bg-white p-4 rounded-lg shadow-2xl max-w-xs w-full mx-4">
             <div className="text-center">
-              <div className="mx-auto h-8 w-8 text-red-500 flex items-center justify-center mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-8 h-8">
+              <div className="mx-auto h-10 w-10 text-red-500 flex items-center justify-center mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-10 h-10">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                 </svg>
               </div>
               
-              <h3 className="text-base font-bold mb-2 text-gray-800">Konfirmasi Hapus Geofence</h3>
+              <h3 className="text-lg font-bold mb-3 text-gray-800">Konfirmasi Hapus Geofence</h3>
               
-              <div className="mb-3">
-                <p className="text-gray-600 mb-1 text-xs">
+              <div className="mb-4">
+                <p className="text-gray-600 mb-2 text-sm">
                   Apakah Anda yakin ingin menghapus geofence:
                 </p>
-                <div className="bg-gray-50 p-2 rounded">
+                <div className="bg-gray-50 p-2 rounded-md">
                   <p className="font-semibold text-gray-800 text-sm">{geofenceToDelete.name}</p>
                   <p className="text-xs text-gray-600">Tipe: {geofenceToDelete.rule_type}</p>
-                  <p className="text-xs text-gray-600">Status: {geofenceToDelete.status}</p>
                 </div>
-                <p className="text-red-600 text-xs mt-1 font-medium">
+                <p className="text-red-600 text-xs mt-2 font-medium">
                   Geofence yang dihapus tidak dapat dikembalikan
                 </p>
               </div>
               
-              <div className="flex flex-col gap-1 justify-center">
+              <div className="flex flex-col sm:flex-row gap-2 justify-center">
                 <button 
                   onClick={handleCancelDelete}
-                  className="px-3 py-1 bg-gray-300 text-gray-700 rounded text-xs hover:bg-gray-400 transition-colors duration-200 font-medium"
+                  className="px-4 py-1.5 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors duration-200 font-medium text-sm"
                 >
                   Batal
                 </button>
                 <button 
                   onClick={handleConfirmDelete}
-                  className="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition-colors duration-200 font-medium"
+                  className="px-4 py-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200 font-medium text-sm"
                 >
                   Ya, Hapus Geofence
                 </button>
@@ -1235,13 +1216,13 @@ const MapComponent = forwardRef(({
         document.body
       )}
 
-      {/* Modal notifikasi sukses - dikecilkan */}
+      {/* Modal notifikasi sukses - menggunakan styling asli */}
       {showSuccessNotification && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
-          <div className="bg-white p-4 rounded-md shadow-lg max-w-xs">
-            <h3 className="text-base font-bold mb-3 text-green-600 text-center">Berhasil Menghapus Geofence!</h3>
+          <div className="bg-white p-3 rounded-md shadow-lg max-w-xs">
+            <h3 className="text-base font-bold mb-2 text-green-600 text-center">Berhasil Menghapus Geofence!</h3>
             <p className="mb-3 text-sm">{successMessage}</p>
-            <div className="flex justify-end mt-4">
+            <div className="flex justify-end mt-3">
               <button 
                 onClick={() => setShowSuccessNotification(false)}
                 className="px-3 py-1.5 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200 text-sm"

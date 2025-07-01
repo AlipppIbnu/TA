@@ -34,16 +34,16 @@ const UserDropdown = () => {
       <DropdownMenuTrigger asChild>
         <div className="flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
           {/* User Avatar */}
-          <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium text-sm">
+          <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium text-base">
             {user.fullName ? user.fullName.charAt(0).toUpperCase() : 'U'}
           </div>
           
           {/* User Info */}
           <div className="flex flex-col text-left">
-            <span className="font-semibold text-gray-800 text-sm">
+            <span className="font-semibold text-gray-800 text-base">
               {user.fullName || 'User'}
             </span>
-            <span className="text-xs text-gray-600">
+            <span className="text-sm text-gray-600">
               {user.email || 'user@example.com'}
             </span>
           </div>
@@ -60,18 +60,18 @@ const UserDropdown = () => {
         </div>
       </DropdownMenuTrigger>
       
-      <DropdownMenuContent className="w-64 p-2" align="end">
+      <DropdownMenuContent className="w-72 p-2" align="end">
         {/* User Info Header */}
         <DropdownMenuLabel className="pb-2 mb-2">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium text-sm">
+            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium text-base">
               {user.fullName ? user.fullName.charAt(0).toUpperCase() : 'U'}
             </div>
             <div className="flex flex-col">
-              <span className="font-semibold text-gray-800">
+              <span className="font-semibold text-gray-800 text-base">
                 {user.fullName || 'User'}
               </span>
-              <span className="text-xs text-gray-600">
+              <span className="text-sm text-gray-600">
                 {user.email || 'user@example.com'}
               </span>
             </div>
@@ -96,7 +96,7 @@ const UserDropdown = () => {
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
           </svg>
-          <span className="text-gray-700">Profile Settings</span>
+          <span className="text-gray-700 text-sm">Profile Settings</span>
         </DropdownMenuItem>
         
         <DropdownMenuSeparator />
@@ -114,7 +114,7 @@ const UserDropdown = () => {
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
-          <span className="text-red-600">Logout</span>
+          <span className="text-red-600 text-sm">Logout</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

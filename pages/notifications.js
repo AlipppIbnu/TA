@@ -27,11 +27,10 @@ const NotificationsPage = () => {
   const [areaViolations, setAreaViolations] = useState(0);
   const [exitViolations, setExitViolations] = useState(0);
 
-  // 🔥 HYBRID APPROACH: Initial fetch + Real-time WebSocket updates
+  // 🔥 HYBRID NOTIFICATIONS: Initial fetch + Real-time WebSocket
   const { subscribeToAlerts, clearAlerts, isConnected } = useWebSocket();
-  
-  // Initial fetch untuk mengambil data existing dari database
-  const fetchInitialAlerts = useCallback(async () => {
+
+  const fetchAlerts = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -65,30 +64,29 @@ const NotificationsPage = () => {
         });
       }
     } catch (error) {
-      console.error('Error fetching initial alerts:', error);
+      console.error('Error fetching alerts:', error);
     } finally {
       setLoading(false);
     }
   }, [router]);
 
-  // Load initial data on mount
   useEffect(() => {
-    // Check authentication first
+    // Check authentication
     if (!isAuthenticated()) {
       router.push("/auth/login");
       return;
     }
 
-    // Fetch initial alerts data
-    fetchInitialAlerts();
+    // Fetch initial alerts
+    fetchAlerts();
     
     // Request notification permission
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
-  }, [router, fetchInitialAlerts]);
+  }, [router, fetchAlerts]);
 
-  // Subscribe to real-time alert updates (NEW alerts only)
+  // 🚨 Subscribe to real-time NEW alerts via WebSocket
   useEffect(() => {
     if (!isConnected) return;
     
@@ -113,24 +111,24 @@ const NotificationsPage = () => {
         
         const updatedAlerts = [newAlert, ...prevAlerts];
         
-        // Update filtered alerts if no filter is active, or if filter matches
-        setFilteredAlerts(prevFiltered => {
-          if (activeFilter === 'all') {
-            return [newAlert, ...prevFiltered];
-          } else if (activeFilter === 'area_terlarang' && newAlert.alert_type === 'violation_enter') {
-            return [newAlert, ...prevFiltered];
-          } else if (activeFilter === 'keluar_area_wajib' && newAlert.alert_type === 'violation_exit') {
-            return [newAlert, ...prevFiltered];
-          }
-          return prevFiltered;
-        });
-        
         // Update statistics
         setTotalNotifications(updatedAlerts.length);
         setAreaViolations(updatedAlerts.filter(alert => alert.alert_type === 'violation_enter').length);
         setExitViolations(updatedAlerts.filter(alert => alert.alert_type === 'violation_exit').length);
         
         return updatedAlerts;
+      });
+      
+      // Update filtered alerts based on current filter
+      setFilteredAlerts(prevFiltered => {
+        if (activeFilter === 'all') {
+          return [newAlert, ...prevFiltered];
+        } else if (activeFilter === 'area_terlarang' && newAlert.alert_type === 'violation_enter') {
+          return [newAlert, ...prevFiltered];
+        } else if (activeFilter === 'keluar_area_wajib' && newAlert.alert_type === 'violation_exit') {
+          return [newAlert, ...prevFiltered];
+        }
+        return prevFiltered;
       });
       
       // Show browser notification if supported
@@ -145,20 +143,18 @@ const NotificationsPage = () => {
     return unsubscribe;
   }, [isConnected, subscribeToAlerts, activeFilter]);
 
-  // Filter alerts when activeFilter changes
-  useEffect(() => {
-    let filtered = alerts;
-    if (activeFilter === 'area_terlarang') {
-      filtered = alerts.filter(alert => alert.alert_type === 'violation_enter');
-    } else if (activeFilter === 'keluar_area_wajib') {
-      filtered = alerts.filter(alert => alert.alert_type === 'violation_exit');
-    }
-    setFilteredAlerts(filtered);
-    setCurrentPage(1); // Reset to first page when filter changes
-  }, [alerts, activeFilter]);
-
   const applyFilter = (filterType) => {
     setActiveFilter(filterType);
+    setCurrentPage(1);
+
+    let filtered = alerts;
+    if (filterType === 'area_terlarang') {
+      filtered = alerts.filter(alert => alert.alert_type === 'violation_enter');
+    } else if (filterType === 'keluar_area_wajib') {
+      filtered = alerts.filter(alert => alert.alert_type === 'violation_exit');
+    }
+
+    setFilteredAlerts(filtered);
   };
 
   const handleDeleteAllNotifications = async () => {
@@ -378,7 +374,7 @@ const NotificationsPage = () => {
                 <h3 className="text-xl font-bold text-red-600">{exitViolations}</h3>
                 <p className="text-xs text-gray-600 mt-1">Keluar Area Wajib</p>
               </div>
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                 activeFilter === 'keluar_area_wajib' ? 'bg-red-200' : 'bg-red-100'
               }`}>
                 <span className="text-lg">⛔</span>
@@ -393,10 +389,10 @@ const NotificationsPage = () => {
             <div className="grid grid-cols-10 gap-4 items-start">
               {/* Text Section - 30% width (3 columns) */}
               <div className="col-span-3">
-                <h3 className="text-base font-semibold text-gray-900">
+                <h3 className="text-lg font-semibold text-gray-900">
                   {getFilterDisplayText(activeFilter)}
                 </h3>
-                <p className="text-xs text-gray-600 mt-1">
+                <p className="text-sm text-gray-600 mt-1">
                   {new Date().toLocaleDateString('id-ID', { 
                     weekday: 'long', 
                     year: 'numeric', 
@@ -412,7 +408,7 @@ const NotificationsPage = () => {
                   <button
                     onClick={() => setShowDeleteConfirm(true)}
                     disabled={isDeleting}
-                    className="flex items-center justify-center px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="flex items-center justify-center px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {isDeleting ? (
                       <>
@@ -454,17 +450,17 @@ const NotificationsPage = () => {
                       
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-1">
-                          <h4 className="text-xs font-bold text-gray-900">
+                          <h4 className="text-sm font-bold text-gray-900">
                             {getViolationTypeDisplay(alert.alert_type)}
                           </h4>
-                          <span className="text-xs text-gray-500">#{alert.alert_id}</span>
+                          <span className="text-sm text-gray-500">#{alert.alert_id}</span>
                         </div>
                         
-                        <p className="text-xs text-gray-700 mb-1">
+                        <p className="text-sm text-gray-700 mb-1">
                           {alert.alert_message}
                         </p>
                         
-                        <div className="flex items-center space-x-3 text-xs text-gray-500">
+                        <div className="flex items-center space-x-3 text-sm text-gray-500">
                           <span>🕐 {formatDate(alert.timestamp)}, {formatTime(alert.timestamp)}</span>
                           {alert.lokasi && (
                             <span>📍 Koordinat: {alert.lokasi}</span>
@@ -480,10 +476,10 @@ const NotificationsPage = () => {
                 <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
                   <span className="text-xl">📭</span>
                 </div>
-                <h3 className="text-base font-medium text-gray-900 mb-2">
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
                   Tidak ada notifikasi
                 </h3>
-                <p className="text-sm text-gray-600">
+                <p className="text-base text-gray-600">
                   {activeFilter === 'all' 
                     ? 'Belum ada notifikasi pelanggaran yang tercatat.'
                     : 'Tidak ada notifikasi untuk filter yang dipilih.'
@@ -498,7 +494,7 @@ const NotificationsPage = () => {
           {totalPages > 1 && (
             <div className="px-4 py-3 border-t border-gray-200">
               <div className="flex justify-between items-center">
-                <p className="text-xs text-gray-600">
+                <p className="text-sm text-gray-600">
                   Halaman {currentPage} dari {totalPages}
                 </p>
                 
@@ -506,7 +502,7 @@ const NotificationsPage = () => {
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                     disabled={currentPage === 1}
-                    className={`px-2 py-1 rounded text-xs ${
+                    className={`px-2 py-1 rounded text-sm ${
                       currentPage === 1
                         ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -518,7 +514,7 @@ const NotificationsPage = () => {
                   <button
                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                     disabled={currentPage === totalPages}
-                    className={`px-2 py-1 rounded text-xs ${
+                    className={`px-2 py-1 rounded text-sm ${
                       currentPage === totalPages
                         ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'

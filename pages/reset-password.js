@@ -65,55 +65,52 @@ export default function ResetPassword() {
 
         {/* Main Content - dikecilkan */}
         <div className="flex justify-center items-center flex-1 px-8 py-6">
-          <div className="w-full max-w-[350px]">
-            <h1 className="text-xl font-bold text-center mb-2">Reset Password</h1>
-            <p className="text-center text-gray-600 mb-6 text-sm">Masukkan email Anda untuk menerima kode OTP</p>
+          <div className="w-full max-w-[420px]">
+            <h1 className="text-2xl font-bold text-center mb-4">Reset Password</h1>
+            <p className="text-center text-gray-600 mb-8 text-base">Masukkan email Anda untuk menerima kode OTP</p>
 
             {/* Error Message - dikecilkan */}
             {error && (
-              <div className="flex justify-center mb-2">
-                <div className="bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded text-xs text-center max-w-[250px]">
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 text-sm">
                 {error}
-                </div>
               </div>
             )}
 
             {/* Success Message - dikecilkan */}
             {message && (
-              <div className="flex justify-center mb-2">
-                <div className="bg-green-100 border border-green-400 text-green-700 px-3 py-2 rounded text-xs text-center max-w-[250px]">
+              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4 text-sm">
                 {message}
-                </div>
               </div>
             )}
 
             {/* Reset Password Form - dikecilkan */}
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full border border-gray-300 p-3 rounded-md focus:outline-none focus:border-blue-500 text-base"
-                placeholder="Enter Email"
-                required
-              />
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label className="block text-gray-700 mb-2 text-sm font-medium">Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full border border-gray-300 p-4 rounded-lg focus:outline-none focus:border-blue-500 text-base"
+                  placeholder="Masukkan email Anda"
+                  required
+                />
+              </div>
 
-              <div className="flex justify-center">
               <button
                 type="submit"
                 disabled={loading}
-                  className={`max-w-[200px] px-8 py-3 bg-blue-500 text-white rounded-md font-semibold text-base ${
+                className={`w-full px-8 py-4 bg-blue-500 text-white rounded-lg font-semibold text-lg ${
                   loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'
                 } transition`}
               >
                 {loading ? 'Mengirim...' : 'Kirim Kode OTP'}
               </button>
-              </div>
             </form>
 
             {/* Back to Login - dikecilkan */}
-            <div className="text-center mt-4">
-              <Link href="/auth/login" className="text-blue-500 text-sm">
+            <div className="text-center mt-6">
+              <Link href="/auth/login" className="text-blue-500 text-base">
                 Kembali ke Login
               </Link>
             </div>
