@@ -1,12 +1,13 @@
 // pages/Dashboard.js - Versi yang disederhanakan menggunakan SWR di MapComponent
 import dynamic from "next/dynamic";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/router";
 import SidebarComponent from "../components/SidebarComponent";
 import ModalSetGeofence from "@/components/ModalSetGeofence";
 import useGeofenceNotifications from "@/components/hooks/useGeofenceNotifications";
 import { getCurrentUser, isAuthenticated } from "@/lib/authService";
 import { getUserVehicles, addVehicle } from "@/lib/vehicleService";
+import { useWebSocket } from "@/lib/hooks/useWebSocket";
 import directusConfig from "@/lib/directusConfig";
 import { ToastContainer } from 'react-toastify';
 import GeofenceNotification from '@/components/GeofenceNotification';
@@ -301,12 +302,100 @@ export default function Dashboard() {
     checkVehicleGeofenceViolations
   } = useGeofenceNotifications(10000); // Otomatis hapus setelah 10 detik
 
+  // Hook WebSocket untuk real-time GPS updates
+  const { data: wsData, isConnected, getConnectionStats } = useWebSocket();
+
   // State untuk user dan loading
   const [loading, setLoading] = useState(true);
   
-  // State untuk kendaraan
+  // State untuk kendaraan (harus didefinisikan sebelum updatedVehicles)
   const [vehicles, setVehicles] = useState([]);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
+
+  // Merge vehicle data dengan real-time GPS data dari WebSocket
+  const updatedVehicles = useMemo(() => {
+    if (!vehicles || vehicles.length === 0) {
+      return [];
+    }
+
+    console.group('🔄 Dashboard: Processing vehicles with real-time GPS data');
+    console.log('Base vehicles:', vehicles.length);
+    console.log('WebSocket GPS data points:', wsData?.data?.length || 0);
+    console.log('WebSocket connected:', isConnected);
+
+    let result = [...vehicles];
+
+    // Enhanced GPS data processing dengan prioritas timestamp terbaru
+    if (wsData && wsData.data && wsData.data.length > 0) {
+      const coordinateUpdates = {};
+      
+      // Group by gps_id and get latest for each
+      wsData.data.forEach(coord => {
+        if (coord && coord.gps_id) {
+          const existing = coordinateUpdates[coord.gps_id];
+          if (!existing || (coord.timestamp && existing.timestamp && 
+              new Date(coord.timestamp) > new Date(existing.timestamp))) {
+            coordinateUpdates[coord.gps_id] = coord;
+          }
+        }
+      });
+
+      console.log('GPS coordinate updates available for:', Object.keys(coordinateUpdates));
+
+      // Update vehicles dengan koordinat terbaru
+      result = vehicles.map(vehicle => {
+        const update = coordinateUpdates[vehicle.gps_id];
+        
+        if (update) {
+          const newLat = parseFloat(update.latitude);
+          const newLng = parseFloat(update.longitude);
+          
+          if (!isNaN(newLat) && !isNaN(newLng)) {
+            // Periksa apakah posisi berubah untuk logging
+            const isFirstLoad = !vehicle.position;
+            
+            if (isFirstLoad) {
+              console.log(`🎯 Dashboard: First load position for ${vehicle.name}:`, { lat: newLat, lng: newLng });
+            } else {
+              const hasPositionChanged = 
+                Math.abs(vehicle.position.lat - newLat) > 0.000001 ||
+                Math.abs(vehicle.position.lng - newLng) > 0.000001;
+
+              if (hasPositionChanged) {
+                console.log(`📍 Dashboard: Position updated for ${vehicle.name}:`, {
+                  old: vehicle.position,
+                  new: { lat: newLat, lng: newLng },
+                  speed: update.speed || 0
+                });
+              }
+            }
+
+            return {
+              ...vehicle,
+              position: {
+                lat: newLat,
+                lng: newLng,
+                timestamp: update.timestamp,
+                speed: update.speed || 0,
+                ignition_status: update.ignition_status,
+                battery_level: update.battery_level,
+                fuel_level: update.fuel_level,
+                isRealTimeUpdate: true // Flag untuk menandai data dari WebSocket
+              }
+            };
+          }
+        }
+        
+        return vehicle;
+      });
+    }
+    
+    const vehiclesWithPosition = result.filter(v => v.position);
+    console.log(`✅ Dashboard: Processed ${result.length} total vehicles, ${vehiclesWithPosition.length} with GPS positions`);
+    console.groupEnd();
+    
+    return result;
+  }, [vehicles, wsData, isConnected]);
   
   // State untuk modal dan notifikasi
   const [showTambahModal, setShowTambahModal] = useState(false); 
@@ -348,6 +437,8 @@ export default function Dashboard() {
           setSelectedVehicle(userVehicles[0]);
         }
 
+        console.log('✅ Dashboard: Initial vehicles loaded:', userVehicles.length);
+
         // Muat geofences
         await loadGeofences();
       } catch (error) {
@@ -361,6 +452,26 @@ export default function Dashboard() {
 
     loadUserAndVehicles();
   }, [router]);
+
+  // Initial data refresh saat WebSocket belum connect untuk mengurangi delay startup
+  useEffect(() => {
+    if (!isConnected && vehicles.length > 0) {
+      console.log('🚀 Dashboard: WebSocket not connected at startup, fetching fresh data...');
+      const fetchFreshData = async () => {
+        try {
+          const userVehicles = await getUserVehicles();
+          setVehicles(userVehicles);
+          console.log('🚀 Dashboard: Fresh vehicle data loaded:', userVehicles.length);
+        } catch (error) {
+          console.error('Error fetching fresh vehicle data on startup:', error);
+        }
+      };
+      
+      // Delay sedikit untuk memberi kesempatan WebSocket connect
+      const timeout = setTimeout(fetchFreshData, 1000);
+      return () => clearTimeout(timeout);
+    }
+  }, [isConnected, vehicles.length]);
 
   // Muat geofences dari API
   const loadGeofences = async () => {
@@ -390,46 +501,65 @@ export default function Dashboard() {
 
 
 
-    // Monitor untuk reload vehicle positions secara berkala
+  // Monitor untuk reload vehicle positions secara berkala (fallback ketika WebSocket tidak terhubung)
   useEffect(() => {
     const reloadVehiclePositions = async () => {
       try {
-        const userVehicles = await getUserVehicles();
-        setVehicles(userVehicles);
-        
-        // Update selected vehicle if it exists in new data
-        if (selectedVehicle) {
-          const updatedSelectedVehicle = userVehicles.find(v => v.vehicle_id === selectedVehicle.vehicle_id);
-          if (updatedSelectedVehicle) {
-            setSelectedVehicle(prev => ({
-              ...updatedSelectedVehicle,
-              path: prev.path // Keep existing path if any
-            }));
+        // Hanya reload jika WebSocket tidak terhubung untuk menghemat bandwidth
+        if (!isConnected) {
+          console.log('🔄 Dashboard: WebSocket disconnected, fetching vehicles via REST API');
+          const userVehicles = await getUserVehicles();
+          setVehicles(userVehicles);
+          
+          // Update selected vehicle if it exists in new data
+          if (selectedVehicle) {
+            const updatedSelectedVehicle = userVehicles.find(v => v.vehicle_id === selectedVehicle.vehicle_id);
+            if (updatedSelectedVehicle) {
+              setSelectedVehicle(prev => ({
+                ...updatedSelectedVehicle,
+                path: prev.path // Keep existing path if any
+              }));
+            }
           }
+        } else {
+          console.log('✅ Dashboard: WebSocket connected, using real-time data');
         }
-        
 
       } catch (error) {
         console.error('Error reloading vehicle positions:', error);
       }
     };
 
-    // Reload positions every 3 seconds (reduced from 1 second for better performance)
-    const positionInterval = setInterval(reloadVehiclePositions, 3000);
+    // Jika WebSocket terhubung, interval lebih jarang (10 detik)
+    // Jika WebSocket tidak terhubung, interval lebih sering (3 detik)
+    const interval = isConnected ? 10000 : 3000;
+    console.log(`📡 Dashboard: Setting reload interval to ${interval/1000}s (WebSocket: ${isConnected ? 'connected' : 'disconnected'})`);
+    
+    const positionInterval = setInterval(reloadVehiclePositions, interval);
 
     return () => {
       clearInterval(positionInterval);
     };
-  }, [selectedVehicle]);
+  }, [selectedVehicle, isConnected]);
 
 
 
-  // REAL-TIME GEOFENCE VIOLATION DETECTION
+  // REAL-TIME GEOFENCE VIOLATION DETECTION menggunakan data WebSocket
   useEffect(() => {
-    if (vehicles.length > 0 && geofences.length > 0) {
-      checkVehicleGeofenceViolations(vehicles, geofences);
+    if (updatedVehicles.length > 0 && geofences.length > 0) {
+      console.log('🔄 Dashboard: Running geofence detection with real-time data');
+      checkVehicleGeofenceViolations(updatedVehicles, geofences);
     }
-  }, [vehicles, geofences, checkVehicleGeofenceViolations]);
+  }, [updatedVehicles, geofences, checkVehicleGeofenceViolations]);
+
+  // Monitor WebSocket connection status
+  useEffect(() => {
+    if (isConnected) {
+      console.log('✅ Dashboard: WebSocket connected - using real-time GPS data');
+    } else {
+      console.warn('⚠️ Dashboard: WebSocket disconnected - falling back to periodic REST API updates');
+    }
+  }, [isConnected]);
 
   // Monitor geofence notifications untuk production
   useEffect(() => {
@@ -464,8 +594,8 @@ export default function Dashboard() {
     if (!vehicleId) return;
 
     try {
-      // Pastikan kendaraan masih ada dalam daftar
-      const existingVehicle = vehicles.find(v => v.vehicle_id === vehicleId);
+      // Pastikan kendaraan masih ada dalam daftar (gunakan updatedVehicles untuk data terbaru)
+      const existingVehicle = updatedVehicles.find(v => v.vehicle_id === vehicleId);
       if (!existingVehicle) {
         showErrorMessage("Kendaraan tidak ditemukan atau telah dihapus");
         return;
@@ -656,8 +786,8 @@ export default function Dashboard() {
   // Filter geofences berdasarkan visibility (Vehicle-Centric Approach)
   const getVisibleGeofences = () => {
     const filtered = geofences.filter(geofence => {
-      // Cari vehicle yang menggunakan geofence ini
-      const vehicleUsingThisGeofence = vehicles.find(vehicle => 
+      // Cari vehicle yang menggunakan geofence ini (gunakan updatedVehicles untuk data terbaru)
+      const vehicleUsingThisGeofence = updatedVehicles.find(vehicle => 
         vehicle.geofence_id === geofence.geofence_id
       );
       
@@ -695,12 +825,12 @@ export default function Dashboard() {
       }
       
       // Update local state after successful deletion
-      const updatedVehicles = vehicles.filter(vehicle => vehicle.vehicle_id !== vehicleId);
-      setVehicles(updatedVehicles);
+      const filteredVehicles = vehicles.filter(vehicle => vehicle.vehicle_id !== vehicleId);
+      setVehicles(filteredVehicles);
       
       // Update selected vehicle if needed
       if (selectedVehicle && selectedVehicle.vehicle_id === vehicleId) {
-        setSelectedVehicle(updatedVehicles.length > 0 ? updatedVehicles[0] : null);
+        setSelectedVehicle(filteredVehicles.length > 0 ? filteredVehicles[0] : null);
       }
       
       return true; // Return true to indicate successful deletion
@@ -735,7 +865,7 @@ export default function Dashboard() {
         } lg:translate-x-0`}
       >
       <SidebarComponent 
-        vehicles={vehicles}
+        vehicles={updatedVehicles}
         onSelectVehicle={handleSelectVehicle}
         onHistoryClick={handleHistoryClick}
         onTambahKendaraan={handleTambahKendaraan}
@@ -769,6 +899,14 @@ export default function Dashboard() {
               
               {/* Page Title */}
               <h1 className="text-lg font-semibold text-gray-900">VehiTrack Dashboard</h1>
+              
+              {/* WebSocket Connection Status Indicator */}
+              <div className="ml-3 flex items-center">
+                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <span className={`ml-1 text-xs ${isConnected ? 'text-green-600' : 'text-red-600'}`}>
+                  {isConnected ? 'Real-time' : 'Offline'}
+                </span>
+              </div>
             </div>
             
             {/* Notification Icon and User Dropdown */}
@@ -804,7 +942,7 @@ export default function Dashboard() {
           {/* Map */}
         <MapComponent
           ref={mapRef}
-          vehicles={vehicles}
+          vehicles={updatedVehicles}
           selectedVehicle={selectedVehicle}
           isDrawingMode={isDrawingMode}
           drawingType={drawingType}
@@ -817,7 +955,7 @@ export default function Dashboard() {
           />
 
           {/* Geofence Notifications - positioned on the right */}
-          <div className={`fixed right-4 z-[9999] space-y-2 max-w-[260px] w-full transition-all duration-300 ${
+          <div className={`fixed right-4 z-[9999] space-y-1.5 max-w-[220px] w-full transition-all duration-300 ${
             isDrawingMode ? 'top-8' : 'top-24'
           }`}>
             {geofenceNotifications.map((notification) => (
@@ -834,7 +972,7 @@ export default function Dashboard() {
               <div className="flex justify-end">
               <button 
                   onClick={removeAllGeofenceNotifications}
-                  className="bg-gray-800 hover:bg-gray-900 text-white text-sm px-3 py-1.5 rounded-md transition-all duration-200 shadow-sm hover:shadow-md font-medium"
+                  className="bg-gray-800 hover:bg-gray-900 text-white text-xs px-2.5 py-1 rounded-md transition-all duration-200 shadow-sm hover:shadow-md font-medium"
               >
                   Tutup Semua ({geofenceNotifications.length})
               </button>
@@ -849,7 +987,7 @@ export default function Dashboard() {
               onClose={handleCloseGeofenceModal}
               onSucceed={handleGeofenceSukses}
               onStartDrawing={handleStartDrawing}
-              vehicles={vehicles}
+              vehicles={updatedVehicles}
               selectedVehicle={selectedVehicle}
             />
           )}

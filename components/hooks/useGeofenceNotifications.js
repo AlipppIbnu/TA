@@ -95,7 +95,8 @@ const useGeofenceNotifications = (autoRemoveDelay = 10000) => {
       violationType,
       violationKey,
       isReshow,
-      isManuallyDismissed: manuallyDismissedRef.current.has(violationKey)
+      isManuallyDismissed: manuallyDismissedRef.current.has(violationKey),
+      willSaveToDirectus: !isReshow
     });
 
     // Don't show if manually dismissed
@@ -162,7 +163,7 @@ const useGeofenceNotifications = (autoRemoveDelay = 10000) => {
 
     // Save to Directus alerts in background (only for new violations, not reshows)
     if (!isReshow) {
-      console.log(`💾 Saving violation to Directus: ${violationType} for ${notification.vehicle_name}`);
+      console.log(`💾 DIRECTUS SAVE: ${violationType} for ${notification.vehicle_name} (NEW VIOLATION)`);
       try {
         const vehicleData = {
           vehicle_id: vehicle.vehicle_id,
@@ -203,7 +204,7 @@ const useGeofenceNotifications = (autoRemoveDelay = 10000) => {
         console.error('❌ Error saving violation to Directus:', error);
       }
     } else {
-      console.log(`🔄 Reshow notification - no Directus save for ${notification.vehicle_name}`);
+      console.log(`🔄 DIRECTUS SKIP: ${violationType} for ${notification.vehicle_name} (RESHOW - NO DATA SAVE)`);
     }
 
     return notification.id;
@@ -335,7 +336,18 @@ const useGeofenceNotifications = (autoRemoveDelay = 10000) => {
           console.log(`   🚨 VIOLATION DETECTED: Vehicle entered FORBIDDEN area!`);
           
           if (geofence) {
+            // Check if this is a completely new violation (not reshow)
+            const violationKey = getViolationKey(
+              { vehicle_id: vehicleId }, 
+              { id: currentGeofenceId }, 
+              'violation_enter'
+            );
+            const isAlreadyActive = activeViolationsRef.current.has(violationKey);
+            
             console.log(`   🔥 TRIGGERING VIOLATION NOTIFICATION...`);
+            console.log(`   📝 Violation key: ${violationKey}`);
+            console.log(`   🔄 Already active: ${isAlreadyActive}`);
+            
             await addViolationNotification({
               vehicle,
               geofence: {
@@ -345,7 +357,7 @@ const useGeofenceNotifications = (autoRemoveDelay = 10000) => {
               },
               violationType: 'violation_enter',
               timestamp
-            });
+            }, isAlreadyActive); // Pass isReshow flag - true if already active (reshow)
           }
         }
 
@@ -374,6 +386,18 @@ const useGeofenceNotifications = (autoRemoveDelay = 10000) => {
             console.log(`   🚨 VIOLATION DETECTED: Vehicle exited STAY_IN area!`);
             
             if (geofence) {
+              // Check if this is a completely new violation (not reshow)
+              const violationKey = getViolationKey(
+                { vehicle_id: vehicleId }, 
+                { id: previousStatus.geofenceId }, 
+                'violation_exit'
+              );
+              const isAlreadyActive = activeViolationsRef.current.has(violationKey);
+              
+              console.log(`   🔥 TRIGGERING VIOLATION EXIT NOTIFICATION...`);
+              console.log(`   📝 Violation key: ${violationKey}`);
+              console.log(`   🔄 Already active: ${isAlreadyActive}`);
+              
               await addViolationNotification({
                 vehicle,
                 geofence: {
@@ -383,7 +407,7 @@ const useGeofenceNotifications = (autoRemoveDelay = 10000) => {
                 },
                 violationType: 'violation_exit',
                 timestamp
-              });
+              }, isAlreadyActive); // Pass isReshow flag - true if already active (reshow)
             }
           }
 
@@ -421,6 +445,18 @@ const useGeofenceNotifications = (autoRemoveDelay = 10000) => {
     // Legacy function - only process if it's a violation
     if (eventData.event_type === 'violation_enter' || eventData.event_type === 'violation_exit') {
       console.log(`🔄 Legacy notification processed: ${eventData.event_type}`);
+      
+      // Check if this is already an active violation (for legacy calls)
+      const violationKey = getViolationKey(
+        { vehicle_id: eventData.vehicle_id },
+        { id: eventData.geofence_id },
+        eventData.event_type
+      );
+      const isAlreadyActive = activeViolationsRef.current.has(violationKey);
+      
+      console.log(`📝 Legacy violation key: ${violationKey}`);
+      console.log(`🔄 Legacy already active: ${isAlreadyActive}`);
+      
       return addViolationNotification({
         vehicle: {
           vehicle_id: eventData.vehicle_id,
@@ -434,9 +470,9 @@ const useGeofenceNotifications = (autoRemoveDelay = 10000) => {
         },
         violationType: eventData.event_type,
         timestamp: eventData.timestamp || new Date().toISOString()
-      });
+      }, isAlreadyActive); // Pass isReshow flag - true if already active (reshow)
     }
-  }, [addViolationNotification]);
+  }, [addViolationNotification, getViolationKey]);
 
   const processGeofenceEvents = useCallback(() => {
     // No longer needed - real-time detection replaces this

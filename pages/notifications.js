@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { getCurrentUser, isAuthenticated } from '@/lib/authService';
-import { useWebSocket } from '@/lib/hooks/useWebSocket';
 import UserDropdown from '@/components/UserDropdown';
 
 const NotificationsPage = () => {
@@ -27,9 +26,6 @@ const NotificationsPage = () => {
   const [areaViolations, setAreaViolations] = useState(0);
   const [exitViolations, setExitViolations] = useState(0);
 
-  // 🔥 HYBRID NOTIFICATIONS: Initial fetch + Real-time WebSocket
-  const { subscribeToAlerts, clearAlerts, isConnected } = useWebSocket();
-
   const fetchAlerts = useCallback(async () => {
     try {
       setLoading(true);
@@ -40,8 +36,6 @@ const NotificationsPage = () => {
         router.push("/auth/login");
         return;
       }
-      
-      console.log('📥 Fetching initial alerts from database...');
       
       // Fetch alerts with user_id filter for security
       const response = await fetch(`/api/alerts?limit=1000&sort=-timestamp&user_id=${user.userId}`);
@@ -56,12 +50,6 @@ const NotificationsPage = () => {
         setTotalNotifications(alertsData.length);
         setAreaViolations(alertsData.filter(alert => alert.alert_type === 'violation_enter').length);
         setExitViolations(alertsData.filter(alert => alert.alert_type === 'violation_exit').length);
-        
-        console.log('✅ Initial alerts loaded:', {
-          total: alertsData.length,
-          violations_enter: alertsData.filter(alert => alert.alert_type === 'violation_enter').length,
-          violations_exit: alertsData.filter(alert => alert.alert_type === 'violation_exit').length
-        });
       }
     } catch (error) {
       console.error('Error fetching alerts:', error);
@@ -77,71 +65,8 @@ const NotificationsPage = () => {
       return;
     }
 
-    // Fetch initial alerts
     fetchAlerts();
-    
-    // Request notification permission
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
   }, [router, fetchAlerts]);
-
-  // 🚨 Subscribe to real-time NEW alerts via WebSocket
-  useEffect(() => {
-    if (!isConnected) return;
-    
-    console.log('🔔 Subscribing to real-time NEW alerts...');
-    
-    // Subscribe to new alerts in real-time
-    const unsubscribe = subscribeToAlerts((newAlert) => {
-      console.log('🚨 NEW REAL-TIME ALERT:', newAlert);
-      
-      // Check if this alert belongs to current user's vehicles
-      const user = getCurrentUser();
-      if (!user) return;
-      
-      // Add new alert to existing alerts (prepend to show latest first)
-      setAlerts(prevAlerts => {
-        // Check if alert already exists to prevent duplicates
-        const alertExists = prevAlerts.some(alert => alert.alert_id === newAlert.alert_id);
-        if (alertExists) {
-          console.log('Alert already exists, skipping duplicate');
-          return prevAlerts;
-        }
-        
-        const updatedAlerts = [newAlert, ...prevAlerts];
-        
-        // Update statistics
-        setTotalNotifications(updatedAlerts.length);
-        setAreaViolations(updatedAlerts.filter(alert => alert.alert_type === 'violation_enter').length);
-        setExitViolations(updatedAlerts.filter(alert => alert.alert_type === 'violation_exit').length);
-        
-        return updatedAlerts;
-      });
-      
-      // Update filtered alerts based on current filter
-      setFilteredAlerts(prevFiltered => {
-        if (activeFilter === 'all') {
-          return [newAlert, ...prevFiltered];
-        } else if (activeFilter === 'area_terlarang' && newAlert.alert_type === 'violation_enter') {
-          return [newAlert, ...prevFiltered];
-        } else if (activeFilter === 'keluar_area_wajib' && newAlert.alert_type === 'violation_exit') {
-          return [newAlert, ...prevFiltered];
-        }
-        return prevFiltered;
-      });
-      
-      // Show browser notification if supported
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('VehiTrack Alert', {
-          body: newAlert.alert_message || 'Pelanggaran geofence terdeteksi',
-          icon: '/icon/logo_web.png'
-        });
-      }
-    });
-
-    return unsubscribe;
-  }, [isConnected, subscribeToAlerts, activeFilter]);
 
   const applyFilter = (filterType) => {
     setActiveFilter(filterType);
@@ -181,7 +106,7 @@ const NotificationsPage = () => {
       const data = await response.json();
       
       if (data.success) {
-        // Reset all data - both local state and WebSocket alerts
+        // Reset all data
         setAlerts([]);
         setFilteredAlerts([]);
         setTotalNotifications(0);
@@ -189,9 +114,6 @@ const NotificationsPage = () => {
         setExitViolations(0);
         setCurrentPage(1);
         setActiveFilter('all');
-        
-        // Clear WebSocket alerts cache
-        clearAlerts();
         
         // Show success modal
         setResultModalType('success');

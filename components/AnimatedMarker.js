@@ -1,4 +1,4 @@
-// components/AnimatedMarker.js - FINAL CLEAN VERSION untuk GPS offline/online handling
+// components/AnimatedMarker.js - FIXED VERSION untuk real-time GPS tracking
 import { useEffect, useRef, useState } from 'react';
 import { Marker } from 'react-leaflet';
 
@@ -11,6 +11,12 @@ const AnimatedMarker = ({ position, ...markerProps }) => {
   const lastValidPositionRef = useRef(null);
   const isInitializedRef = useRef(false);
   const hasReceivedValidPositionRef = useRef(false);
+  const lastProcessedPositionRef = useRef(null); // NEW: Track last processed position
+
+  // DEBUG: Log setiap kali position prop berubah
+  useEffect(() => {
+    console.log('🔄 AnimatedMarker: position prop changed:', position);
+  }, [position]);
 
   // FIXED: Initialize position immediately dan simpan sebagai referensi
   useEffect(() => {
@@ -38,6 +44,21 @@ const AnimatedMarker = ({ position, ...markerProps }) => {
         return;
       }
     }
+
+    // NEW: Check if this is actually a new position
+    const positionKey = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+    if (lastProcessedPositionRef.current === positionKey) {
+      // Same position, skip processing
+      return;
+    }
+    lastProcessedPositionRef.current = positionKey;
+
+    // ENHANCED: Log real-time position updates
+    console.log('🔄 AnimatedMarker: New position received:', {
+      position: [lat, lng],
+      isInitialized: isInitializedRef.current,
+      currentPosition: currentPosition
+    });
 
     // FIXED: Posisi valid diterima
     if (!isInitializedRef.current) {
@@ -111,10 +132,12 @@ const AnimatedMarker = ({ position, ...markerProps }) => {
       return;
     }
 
-    // Log movement for debugging
-    if (process.env.NODE_ENV === 'development' && distance > 0.1) {
-      console.log(`🚗 Vehicle moving: ${distance.toFixed(2)}m, animation: ${adaptiveDuration}ms`);
-    }
+    // ENHANCED: Log movement for debugging real-time updates
+    console.log(`🚗 REAL-TIME: Vehicle moving ${distance.toFixed(2)}m, animating for ${adaptiveDuration}ms`, {
+      from: [currentPosition[0].toFixed(6), currentPosition[1].toFixed(6)],
+      to: [position[0].toFixed(6), position[1].toFixed(6)],
+      distance: distance.toFixed(2) + 'm'
+    });
 
     // Cancel any existing animation
     if (animationRef.current) {
@@ -159,9 +182,7 @@ const AnimatedMarker = ({ position, ...markerProps }) => {
         lastValidPositionRef.current = position;
         animationRef.current = null;
         
-        if (process.env.NODE_ENV === 'development' && distance > 1) {
-          console.log(`✅ Vehicle animation completed at: [${position[0].toFixed(6)}, ${position[1].toFixed(6)}]`);
-        }
+        console.log(`✅ REAL-TIME: Animation completed at [${position[0].toFixed(6)}, ${position[1].toFixed(6)}]`);
       }
     };
 

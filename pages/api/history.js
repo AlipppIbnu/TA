@@ -21,7 +21,7 @@ export default async function handler(req, res) {
     }
 
     // Construct API URL for fetching historical data for specific gps_id
-    const API_URL = `${directusConfig.baseURL}/items/vehicle_datas?${filter}&sort=-timestamp&limit=100000`;
+    const API_URL = `${directusConfig.baseURL}/items/vehicle_datas?${filter}&sort=-timestamp&limit=-1`;
     
     // console.log(`History API URL: ${API_URL}`); // Removed debugging log
 

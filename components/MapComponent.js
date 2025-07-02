@@ -1,5 +1,5 @@
 // components/MapComponent.js - Enhanced version with real-time GPS positioning
-import { MapContainer, TileLayer, Popup, Polygon, Circle, useMap, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Popup, Polygon, Polyline, Circle, useMap, useMapEvents } from "react-leaflet";
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useMemo, useCallback } from "react";
 import { useWebSocket } from '@/lib/hooks/useWebSocket';
 import L from "leaflet";
@@ -24,13 +24,12 @@ const HistoryPath = ({ path }) => {
   return (
     <>
       {/* History Line */}
-      <Polygon
+      <Polyline
         positions={validPath.map(coord => [coord.lat, coord.lng])}
         pathOptions={{
           color: "blue",
           weight: 3,
-          opacity: 0.7,
-          fill: false
+          opacity: 0.7
         }}
       />
 
@@ -403,7 +402,7 @@ const MapComponent = forwardRef(({
     }
   }, [isConnected, getConnectionStats]);
 
-  // ENHANCED: Process and merge coordinate data dengan optimisasi yang lebih baik
+  // ENHANCED: Process and merge coordinate data dengan optimisasi yang lebih baik + FIXED for real-time updates
   const updatedVehicles = useMemo(() => {
     if (!vehicles || vehicles.length === 0) {
       return [];
@@ -412,6 +411,7 @@ const MapComponent = forwardRef(({
     console.group('🔄 Processing vehicles with real-time GPS data');
     console.log('Base vehicles:', vehicles.length);
     console.log('WebSocket GPS data points:', wsData?.data?.length || 0);
+    console.log('WebSocket data timestamp:', wsData?.timestamp || 'no timestamp');
 
     let result = [...vehicles];
 
@@ -445,24 +445,24 @@ const MapComponent = forwardRef(({
             const isFirstLoad = !vehicle.position;
             
             if (isFirstLoad) {
-              console.log(`🎯 First load position for ${vehicle.name}:`, { lat: newLat, lng: newLng });
+              console.log(`🎯 REAL-TIME: First load position for ${vehicle.name}:`, { lat: newLat, lng: newLng });
             } else {
               const hasPositionChanged = 
                 Math.abs(vehicle.position.lat - newLat) > 0.000001 ||
                 Math.abs(vehicle.position.lng - newLng) > 0.000001;
 
               if (hasPositionChanged) {
-                console.log(`📍 Position updated for ${vehicle.name}:`, {
-                  old: vehicle.position,
-                  new: { lat: newLat, lng: newLng },
-                  speed: update.speed || 0
+                console.log(`📍 REAL-TIME: Position updated for ${vehicle.name}:`, {
+                  old: `${vehicle.position.lat.toFixed(6)}, ${vehicle.position.lng.toFixed(6)}`,
+                  new: `${newLat.toFixed(6)}, ${newLng.toFixed(6)}`,
+                  speed: update.speed || 0,
+                  timestamp: update.timestamp
                 });
               }
             }
 
-            return {
-              ...vehicle,
-              position: {
+            // FIXED: Add unique key to trigger AnimatedMarker re-render
+            const positionWithTimestamp = {
                 lat: newLat,
                 lng: newLng,
                 timestamp: update.timestamp,
@@ -470,8 +470,13 @@ const MapComponent = forwardRef(({
                 ignition_status: update.ignition_status,
                 battery_level: update.battery_level,
                 fuel_level: update.fuel_level,
-                isFirstLoad // Flag untuk AnimatedMarker
-              }
+              isFirstLoad, // Flag untuk AnimatedMarker
+              updateId: `${newLat.toFixed(6)},${newLng.toFixed(6)},${update.timestamp}` // NEW: Unique identifier
+            };
+
+            return {
+              ...vehicle,
+              position: positionWithTimestamp
             };
           }
         }
@@ -481,7 +486,7 @@ const MapComponent = forwardRef(({
     }
     
     const vehiclesWithPosition = result.filter(v => v.position);
-    console.log(`✅ Processed: ${result.length} total vehicles, ${vehiclesWithPosition.length} with GPS positions`);
+    console.log(`✅ REAL-TIME: Processed ${result.length} total vehicles, ${vehiclesWithPosition.length} with GPS positions`);
     console.groupEnd();
     
     return result;
@@ -720,7 +725,7 @@ const MapComponent = forwardRef(({
         
           return vehicle.position ? (
             <AnimatedMarker
-              key={`vehicle-${vehicle.vehicle_id}`}
+              key={`vehicle-${vehicle.vehicle_id}-${vehicle.position.updateId || vehicle.position.timestamp}`}
               position={[vehicle.position.lat, vehicle.position.lng]}
               icon={vehicleIcon}
               duration={1000} // Smooth animation duration
@@ -898,9 +903,8 @@ const MapComponent = forwardRef(({
                         
                         <div className="text-sm leading-relaxed">
                           <div className="mb-3">
-                            <div className="flex justify-center mb-2">
-                              <div>
-                                <div className="text-xs text-gray-500 uppercase mb-0.5 text-center">Tipe Aturan</div>
+                            <div className="text-center mb-2">
+                                <div className="text-xs text-gray-500 uppercase mb-0.5">Tipe</div>
                                 <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
                                   geofence.rule_type === 'FORBIDDEN' 
                                     ? 'bg-red-100 text-red-800' 
@@ -908,10 +912,9 @@ const MapComponent = forwardRef(({
                                 }`}>
                                   {geofence.rule_type === 'FORBIDDEN' ? 'TERLARANG' : 'STAY_IN'}
                                 </span>
-                              </div>
                             </div>
                             <div className="text-xs text-gray-600 mt-2 text-center">
-                              <span className="font-medium">Bentuk:</span> Circle 
+                              <span className="font-medium">Bentuk:</span> Circle
                             </div>
                           </div>
 
@@ -988,9 +991,8 @@ const MapComponent = forwardRef(({
                         
                         <div className="text-xs leading-relaxed">
                           <div className="mb-2">
-                            <div className="flex justify-center mb-1">
-                              <div>
-                                <div className="text-xs text-gray-500 uppercase mb-0.5 text-center">Tipe Aturan</div>
+                            <div className="text-center mb-1">
+                                <div className="text-xs text-gray-500 uppercase mb-0.5">Tipe</div>
                                 <span className={`inline-block px-1.5 py-0.5 rounded-full text-xs font-semibold ${
                                   geofence.rule_type === 'FORBIDDEN' 
                                     ? 'bg-red-100 text-red-800' 
@@ -998,7 +1000,6 @@ const MapComponent = forwardRef(({
                                 }`}>
                                   {geofence.rule_type === 'FORBIDDEN' ? 'TERLARANG' : 'STAY_IN'}
                                 </span>
-                              </div>
                             </div>
                             <div className="text-xs text-gray-600 mt-1 text-center">
                               <span className="font-medium">Bentuk:</span> Polygon
@@ -1079,9 +1080,8 @@ const MapComponent = forwardRef(({
                         
                         <div className="text-xs leading-relaxed">
                           <div className="mb-2">
-                            <div className="flex justify-center mb-1">
-                              <div>
-                                <div className="text-xs text-gray-500 uppercase mb-0.5 text-center">Tipe Aturan</div>
+                            <div className="text-center mb-1">
+                                <div className="text-xs text-gray-500 uppercase mb-0.5">Tipe</div>
                                 <span className={`inline-block px-1.5 py-0.5 rounded-full text-xs font-semibold ${
                                   geofence.rule_type === 'FORBIDDEN' 
                                     ? 'bg-red-100 text-red-800' 
@@ -1089,7 +1089,6 @@ const MapComponent = forwardRef(({
                                 }`}>
                                   {geofence.rule_type === 'FORBIDDEN' ? 'TERLARANG' : 'STAY_IN'}
                                 </span>
-                              </div>
                             </div>
                             <div className="text-xs text-gray-600 mt-1 text-center">
                               <span className="font-medium">Radius:</span> {Math.round(radius)}m
@@ -1190,6 +1189,7 @@ const MapComponent = forwardRef(({
                 <div className="bg-gray-50 p-2 rounded-md">
                   <p className="font-semibold text-gray-800 text-sm">{geofenceToDelete.name}</p>
                   <p className="text-xs text-gray-600">Tipe: {geofenceToDelete.rule_type}</p>
+                  <p className="text-xs text-gray-600">Status: {geofenceToDelete.status}</p>
                 </div>
                 <p className="text-red-600 text-xs mt-2 font-medium">
                   Geofence yang dihapus tidak dapat dikembalikan

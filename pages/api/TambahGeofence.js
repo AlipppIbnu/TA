@@ -26,7 +26,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // Siapkan data untuk Directus - TANPA vehicle_id dan status
+    // Siapkan data untuk Directus - TANPA vehicle_id
     const directusData = {
       name: name,
       type: type, // Simpan type asli (polygon/multipolygon)

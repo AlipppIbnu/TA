@@ -397,6 +397,8 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
             </select>
           </div>
 
+
+
           {/* Status drawing */}
           {(isDrawing || polygonCoordinates.length > 0 || (circleData.center && circleData.radius > 0)) && (
             <div className="p-2 bg-blue-50 rounded border border-blue-200">
