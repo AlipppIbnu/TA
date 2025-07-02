@@ -1,4 +1,4 @@
-// pages/Dashboard.js - Versi yang disederhanakan menggunakan SWR di MapComponent
+// pages/Dashboard.js - Halaman dashboard utama dengan peta interaktif
 import dynamic from "next/dynamic";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/router";
@@ -16,9 +16,9 @@ import UserDropdown from '@/components/UserDropdown';
 // Import dinamis untuk MapComponent (tanpa SSR)
 const MapComponent = dynamic(() => import("../components/MapComponent"), { ssr: false });
 
-// Modal Tambah Kendaraan - dipindahkan dari komponen terpisah
+// Modal Tambah Kendaraan - komponen modal untuk menambah kendaraan baru
 function ModalTambahKendaraan({ onClose, onSucceed }) {
-  // State untuk form data
+  // State untuk data form
   const [formData, setFormData] = useState({
     license_plate: "",
     name: "",
@@ -37,12 +37,12 @@ function ModalTambahKendaraan({ onClose, onSucceed }) {
   const [gpsError, setGpsError] = useState("");
   const [licensePlateError, setLicensePlateError] = useState("");
 
-  // Handle perubahan input form
+  // Fungsi untuk menangani perubahan input form
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
 
-    // Reset error messages when user types
+    // Reset pesan error ketika user mengetik
     if (name === 'gps_id') {
       setGpsError('');
     }
@@ -52,7 +52,7 @@ function ModalTambahKendaraan({ onClose, onSucceed }) {
     setError('');
   };
 
-  // Fungsi untuk memeriksa License Plate
+  // Fungsi untuk memeriksa nomor plat kendaraan
   const checkLicensePlate = async (licensePlate) => {
     try {
       const response = await fetch(`/api/CheckVehicle?license_plate=${licensePlate}`);
@@ -64,7 +64,7 @@ function ModalTambahKendaraan({ onClose, onSucceed }) {
       }
       return true;
     } catch (err) {
-      console.error('Error checking License Plate:', err);
+      console.error('Error memeriksa nomor plat:', err);
       setLicensePlateError('Gagal memeriksa nomor plat');
       return false;
     }
@@ -83,7 +83,7 @@ function ModalTambahKendaraan({ onClose, onSucceed }) {
       }
       return true;
     } catch (err) {
-      console.error('Error checking GPS device ID:', err);
+      console.error('Error memeriksa GPS device ID:', err);
       setGpsError('Gagal memeriksa GPS Device ID');
       return false;
     } finally {
@@ -105,7 +105,7 @@ function ModalTambahKendaraan({ onClose, onSucceed }) {
         throw new Error("Mohon isi semua field yang wajib!");
       }
 
-      // Validasi License Plate
+      // Validasi nomor plat
       const isLicensePlateAvailable = await checkLicensePlate(formData.license_plate);
       if (!isLicensePlateAvailable) {
         setLoading(false);
@@ -121,14 +121,14 @@ function ModalTambahKendaraan({ onClose, onSucceed }) {
         }
       }
 
-      // Add vehicle through API
+      // Tambah kendaraan melalui API
       const newVehicle = await addVehicle(formData);
       
       setSuccessMessage(`Kendaraan ${formData.make} ${formData.model} berhasil ditambahkan!`);
         
       // Tunggu 1 detik sebelum menutup modal
       setTimeout(() => {
-        onSucceed(newVehicle); // Pass the new vehicle data to parent
+        onSucceed(newVehicle); // Kirim data kendaraan baru ke parent
       }, 1000);
     } catch (err) {
       setError(err.message);
@@ -140,14 +140,14 @@ function ModalTambahKendaraan({ onClose, onSucceed }) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
       <div className="bg-white rounded-lg w-[280px] overflow-hidden">
-        {/* Header - diperbesar sedikit */}
+        {/* Header modal */}
         <div className="px-4 py-3 border-b border-black">
           <h2 className="text-base font-semibold">Tambah Kendaraan Baru</h2>
         </div>
 
         <form onSubmit={handleSubmit}>
           <div className="px-4 py-3 space-y-3">
-            {/* Nomor Plat - diperbesar sedikit */}
+            {/* Field nomor plat */}
             <div>
               <label className="block text-sm mb-1"> Nomor Plat </label>
               <input
@@ -165,7 +165,7 @@ function ModalTambahKendaraan({ onClose, onSucceed }) {
               )}
             </div>
           
-            {/* Nama Kendaraan - diperbesar sedikit */}
+            {/* Field nama kendaraan */}
             <div>
               <label className="block text-sm mb-1"> Nama Kendaraan </label>
               <input
@@ -178,7 +178,7 @@ function ModalTambahKendaraan({ onClose, onSucceed }) {
               />
             </div>
           
-            {/* Merek - diperbesar sedikit */}
+            {/* Field merek */}
             <div>
               <label className="block text-sm mb-1"> Merek </label>
               <input
@@ -191,7 +191,7 @@ function ModalTambahKendaraan({ onClose, onSucceed }) {
               />
             </div>
           
-            {/* Model - diperbesar sedikit */}
+            {/* Field model */}
             <div>
               <label className="block text-sm mb-1"> Model </label>
               <input
@@ -204,7 +204,7 @@ function ModalTambahKendaraan({ onClose, onSucceed }) {
               />
             </div>
           
-            {/* Tahun - diperbesar sedikit */}
+            {/* Field tahun */}
             <div>
               <label className="block text-sm mb-1"> Tahun </label>
               <input
@@ -217,7 +217,7 @@ function ModalTambahKendaraan({ onClose, onSucceed }) {
               />
             </div>
 
-            {/* Nomor SIM Card - diperbesar sedikit */}
+            {/* Field nomor SIM Card */}
             <div>
               <label className="block text-sm mb-1"> Nomor SIM Card </label>
               <input
@@ -229,7 +229,7 @@ function ModalTambahKendaraan({ onClose, onSucceed }) {
               />
             </div>
           
-            {/* GPS Device ID - diperbesar sedikit */}
+            {/* Field GPS Device ID */}
             <div>
               <label className="block text-sm mb-1"> GPS Device ID </label>
               <p className="text-xs text-gray-500 mb-1">Masukkan UUID yang ada pada alat GPS (opsional)</p>
@@ -248,37 +248,37 @@ function ModalTambahKendaraan({ onClose, onSucceed }) {
               )}
             </div>
 
-            {/* Error message - diperbesar sedikit */}
-            {error && (
-              <div className="text-red-600 text-sm bg-red-50 p-2 rounded">
-                {error}
+            {/* Pesan sukses */}
+            {successMessage && (
+              <div className="text-xs text-green-600 bg-green-50 p-2 rounded">
+                {successMessage}
               </div>
             )}
 
-            {/* Success message - diperbesar sedikit */}
-            {successMessage && (
-              <div className="text-green-600 text-sm bg-green-50 p-2 rounded">
-                {successMessage}
+            {/* Pesan error */}
+            {error && (
+              <div className="text-xs text-red-600 bg-red-50 p-2 rounded">
+                {error}
               </div>
             )}
           </div>
 
-          {/* Footer dengan tombol - diperbesar sedikit */}
-          <div className="px-4 py-3 border-t border-gray-200 flex justify-end space-x-2">
+          {/* Footer dengan tombol */}
+          <div className="px-4 py-3 border-t border-gray-200 flex gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-2 text-gray-600 bg-gray-100 rounded hover:bg-gray-200 text-sm"
               disabled={loading}
+              className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm"
               disabled={loading || isCheckingGps}
+              className="flex-1 px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
             >
-              {loading ? "Menyimpan..." : "Simpan"}
+              {loading ? 'Menyimpan...' : 'Simpan'}
             </button>
           </div>
         </form>
@@ -290,11 +290,11 @@ function ModalTambahKendaraan({ onClose, onSucceed }) {
 export default function Dashboard() {
   const router = useRouter();
   
-  // Refs
+  // Referensi komponen
   const mapRef = useRef(null);
   const geofenceModalRef = useRef(null);
 
-  // Hook notifikasi geofence dengan real-time detection
+  // Hook notifikasi geofence dengan deteksi real-time
   const {
     notifications: geofenceNotifications,
     removeNotification: removeGeofenceNotification,
@@ -302,7 +302,7 @@ export default function Dashboard() {
     checkVehicleGeofenceViolations
   } = useGeofenceNotifications(10000); // Otomatis hapus setelah 10 detik
 
-  // Hook WebSocket untuk real-time GPS updates
+  // Hook WebSocket untuk update GPS real-time
   const { data: wsData, isConnected, getConnectionStats } = useWebSocket();
 
   // State untuk user dan loading
@@ -312,24 +312,19 @@ export default function Dashboard() {
   const [vehicles, setVehicles] = useState([]);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
 
-  // Merge vehicle data dengan real-time GPS data dari WebSocket
+  // Gabungkan data kendaraan dengan data GPS real-time dari WebSocket
   const updatedVehicles = useMemo(() => {
     if (!vehicles || vehicles.length === 0) {
       return [];
     }
 
-    console.group('🔄 Dashboard: Processing vehicles with real-time GPS data');
-    console.log('Base vehicles:', vehicles.length);
-    console.log('WebSocket GPS data points:', wsData?.data?.length || 0);
-    console.log('WebSocket connected:', isConnected);
-
     let result = [...vehicles];
 
-    // Enhanced GPS data processing dengan prioritas timestamp terbaru
+    // Proses data GPS dengan prioritas timestamp terbaru
     if (wsData && wsData.data && wsData.data.length > 0) {
       const coordinateUpdates = {};
       
-      // Group by gps_id and get latest for each
+      // Kelompokkan berdasarkan gps_id dan ambil yang terbaru untuk setiap kendaraan
       wsData.data.forEach(coord => {
         if (coord && coord.gps_id) {
           const existing = coordinateUpdates[coord.gps_id];
@@ -340,9 +335,7 @@ export default function Dashboard() {
         }
       });
 
-      console.log('GPS coordinate updates available for:', Object.keys(coordinateUpdates));
-
-      // Update vehicles dengan koordinat terbaru
+      // Update kendaraan dengan koordinat terbaru
       result = vehicles.map(vehicle => {
         const update = coordinateUpdates[vehicle.gps_id];
         
@@ -351,25 +344,6 @@ export default function Dashboard() {
           const newLng = parseFloat(update.longitude);
           
           if (!isNaN(newLat) && !isNaN(newLng)) {
-            // Periksa apakah posisi berubah untuk logging
-            const isFirstLoad = !vehicle.position;
-            
-            if (isFirstLoad) {
-              console.log(`🎯 Dashboard: First load position for ${vehicle.name}:`, { lat: newLat, lng: newLng });
-            } else {
-              const hasPositionChanged = 
-                Math.abs(vehicle.position.lat - newLat) > 0.000001 ||
-                Math.abs(vehicle.position.lng - newLng) > 0.000001;
-
-              if (hasPositionChanged) {
-                console.log(`📍 Dashboard: Position updated for ${vehicle.name}:`, {
-                  old: vehicle.position,
-                  new: { lat: newLat, lng: newLng },
-                  speed: update.speed || 0
-                });
-              }
-            }
-
             return {
               ...vehicle,
               position: {
@@ -390,10 +364,6 @@ export default function Dashboard() {
       });
     }
     
-    const vehiclesWithPosition = result.filter(v => v.position);
-    console.log(`✅ Dashboard: Processed ${result.length} total vehicles, ${vehiclesWithPosition.length} with GPS positions`);
-    console.groupEnd();
-    
     return result;
   }, [vehicles, wsData, isConnected]);
   
@@ -412,24 +382,24 @@ export default function Dashboard() {
   // State untuk UI
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Load user data dan kendaraan
+  // Muat data user dan kendaraan
   useEffect(() => {
     const loadUserAndVehicles = async () => {
       try {
         // Periksa apakah pengguna sudah terotentikasi
         if (!isAuthenticated()) {
-          router.push("/auth/login");
+          router.push("/login");
           return;
         }
 
         // Dapatkan data pengguna saat ini
         const userData = getCurrentUser();
         if (!userData) {
-          router.push("/auth/login");
+          router.push("/login");
           return;
         }
 
-        // Muat kendaraan untuk pengguna saat ini - ini akan mendapatkan data segar termasuk posisi
+        // Muat kendaraan untuk pengguna saat ini
         const userVehicles = await getUserVehicles();
         
         setVehicles(userVehicles);
@@ -437,12 +407,10 @@ export default function Dashboard() {
           setSelectedVehicle(userVehicles[0]);
         }
 
-        console.log('✅ Dashboard: Initial vehicles loaded:', userVehicles.length);
-
         // Muat geofences
         await loadGeofences();
       } catch (error) {
-        console.error('Error loading data:', error);
+        console.error('Error memuat data:', error);
         setErrorMessage('Gagal memuat data kendaraan');
         setShowErrorAlert(true);
       } finally {
@@ -453,21 +421,19 @@ export default function Dashboard() {
     loadUserAndVehicles();
   }, [router]);
 
-  // Initial data refresh saat WebSocket belum connect untuk mengurangi delay startup
+  // Refresh data awal saat WebSocket belum terhubung untuk mengurangi delay startup
   useEffect(() => {
     if (!isConnected && vehicles.length > 0) {
-      console.log('🚀 Dashboard: WebSocket not connected at startup, fetching fresh data...');
       const fetchFreshData = async () => {
         try {
           const userVehicles = await getUserVehicles();
           setVehicles(userVehicles);
-          console.log('🚀 Dashboard: Fresh vehicle data loaded:', userVehicles.length);
         } catch (error) {
-          console.error('Error fetching fresh vehicle data on startup:', error);
+          console.error('Error mengambil data fresh kendaraan saat startup:', error);
         }
       };
       
-      // Delay sedikit untuk memberi kesempatan WebSocket connect
+      // Delay sedikit untuk memberi kesempatan WebSocket terhubung
       const timeout = setTimeout(fetchFreshData, 1000);
       return () => clearTimeout(timeout);
     }
@@ -479,7 +445,7 @@ export default function Dashboard() {
       const response = await fetch('/api/geofences');
       
       if (!response.ok) {
-        throw new Error('Failed to fetch geofences');
+        throw new Error('Gagal mengambil data geofences');
       }
 
       const data = await response.json();
@@ -488,97 +454,61 @@ export default function Dashboard() {
         const geofencesData = data.data || [];
         setGeofences(geofencesData);
       } else {
-        throw new Error(data.message || 'Failed to load geofences');
+        throw new Error(data.message || 'Gagal memuat geofences');
       }
     } catch (error) {
-      console.error('Error loading geofences:', error);
+      console.error('Error memuat geofences:', error);
       setGeofences([]);
       // Jangan tampilkan alert error untuk geofences karena tidak kritis untuk fungsi dashboard
     }
   };
 
-
-
-
-
-  // Monitor untuk reload vehicle positions secara berkala (fallback ketika WebSocket tidak terhubung)
+  // Monitor untuk reload posisi kendaraan secara berkala (fallback ketika WebSocket tidak terhubung)
   useEffect(() => {
     const reloadVehiclePositions = async () => {
       try {
         // Hanya reload jika WebSocket tidak terhubung untuk menghemat bandwidth
         if (!isConnected) {
-          console.log('🔄 Dashboard: WebSocket disconnected, fetching vehicles via REST API');
           const userVehicles = await getUserVehicles();
           setVehicles(userVehicles);
           
-          // Update selected vehicle if it exists in new data
+          // Update kendaraan terpilih jika ada dalam data baru
           if (selectedVehicle) {
             const updatedSelectedVehicle = userVehicles.find(v => v.vehicle_id === selectedVehicle.vehicle_id);
             if (updatedSelectedVehicle) {
               setSelectedVehicle(prev => ({
                 ...updatedSelectedVehicle,
-                path: prev.path // Keep existing path if any
+                path: prev.path // Pertahankan path yang ada jika ada
               }));
             }
           }
-        } else {
-          console.log('✅ Dashboard: WebSocket connected, using real-time data');
         }
 
       } catch (error) {
-        console.error('Error reloading vehicle positions:', error);
+        console.error('Error reload posisi kendaraan:', error);
       }
     };
 
     // Jika WebSocket terhubung, interval lebih jarang (10 detik)
     // Jika WebSocket tidak terhubung, interval lebih sering (3 detik)
     const interval = isConnected ? 10000 : 3000;
-    console.log(`📡 Dashboard: Setting reload interval to ${interval/1000}s (WebSocket: ${isConnected ? 'connected' : 'disconnected'})`);
     
     const positionInterval = setInterval(reloadVehiclePositions, interval);
 
-    return () => {
-      clearInterval(positionInterval);
-    };
-  }, [selectedVehicle, isConnected]);
+    return () => clearInterval(positionInterval);
+  }, [isConnected, selectedVehicle]);
 
-
-
-  // REAL-TIME GEOFENCE VIOLATION DETECTION menggunakan data WebSocket
+  // Monitor status koneksi WebSocket
   useEffect(() => {
-    if (updatedVehicles.length > 0 && geofences.length > 0) {
-      console.log('🔄 Dashboard: Running geofence detection with real-time data');
-      checkVehicleGeofenceViolations(updatedVehicles, geofences);
-    }
-  }, [updatedVehicles, geofences, checkVehicleGeofenceViolations]);
-
-  // Monitor WebSocket connection status
-  useEffect(() => {
-    if (isConnected) {
-      console.log('✅ Dashboard: WebSocket connected - using real-time GPS data');
-    } else {
-      console.warn('⚠️ Dashboard: WebSocket disconnected - falling back to periodic REST API updates');
-    }
+    // Removed verbose logging for production
   }, [isConnected]);
 
-  // Monitor geofence notifications untuk production
+  // Monitor notifikasi geofence untuk produksi
   useEffect(() => {
-    if (geofenceNotifications.length > 0) {
-      console.log(`📱 Active geofence notifications: ${geofenceNotifications.length}`, 
-        geofenceNotifications.map(n => ({
-          id: n.id,
-          vehicle: n.vehicle_name,
-          type: n.event_type || n.alert_type,
-          geofence: n.geofence_name,
-          timestamp: n.timestamp
-        }))
-      );
-    } else {
-      console.log('📱 No active geofence notifications');
-    }
+    // Removed verbose logging for production  
   }, [geofenceNotifications]);
 
-  // Error handling functions
+  // Fungsi untuk menampilkan pesan error
   const showErrorMessage = (message) => {
     setErrorMessage(message);
     setShowErrorAlert(true);
@@ -589,25 +519,23 @@ export default function Dashboard() {
     setErrorMessage('');
   };
 
-  // Fungsi untuk handle klik riwayat kendaraan
   const handleHistoryClick = async (vehicleId, startDate, endDate) => {
-    if (!vehicleId) return;
-
     try {
-      // Pastikan kendaraan masih ada dalam daftar (gunakan updatedVehicles untuk data terbaru)
+      // Cari kendaraan dalam data terbaru (updatedVehicles)
       const existingVehicle = updatedVehicles.find(v => v.vehicle_id === vehicleId);
+      
       if (!existingVehicle) {
         showErrorMessage("Kendaraan tidak ditemukan atau telah dihapus");
         return;
       }
 
-      // Check if gps_id exists
+      // Periksa apakah gps_id ada
       if (!existingVehicle.gps_id) {
         showErrorMessage(`Kendaraan ${existingVehicle.name} belum memiliki GPS ID. Tidak bisa menampilkan history.`);
         return;
       }
 
-      // Option 1: Use dedicated history API (cleaner)
+      // Gunakan API history yang khusus
       const historyUrl = `/api/history?gps_id=${encodeURIComponent(existingVehicle.gps_id)}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`;
 
       const response = await fetch(historyUrl);
@@ -643,9 +571,9 @@ export default function Dashboard() {
     }
   };
 
-  // Fungsi untuk handle vehicle selection dari sidebar
+  // Fungsi untuk menangani pemilihan kendaraan dari sidebar
   const handleSelectVehicle = (vehicle) => {
-    // Handle null vehicle (when deselecting)
+    // Tangani null vehicle (ketika deselecting)
     if (!vehicle) {
       setSelectedVehicle(null);
       return;
@@ -660,10 +588,10 @@ export default function Dashboard() {
     setSelectedVehicle(existingVehicle);
   };
 
-  // Fungsi untuk hide history
+  // Fungsi untuk menyembunyikan history
   const handleHideHistory = () => {
     if (selectedVehicle) {
-      // Remove path to hide history lines
+      // Hapus path untuk menyembunyikan garis history
       setSelectedVehicle({
         ...selectedVehicle,
         path: undefined
@@ -678,13 +606,13 @@ export default function Dashboard() {
 
   // Fungsi untuk ketika kendaraan berhasil ditambah
   const handleTambahSukses = (newVehicle) => {
-    // Add the new vehicle to the vehicles state
+    // Tambah kendaraan baru ke state vehicles
     setVehicles(prevVehicles => [...prevVehicles, {
       ...newVehicle,
-      position: null // Set initial position as null
+      position: null // Set posisi awal sebagai null
     }]);
     
-    // Close the modal
+    // Tutup modal
     setShowTambahModal(false);
   };
 
@@ -700,20 +628,20 @@ export default function Dashboard() {
     setShowGeofenceModal(true);
   };
 
-  // Handler untuk drawing mode
+  // Handler untuk mode drawing
   const handleStartDrawing = (start = true, type = 'polygon') => {
     setIsDrawingMode(start);
     setDrawingType(type);
   };
 
-  // Handler untuk polygon completion
+  // Handler untuk penyelesaian polygon
   const handlePolygonComplete = (coordinates) => {
     if (geofenceModalRef.current) {
       geofenceModalRef.current.handlePolygonComplete(coordinates);
     }
   };
 
-  // Handler untuk circle completion
+  // Handler untuk penyelesaian circle
   const handleCircleComplete = (circleData) => {
     if (geofenceModalRef.current) {
       geofenceModalRef.current.handleCircleComplete(circleData);
@@ -727,12 +655,12 @@ export default function Dashboard() {
     setDrawingType('polygon');
     
     try {
-      // Reload both geofences AND vehicles (karena vehicle.geofence_id berubah)
+      // Reload both geofences DAN vehicles (karena vehicle.geofence_id berubah)
       await Promise.all([
         loadGeofences(),
         getUserVehicles().then(userVehicles => {
           setVehicles(userVehicles);
-          // Update selected vehicle if it exists in new data
+          // Update kendaraan terpilih jika ada dalam data baru
           if (selectedVehicle) {
             const updatedSelectedVehicle = userVehicles.find(v => v.vehicle_id === selectedVehicle.vehicle_id);
             if (updatedSelectedVehicle) {
@@ -742,19 +670,19 @@ export default function Dashboard() {
         })
       ]);
     } catch (error) {
-      console.error("Error refreshing data after geofence creation:", error);
+      console.error("Error refresh data setelah pembuatan geofence:", error);
     }
   };
 
   // Handler untuk ketika geofence berhasil dihapus
   const handleGeofenceDeleted = async () => {
     try {
-      // Reload both geofences AND vehicles (karena vehicle.geofence_id mungkin berubah)
+      // Reload both geofences DAN vehicles (karena vehicle.geofence_id mungkin berubah)
       await Promise.all([
         loadGeofences(),
         getUserVehicles().then(userVehicles => {
           setVehicles(userVehicles);
-          // Update selected vehicle if it exists in new data
+          // Update kendaraan terpilih jika ada dalam data baru
           if (selectedVehicle) {
             const updatedSelectedVehicle = userVehicles.find(v => v.vehicle_id === selectedVehicle.vehicle_id);
             if (updatedSelectedVehicle) {
@@ -764,7 +692,7 @@ export default function Dashboard() {
         })
       ]);
     } catch (error) {
-      console.error("Error refreshing data after geofence deletion:", error);
+      console.error("Error refresh data setelah penghapusan geofence:", error);
     }
   };
 
@@ -775,7 +703,7 @@ export default function Dashboard() {
     setDrawingType('polygon');
   };
 
-  // Handler untuk toggle geofence visibility
+  // Handler untuk toggle visibilitas geofence
   const handleToggleGeofence = (vehicleId, isVisible) => {
     setVehicleGeofenceVisibility(prev => ({
       ...prev,
@@ -783,20 +711,20 @@ export default function Dashboard() {
     }));
   };
 
-  // Filter geofences berdasarkan visibility (Vehicle-Centric Approach)
+  // Filter geofences berdasarkan visibilitas (Pendekatan Vehicle-Centric)
   const getVisibleGeofences = () => {
     const filtered = geofences.filter(geofence => {
-      // Cari vehicle yang menggunakan geofence ini (gunakan updatedVehicles untuk data terbaru)
+      // Cari kendaraan yang menggunakan geofence ini (gunakan updatedVehicles untuk data terbaru)
       const vehicleUsingThisGeofence = updatedVehicles.find(vehicle => 
         vehicle.geofence_id === geofence.geofence_id
       );
       
-      // Jika tidak ada vehicle yang menggunakan geofence ini, skip
+      // Jika tidak ada kendaraan yang menggunakan geofence ini, skip
       if (!vehicleUsingThisGeofence) {
         return false;
       }
       
-      // Cek apakah visibility untuk vehicle tersebut aktif
+      // Cek apakah visibilitas untuk kendaraan tersebut aktif
       const vehicleIdStr = String(vehicleUsingThisGeofence.vehicle_id);
       const isVisible = vehicleGeofenceVisibility[vehicleIdStr] === true;
       
@@ -809,8 +737,6 @@ export default function Dashboard() {
   // Fungsi untuk menghapus kendaraan
   const handleDeleteVehicle = async (vehicleId) => {
     try {
-      // console.log(`Menghapus kendaraan dengan ID: ${vehicleId}`); // Removed debugging log
-      
       const response = await fetch(`/api/HapusKendaraan?id=${vehicleId}`, {
         method: 'DELETE',
         headers: {
@@ -824,20 +750,20 @@ export default function Dashboard() {
         throw new Error(data.message || 'Gagal menghapus kendaraan');
       }
       
-      // Update local state after successful deletion
+      // Update state lokal setelah penghapusan berhasil
       const filteredVehicles = vehicles.filter(vehicle => vehicle.vehicle_id !== vehicleId);
       setVehicles(filteredVehicles);
       
-      // Update selected vehicle if needed
+      // Update kendaraan terpilih jika diperlukan
       if (selectedVehicle && selectedVehicle.vehicle_id === vehicleId) {
         setSelectedVehicle(filteredVehicles.length > 0 ? filteredVehicles[0] : null);
       }
       
-      return true; // Return true to indicate successful deletion
+      return true; // Return true untuk menandakan penghapusan berhasil
       
     } catch (error) {
       console.error('Error menghapus kendaraan:', error);
-      throw error; // Re-throw error to be handled by the caller
+      throw error; // Re-throw error untuk ditangani oleh pemanggil
     }
   };
 
@@ -1044,8 +970,6 @@ export default function Dashboard() {
 // Ambil data kendaraan + posisi terakhir
 export async function getServerSideProps() {
   try {
-    // console.log("=== getServerSideProps STARTING ==="); // Removed debugging log
-    
     // Tambahkan timeout untuk request
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
@@ -1075,9 +999,6 @@ export async function getServerSideProps() {
     const vehiclesData = await resVehicles.json();
     const vehicleDataResponse = await resVehicleData.json();
 
-    // console.log("Vehicles from DB:", vehiclesData.data?.length || 0, "vehicles"); // Removed debugging log
-    // console.log("Vehicle data from DB:", vehicleDataResponse.data?.length || 0, "data points"); // Removed debugging log
-
     // Group vehicle_datas by gps_id and get latest position
     const latestPositions = {};
     vehicleDataResponse.data.forEach(data => {
@@ -1095,32 +1016,15 @@ export async function getServerSideProps() {
       }
     });
 
-    // console.log("Latest positions by gps_id:", Object.keys(latestPositions).length, "positions"); // Removed debugging log
-
     // Combine vehicle data with their latest positions using gps_id
     const vehicles = vehiclesData.data.map(vehicle => {
       const position = latestPositions[vehicle.gps_id] || null;
-      
-      // if (position) {
-      //   console.log(`Vehicle ${vehicle.vehicle_id} (${vehicle.name}) has position:`, position); // Removed debugging log
-      // } else {
-      //   console.log(`Vehicle ${vehicle.vehicle_id} (${vehicle.name}) has NO position for gps_id:`, vehicle.gps_id); // Removed debugging log
-      // }
       
       return {
       ...vehicle,
         position
       };
     });
-
-    // console.log("Final vehicles with positions:", vehicles.map(v => ({ // Removed debugging log
-    //   vehicle_id: v.vehicle_id,
-    //   name: v.name,
-    //   gps_id: v.gps_id,
-    //   hasPosition: !!v.position
-    // })));
-    
-    // console.log("=== getServerSideProps COMPLETE ==="); // Removed debugging log
 
     return { props: { vehicles } };
   } catch (err) {

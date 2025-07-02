@@ -1,4 +1,4 @@
-// components/MapComponent.js - Enhanced version with real-time GPS positioning
+// components/MapComponent.js - Komponen peta interaktif dengan positioning GPS real-time
 import { MapContainer, TileLayer, Popup, Polygon, Polyline, Circle, useMap, useMapEvents } from "react-leaflet";
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useMemo, useCallback } from "react";
 import { useWebSocket } from '@/lib/hooks/useWebSocket';
@@ -7,11 +7,11 @@ import { getGeofenceStatus } from "@/utils/geofenceUtils";
 import { createPortal } from 'react-dom';
 import AnimatedMarker from './AnimatedMarker';
 
-// HistoryPath component - dipindahkan dari file terpisah untuk optimasi
+// Komponen HistoryPath - untuk menampilkan jalur riwayat kendaraan
 const HistoryPath = ({ path }) => {
   if (!path || path.length === 0) return null;
 
-  // Filter valid coordinates
+  // Filter koordinat yang valid
   const validPath = path.filter(coord => 
     coord && 
     !isNaN(coord.lat) && !isNaN(coord.lng) &&
@@ -23,7 +23,7 @@ const HistoryPath = ({ path }) => {
 
   return (
     <>
-      {/* History Line */}
+      {/* Garis riwayat */}
       <Polyline
         positions={validPath.map(coord => [coord.lat, coord.lng])}
         pathOptions={{
@@ -33,7 +33,7 @@ const HistoryPath = ({ path }) => {
         }}
       />
 
-      {/* Start Point (Green) */}
+      {/* Titik awal (Hijau) */}
       <Circle
         center={[validPath[0].lat, validPath[0].lng]}
         radius={8}
@@ -44,7 +44,7 @@ const HistoryPath = ({ path }) => {
         }}
       />
 
-      {/* End Point (Red) */}
+      {/* Titik akhir (Merah) */}
       <Circle
         center={[
           validPath[validPath.length - 1].lat,
@@ -61,7 +61,7 @@ const HistoryPath = ({ path }) => {
   );
 };
 
-// Vehicle icon - menggunakan styling asli Anda
+// Ikon kendaraan pada peta
 const vehicleIcon = new L.Icon({
   iconUrl: "/icon/logo_mobil.png",
   iconSize: [22, 22],
@@ -69,7 +69,7 @@ const vehicleIcon = new L.Icon({
   popupAnchor: [0, -11],
 });
 
-// Polygon point icon - menggunakan styling asli Anda
+// Ikon titik polygon untuk mode drawing
 const polygonPointIcon = new L.Icon({
   iconUrl: "data:image/svg+xml;base64," + btoa(`
     <svg width="8" height="8" viewBox="0 0 8 8" xmlns="http://www.w3.org/2000/svg">
@@ -80,7 +80,7 @@ const polygonPointIcon = new L.Icon({
   iconAnchor: [4, 4],
 });
 
-// FlyToPosition component - tidak berubah dari asli
+// Komponen FlyToPosition - untuk navigasi otomatis ke lokasi tertentu
 const FlyToPosition = ({ position }) => {
   const map = useMap();
 
@@ -93,7 +93,7 @@ const FlyToPosition = ({ position }) => {
   return null;
 };
 
-// DrawingHandler component - menggunakan kode asli Anda
+// Komponen DrawingHandler - untuk menangani mode drawing geofence
 const DrawingHandler = forwardRef((props, ref) => {
   const { isDrawingMode, drawingType, onPolygonComplete } = props;
   const map = useMap();
@@ -114,38 +114,38 @@ const DrawingHandler = forwardRef((props, ref) => {
   }));
 
   const clearTemporaryElements = useCallback(() => {
-    tempMarkersRef.current.forEach(marker => {
-      try {
-        if (marker && map.hasLayer(marker)) {
-          map.removeLayer(marker);
+          tempMarkersRef.current.forEach(marker => {
+        try {
+          if (marker && map.hasLayer(marker)) {
+            map.removeLayer(marker);
+          }
+        } catch (error) {
+          // Error saat menghapus marker - tidak kritis
         }
-      } catch (error) {
-        console.warn('Error removing marker:', error);
-      }
-    });
-    tempMarkersRef.current = [];
-    
-    if (tempPolylineRef.current) {
-      try {
-        if (map.hasLayer(tempPolylineRef.current)) {
-          map.removeLayer(tempPolylineRef.current);
+      });
+      tempMarkersRef.current = [];
+      
+      if (tempPolylineRef.current) {
+        try {
+          if (map.hasLayer(tempPolylineRef.current)) {
+            map.removeLayer(tempPolylineRef.current);
+          }
+        } catch (error) {
+          // Error saat menghapus polyline - tidak kritis
         }
-      } catch (error) {
-        console.warn('Error removing polyline:', error);
+        tempPolylineRef.current = null;
       }
-      tempPolylineRef.current = null;
-    }
-    
-    if (tempCircleRef.current) {
-      try {
-        if (map.hasLayer(tempCircleRef.current)) {
-          map.removeLayer(tempCircleRef.current);
+      
+      if (tempCircleRef.current) {
+        try {
+          if (map.hasLayer(tempCircleRef.current)) {
+            map.removeLayer(tempCircleRef.current);
+          }
+        } catch (error) {
+          // Error saat menghapus circle - tidak kritis
         }
-      } catch (error) {
-        console.warn('Error removing circle:', error);
+        tempCircleRef.current = null;
       }
-      tempCircleRef.current = null;
-    }
     
     setCurrentPolygon([]);
     setIsDrawing(false);
@@ -402,24 +402,19 @@ const MapComponent = forwardRef(({
     }
   }, [isConnected, getConnectionStats]);
 
-  // ENHANCED: Process and merge coordinate data dengan optimisasi yang lebih baik + FIXED for real-time updates
+  // Proses dan gabungkan data koordinat dengan optimisasi untuk update real-time
   const updatedVehicles = useMemo(() => {
     if (!vehicles || vehicles.length === 0) {
       return [];
     }
 
-    console.group('🔄 Processing vehicles with real-time GPS data');
-    console.log('Base vehicles:', vehicles.length);
-    console.log('WebSocket GPS data points:', wsData?.data?.length || 0);
-    console.log('WebSocket data timestamp:', wsData?.timestamp || 'no timestamp');
-
     let result = [...vehicles];
 
-    // Enhanced GPS data processing dengan prioritas timestamp terbaru
+    // Proses data GPS dengan prioritas timestamp terbaru
     if (wsData && wsData.data && wsData.data.length > 0) {
       const coordinateUpdates = {};
       
-      // Group by gps_id and get latest for each
+      // Kelompokkan berdasarkan gps_id dan ambil yang terbaru untuk setiap kendaraan
       wsData.data.forEach(coord => {
         if (coord && coord.gps_id) {
           const existing = coordinateUpdates[coord.gps_id];
@@ -430,9 +425,7 @@ const MapComponent = forwardRef(({
         }
       });
 
-      console.log('GPS coordinate updates available for:', Object.keys(coordinateUpdates));
-
-      // Update vehicles dengan koordinat terbaru
+      // Update kendaraan dengan koordinat terbaru
       result = vehicles.map(vehicle => {
         const update = coordinateUpdates[vehicle.gps_id];
         
@@ -441,27 +434,10 @@ const MapComponent = forwardRef(({
           const newLng = parseFloat(update.longitude);
           
           if (!isNaN(newLat) && !isNaN(newLng)) {
-            // FIXED: Untuk vehicle yang belum punya posisi (refresh), langsung set tanpa flag perubahan
+            // Untuk kendaraan yang belum punya posisi, langsung set tanpa flag perubahan
             const isFirstLoad = !vehicle.position;
-            
-            if (isFirstLoad) {
-              console.log(`🎯 REAL-TIME: First load position for ${vehicle.name}:`, { lat: newLat, lng: newLng });
-            } else {
-              const hasPositionChanged = 
-                Math.abs(vehicle.position.lat - newLat) > 0.000001 ||
-                Math.abs(vehicle.position.lng - newLng) > 0.000001;
 
-              if (hasPositionChanged) {
-                console.log(`📍 REAL-TIME: Position updated for ${vehicle.name}:`, {
-                  old: `${vehicle.position.lat.toFixed(6)}, ${vehicle.position.lng.toFixed(6)}`,
-                  new: `${newLat.toFixed(6)}, ${newLng.toFixed(6)}`,
-                  speed: update.speed || 0,
-                  timestamp: update.timestamp
-                });
-              }
-            }
-
-            // FIXED: Add unique key to trigger AnimatedMarker re-render
+            // Tambahkan key unik untuk trigger re-render AnimatedMarker
             const positionWithTimestamp = {
                 lat: newLat,
                 lng: newLng,
@@ -471,7 +447,7 @@ const MapComponent = forwardRef(({
                 battery_level: update.battery_level,
                 fuel_level: update.fuel_level,
               isFirstLoad, // Flag untuk AnimatedMarker
-              updateId: `${newLat.toFixed(6)},${newLng.toFixed(6)},${update.timestamp}` // NEW: Unique identifier
+              updateId: `${newLat.toFixed(6)},${newLng.toFixed(6)},${update.timestamp}` // Identifier unik
             };
 
             return {
@@ -484,10 +460,6 @@ const MapComponent = forwardRef(({
         return vehicle;
       });
     }
-    
-    const vehiclesWithPosition = result.filter(v => v.position);
-    console.log(`✅ REAL-TIME: Processed ${result.length} total vehicles, ${vehiclesWithPosition.length} with GPS positions`);
-    console.groupEnd();
     
     return result;
   }, [vehicles, wsData]);

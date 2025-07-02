@@ -17,7 +17,7 @@ const UserDropdown = () => {
     try {
       setOpen(false);
       await logout();
-      window.location.href = "/auth/login";
+      window.location.href = "/login";
     } catch (error) {
       console.error("Logout Error:", error);
     }

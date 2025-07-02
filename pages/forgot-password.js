@@ -60,7 +60,7 @@ export default function ForgotPassword() {
     <div className="min-h-screen bg-white flex flex-col">
       {/* Navbar Logo */}
       <nav className="w-full h-40 flex items-center px-16 border-b">
-        <Link href="/auth/login">
+        <Link href="/login">
           <Image
             src="/icon/logo_web.png"
             alt="Vehitrack Logo"
@@ -121,7 +121,7 @@ export default function ForgotPassword() {
           {/* Back to Login Link */}
           <p className="text-center mt-8 text-base">
             Remember your password?{' '}
-            <Link href="/auth/login" className="text-blue-500 hover:text-blue-600">
+            <Link href="/login" className="text-blue-500 hover:text-blue-600">
               Back to Login
             </Link>
           </p>

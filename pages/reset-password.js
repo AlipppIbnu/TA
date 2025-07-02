@@ -51,7 +51,7 @@ export default function ResetPassword() {
       <div className="min-h-screen bg-white flex flex-col">
         {/* Navbar Logo - dikecilkan */}
         <nav className="w-full h-24 flex items-center px-8 border-b bg-white">
-          <Link href="/auth/login">
+          <Link href="/login">
             <Image
               src="/icon/logo_web.png"
               alt="Vehitrack Logo"
@@ -110,7 +110,7 @@ export default function ResetPassword() {
 
             {/* Back to Login - dikecilkan */}
             <div className="text-center mt-6">
-              <Link href="/auth/login" className="text-blue-500 text-base">
+              <Link href="/login" className="text-blue-500 text-base">
                 Kembali ke Login
               </Link>
             </div>

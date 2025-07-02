@@ -54,7 +54,7 @@ export default function Login() {
     <div className="min-h-screen bg-white flex flex-col">
       {/* Navbar Logo - diperbaiki untuk mencegah terpotong */}
       <nav className="w-full h-24 flex items-center px-8 border-b bg-white">
-        <Link href="/auth/login">
+        <Link href="/">
           <Image
             src="/icon/logo_web.png"
             alt="Vehitrack Logo"
@@ -84,7 +84,7 @@ export default function Login() {
           <div className="w-[280px] flex flex-col items-center">
             {/* Logo kecil */}
             <div className="mb-4">
-              <Link href="/auth/login">
+              <Link href="/">
                 <Image
                   src="/icon/logo_web.png"
                   alt="Vehitrack Logo"

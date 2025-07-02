@@ -18,51 +18,39 @@ const AnimatedMarker = ({ position, ...markerProps }) => {
     console.log('🔄 AnimatedMarker: position prop changed:', position);
   }, [position]);
 
-  // FIXED: Initialize position immediately dan simpan sebagai referensi
+  // Inisialisasi posisi dan simpan sebagai referensi
   useEffect(() => {
     // Validasi posisi yang diterima
     if (!position || !Array.isArray(position) || position.length !== 2) {
-      // CRITICAL FIX: Jika posisi invalid dan kita sudah punya posisi valid sebelumnya, 
+      // Jika posisi invalid dan kita sudah punya posisi valid sebelumnya, 
       // JANGAN reset ke null - pertahankan posisi terakhir
       if (!hasReceivedValidPositionRef.current) {
-        console.log('⚠️ Invalid position received, waiting for valid position');
         return;
       } else {
-        console.log('⚠️ Invalid position received, keeping last valid position:', lastValidPositionRef.current);
         return; // Jangan update apapun, biarkan currentPosition tetap seperti sebelumnya
       }
     }
 
     const [lat, lng] = position;
     if (isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) {
-      // CRITICAL FIX: Sama seperti di atas, jangan reset jika sudah punya posisi valid
+      // Sama seperti di atas, jangan reset jika sudah punya posisi valid
       if (!hasReceivedValidPositionRef.current) {
-        console.log('⚠️ Invalid GPS coordinates, waiting for valid coordinates');
         return;
       } else {
-        console.log('⚠️ Invalid GPS coordinates, keeping last valid position:', lastValidPositionRef.current);
         return;
       }
     }
 
-    // NEW: Check if this is actually a new position
+    // Cek apakah ini benar-benar posisi baru
     const positionKey = `${lat.toFixed(6)},${lng.toFixed(6)}`;
     if (lastProcessedPositionRef.current === positionKey) {
-      // Same position, skip processing
+      // Posisi sama, skip pemrosesan
       return;
     }
     lastProcessedPositionRef.current = positionKey;
 
-    // ENHANCED: Log real-time position updates
-    console.log('🔄 AnimatedMarker: New position received:', {
-      position: [lat, lng],
-      isInitialized: isInitializedRef.current,
-      currentPosition: currentPosition
-    });
-
-    // FIXED: Posisi valid diterima
+    // Posisi valid diterima
     if (!isInitializedRef.current) {
-      console.log('🎯 AnimatedMarker: Initial valid position set (no animation):', position);
       setCurrentPosition(position);
       lastValidPositionRef.current = position;
       startPositionRef.current = position;
@@ -77,31 +65,28 @@ const AnimatedMarker = ({ position, ...markerProps }) => {
 
   }, [position]);
 
-  // FIXED: Handle position updates dengan validasi ketat
+  // Tangani update posisi dengan validasi ketat
   useEffect(() => {
-    // Skip if not initialized yet
+    // Skip jika belum diinisialisasi
     if (!isInitializedRef.current || !hasReceivedValidPositionRef.current) return;
 
-    // CRITICAL FIX: Validasi posisi yang akan diproses untuk animation
+    // Validasi posisi yang akan diproses untuk animasi
     if (!position || !Array.isArray(position) || position.length !== 2) {
-      console.log('⚠️ Invalid position for animation, keeping current position');
       return;
     }
 
     const [lat, lng] = position;
     if (isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) {
-      console.log('⚠️ Invalid GPS coordinates for animation, keeping current position');
       return;
     }
 
     // Skip jika tidak ada currentPosition (belum initialized)
     if (!currentPosition) {
-      console.log('🎯 Setting current position for animation:', position);
       setCurrentPosition(position);
       return;
     }
 
-    // Check if position actually changed with higher precision for GPS coordinates
+    // Cek apakah posisi benar-benar berubah dengan presisi tinggi untuk koordinat GPS
     const hasChanged = 
       Math.abs(position[0] - currentPosition[0]) > 0.0000001 ||
       Math.abs(position[1] - currentPosition[1]) > 0.0000001;
@@ -125,19 +110,11 @@ const AnimatedMarker = ({ position, ...markerProps }) => {
     } else if (distance < 1000) {
       adaptiveDuration = 1500;
     } else {
-      // Very large movements - instant update
-      console.log('📍 Large GPS jump detected, instant update:', distance.toFixed(2) + 'm');
+      // Pergerakan yang sangat besar - update langsung
       setCurrentPosition(position);
       lastValidPositionRef.current = position;
       return;
     }
-
-    // ENHANCED: Log movement for debugging real-time updates
-    console.log(`🚗 REAL-TIME: Vehicle moving ${distance.toFixed(2)}m, animating for ${adaptiveDuration}ms`, {
-      from: [currentPosition[0].toFixed(6), currentPosition[1].toFixed(6)],
-      to: [position[0].toFixed(6), position[1].toFixed(6)],
-      distance: distance.toFixed(2) + 'm'
-    });
 
     // Cancel any existing animation
     if (animationRef.current) {
@@ -177,12 +154,10 @@ const AnimatedMarker = ({ position, ...markerProps }) => {
       if (progress < 1) {
         animationRef.current = requestAnimationFrame(animate);
       } else {
-        // Animation completed
+        // Animasi selesai
         setCurrentPosition(position);
         lastValidPositionRef.current = position;
         animationRef.current = null;
-        
-        console.log(`✅ REAL-TIME: Animation completed at [${position[0].toFixed(6)}, ${position[1].toFixed(6)}]`);
       }
     };
 
@@ -205,17 +180,15 @@ const AnimatedMarker = ({ position, ...markerProps }) => {
     };
   }, []);
 
-  // CRITICAL FIX: Don't render until we have a valid position
+  // Jangan render sampai punya posisi yang valid
   if (!currentPosition || !Array.isArray(currentPosition) || currentPosition.length !== 2) {
     return null;
   }
 
-  // CRITICAL FIX: Final validation before rendering
+  // Validasi akhir sebelum rendering
   const [lat, lng] = currentPosition;
   if (isNaN(lat) || isNaN(lng)) {
-    console.warn('⚠️ Invalid position for rendering, using last valid position:', lastValidPositionRef.current);
-    
-    // LAST RESORT: Use last valid position if current is invalid
+    // Gunakan posisi valid terakhir jika posisi saat ini invalid
     if (lastValidPositionRef.current && Array.isArray(lastValidPositionRef.current)) {
       const [lastLat, lastLng] = lastValidPositionRef.current;
       if (!isNaN(lastLat) && !isNaN(lastLng)) {

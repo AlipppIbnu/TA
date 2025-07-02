@@ -70,7 +70,7 @@ export default function NewPassword() {
         setSuccess('✅ Password berhasil diperbarui! Silakan login dengan password baru.');
         // Redirect setelah 3 detik
         setTimeout(() => {
-          router.push('/auth/login');
+          router.push('/login');
         }, 3000);
       } else {
         setError(data.message);
@@ -94,7 +94,7 @@ export default function NewPassword() {
       <div className="min-h-screen bg-white flex flex-col">
         {/* Navbar Logo - dikecilkan */}
         <nav className="w-full h-24 flex items-center px-8 border-b bg-white">
-          <Link href="/auth/login">
+          <Link href="/login">
             <Image
               src="/icon/logo_web.png"
               alt="Vehitrack Logo"

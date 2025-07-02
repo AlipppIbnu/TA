@@ -116,7 +116,7 @@ export default function VerifyResetOTP() {
       <div className="min-h-screen bg-white flex flex-col">
         {/* Navbar Logo - dikecilkan */}
         <nav className="w-full h-24 flex items-center px-8 border-b bg-white">
-          <Link href="/auth/login">
+          <Link href="/login">
             <Image
               src="/icon/logo_web.png"
               alt="Vehitrack Logo"

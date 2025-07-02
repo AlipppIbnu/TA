@@ -83,7 +83,7 @@ export default function Register() {
     <div className="min-h-screen bg-white flex flex-col">
       {/* Navbar Logo - diperbaiki untuk mencegah terpotong */}
       <nav className="w-full h-24 flex items-center px-8 border-b bg-white">
-        <Link href="/auth/login">
+        <Link href="/login">
           <Image
             src="/icon/logo_web.png"
             alt="Vehitrack Logo"
@@ -209,7 +209,7 @@ export default function Register() {
           {/* Login Link */}
           <p className="text-center mt-6 text-sm">
             Already have an account?{' '}
-            <Link href="/auth/login" className="text-blue-500 hover:text-blue-600">
+            <Link href="/login" className="text-blue-500 hover:text-blue-600">
               Log in
             </Link>
           </p>

@@ -12,12 +12,12 @@ export default async function handler(req, res) {
   const { email } = req.body;
   const clientIP = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
 
-      // Rate limiting
-    if (!checkRateLimit(clientIP, 5, 300000)) {
-      return res.status(429).json({ 
-        message: 'Terlalu banyak percobaan. Coba lagi dalam 5 menit.' 
-      });
-    }
+  // Pembatasan rate limiting
+  if (!checkRateLimit(clientIP, 5, 300000)) {
+    return res.status(429).json({ 
+      message: 'Terlalu banyak percobaan. Coba lagi dalam 5 menit.' 
+    });
+  }
 
   if (!email) {
     return res.status(400).json({ message: 'Email is required' });
@@ -50,7 +50,7 @@ export default async function handler(req, res) {
     // Generate OTP 6 digit
     const otp = crypto.randomInt(100000, 999999).toString();
     
-    // Store OTP di Redis dengan expiry 5 menit (300 detik)
+    // Simpan OTP di Redis dengan expiry 5 menit (300 detik)
     await restRedis.setex(`reset_${email}`, 300, otp);
 
     // Kirim email OTP

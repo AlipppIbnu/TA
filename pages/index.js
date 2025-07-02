@@ -1,6 +1,7 @@
 // pages/index.js - Landing Page for VehiTrack
 
 import Head from 'next/head';
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 
 export default function Home() {
@@ -22,7 +23,7 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>VehiTrack - AI-Powered GPS Tracking & Fleet Management</title>
+        <title>VehiTrack - GPS Tracking & Fleet Management</title>
         <meta name="description" content="Real-time GPS tracking and fleet management. Optimize routes, monitor vehicles, and reduce operational costs with VehiTrack." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
@@ -36,13 +37,15 @@ export default function Home() {
           <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
               {/* Logo */}
-              <a href="#" className="flex items-center space-x-3 cursor-pointer">
-                <svg width="32" height="32" viewBox="0 0 40 40">
-                  <path d="M20 5 L35 15 L35 25 L20 35 L5 25 L5 15 Z" fill="#3B82F6" />
-                  <path d="M20 5 L20 35 M5 15 L35 15" stroke="white" strokeWidth="2" />
-                  <circle cx="20" cy="20" r="3" fill="white" />
-                </svg>
-                <span className="text-2xl font-bold text-gray-900">VehiTrack</span>
+              <a href="#" className="flex items-center cursor-pointer">
+                <Image
+                  src="/icon/logo_web.png"
+                  alt="VehiTrack Logo"
+                  width={150}
+                  height={50}
+                  className="cursor-pointer"
+                  priority
+                />
               </a>
               
               {/* Desktop Navigation */}
@@ -196,7 +199,7 @@ export default function Home() {
                 <FeatureCard 
                   icon="🚚"
                   title="Smart Route Planning"
-                  description="AI algorithms optimize multi-stop deliveries in real-time."
+                  description="Algorithms optimize multi-stop deliveries in real-time."
                 />
                 <FeatureCard 
                   icon="📍"
