@@ -411,7 +411,7 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
           }
         }
       });
-      
+
       if (hasValidData) {
         setLatestWebSocketPositions(newPositions);
         
@@ -534,9 +534,10 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
         
         setVehicles(vehiclesWithoutPosition);
         
-        if (vehiclesWithoutPosition.length > 0) {
-          setSelectedVehicle(vehiclesWithoutPosition[0]);
-        }
+        // Tidak auto-select kendaraan pertama - biarkan user memilih manual
+        // if (vehiclesWithoutPosition.length > 0) {
+        //   setSelectedVehicle(vehiclesWithoutPosition[0]);
+        // }
 
         console.log('✅ Vehicles loaded without positions, waiting for latest WebSocket data...');
         await loadGeofences();
@@ -582,7 +583,7 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
       console.log('🔄 WebSocket disconnected, enabling backup polling for metadata only');
       
       const backupInterval = setInterval(async () => {
-        try {
+      try {
           const userVehicles = await getUserVehicles();
           // Hanya update metadata, posisi tetap dari WebSocket/cache
           const updatedVehicles = userVehicles.map(vehicle => ({
@@ -931,68 +932,68 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
 
       {/* Floating Sidebar */}
       <div className="absolute top-0 left-0 z-40">
-        <SidebarComponent 
-          vehicles={updatedVehicles}
-          onSelectVehicle={handleSelectVehicle}
-          onHistoryClick={handleHistoryClick}
-          onTambahKendaraan={handleTambahKendaraan}
-          onDeleteVehicle={handleDeleteVehicle}
-          onSetGeofence={handleSetGeofence}
-          selectedVehicle={selectedVehicle}
-          geofences={geofences}
-          onToggleGeofence={handleToggleGeofence}
+      <SidebarComponent 
+        vehicles={updatedVehicles}
+        onSelectVehicle={handleSelectVehicle}
+        onHistoryClick={handleHistoryClick}
+        onTambahKendaraan={handleTambahKendaraan}
+        onDeleteVehicle={handleDeleteVehicle}
+        onSetGeofence={handleSetGeofence}
+        selectedVehicle={selectedVehicle}
+        geofences={geofences}
+        onToggleGeofence={handleToggleGeofence}
           onHideHistory={handleHideHistory}
           onUpdateVehicle={handleUpdateVehicle}
         />
-      </div>
-
+            </div>
+            
       {/* Geofence Notifications */}
       <div className={`absolute right-4 z-60 space-y-1.5 max-w-[220px] w-full transition-all duration-300 ${
         isDrawingMode ? 'top-8' : 'top-8'
-      }`}>
-        {geofenceNotifications.map((notification) => (
-          <GeofenceNotification
-            key={notification.id}
-            notification={notification}
-            onRemove={removeGeofenceNotification}
-            autoRemoveDelay={10000}
-          />
-        ))}
-        
-        {geofenceNotifications.length > 1 && (
-          <div className="flex justify-end">
-            <button 
-              onClick={removeAllGeofenceNotifications}
-              className="bg-gray-800 hover:bg-gray-900 text-white text-xs px-2.5 py-1 rounded-md transition-all duration-200 shadow-sm hover:shadow-md font-medium"
-            >
-              Tutup Semua ({geofenceNotifications.length})
-            </button>
+          }`}>
+            {geofenceNotifications.map((notification) => (
+              <GeofenceNotification
+                key={notification.id}
+                notification={notification}
+                onRemove={removeGeofenceNotification}
+                autoRemoveDelay={10000}
+              />
+            ))}
+            
+            {geofenceNotifications.length > 1 && (
+              <div className="flex justify-end">
+              <button 
+                  onClick={removeAllGeofenceNotifications}
+                  className="bg-gray-800 hover:bg-gray-900 text-white text-xs px-2.5 py-1 rounded-md transition-all duration-200 shadow-sm hover:shadow-md font-medium"
+              >
+                  Tutup Semua ({geofenceNotifications.length})
+              </button>
+            </div>
+            )}
           </div>
-        )}
-      </div>
 
 
 
       {/* Modals */}
-      {showGeofenceModal && (
+          {showGeofenceModal && (
         <div className="absolute inset-0 z-[9998]">
-          <ModalSetGeofence
-            ref={geofenceModalRef}
-            onClose={handleCloseGeofenceModal}
-            onSucceed={handleGeofenceSukses}
-            onStartDrawing={handleStartDrawing}
-            vehicles={updatedVehicles}
-            selectedVehicle={selectedVehicle}
-          />
+            <ModalSetGeofence
+              ref={geofenceModalRef}
+              onClose={handleCloseGeofenceModal}
+              onSucceed={handleGeofenceSukses}
+              onStartDrawing={handleStartDrawing}
+              vehicles={updatedVehicles}
+              selectedVehicle={selectedVehicle}
+            />
         </div>
       )}
 
       {showTambahModal && (
         <div className="absolute inset-0 z-[9999]">
-          <ModalTambahKendaraan
-            onClose={() => setShowTambahModal(false)}
-            onSucceed={handleTambahSukses}
-          />
+        <ModalTambahKendaraan
+          onClose={() => setShowTambahModal(false)}
+          onSucceed={handleTambahSukses}
+        />
         </div>
       )}
 
@@ -1002,7 +1003,7 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
           <div className="bg-white p-4 rounded-lg shadow-lg max-w-sm mx-4">
             <h3 className="text-base font-bold mb-3 text-red-500 text-center">Error</h3>
             <p className="mb-3 text-center text-sm text-gray-700">
-              {errorMessage}
+                    {errorMessage}
             </p>
             <div className="flex justify-end mt-4">
               <button 
@@ -1016,21 +1017,21 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
         </div>
       )}
 
-      {/* Toast Container */}
-      <ToastContainer
-        position="bottom-right"
-        autoClose={5000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="light"
+        {/* Toast Container */}
+        <ToastContainer
+          position="bottom-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
         className="toast-container !z-[9999]"
-        toastClassName="toast-item"
-      />
+          toastClassName="toast-item"
+        />
     </div>
   );
 }
@@ -1044,8 +1045,8 @@ export async function getServerSideProps() {
     const timeoutId = setTimeout(() => controller.abort(), 8000);
     
     const resVehicles = await fetch(`${directusConfig.baseURL}/items/vehicle`, {
-      signal: controller.signal,
-      headers: directusConfig.headers
+        signal: controller.signal,
+        headers: directusConfig.headers
     });
     
     clearTimeout(timeoutId);
@@ -1064,12 +1065,12 @@ export async function getServerSideProps() {
     }));
 
     console.log('🚀 SSR: Vehicles loaded WITHOUT position data, waiting for latest WebSocket data:', vehicles.length);
-
-    return { 
+      
+      return {
       props: { 
         vehicles 
       } 
-    };
+      };
   } catch (err) {
     console.error("❌ Server-side fetch error:", err);
     

@@ -516,13 +516,11 @@ const MapComponent = forwardRef(({
     return () => clearInterval(interval);
   }, [isConnected, getConnectionStats]);
 
-  // Initial map center calculation
+  // Initial map center calculation - Default ke Indonesia
   const initialCenter = useMemo(() => {
-    if (updatedVehicles.length > 0 && updatedVehicles[0].position) {
-      return [updatedVehicles[0].position.lat, updatedVehicles[0].position.lng];
-    }
-    return [-6.914744, 107.609810];
-  }, [updatedVehicles]);
+    // Koordinat pusat Indonesia (Jakarta)
+    return [-6.2088, 106.8456];
+  }, []);
 
   // ENHANCED: Expose functions to parent dengan posisi real-time
   useImperativeHandle(ref, () => ({
@@ -556,32 +554,24 @@ const MapComponent = forwardRef(({
       return;
     }
     
-    console.log("selectedVehicle changed:", {
-      vehicle_id: selectedVehicle.vehicle_id,
-      prev: selectedVehicleId,
-      hasPosition: !!selectedVehicle.position
-    });
-    
     const isNewVehicleSelected = selectedVehicle.vehicle_id !== selectedVehicleId;
     
     if (isNewVehicleSelected) {
       setSelectedVehicleId(selectedVehicle.vehicle_id);
       
-      // FIXED: Cari posisi real-time untuk vehicle yang dipilih
+      // FIXED: Selalu fly ke kendaraan yang dipilih (karena sekarang tidak ada auto-selection di dashboard)
       const realtimeVehicle = updatedVehicles.find(v => v.vehicle_id === selectedVehicle.vehicle_id);
       
       if (realtimeVehicle && realtimeVehicle.position) {
         const position = [realtimeVehicle.position.lat, realtimeVehicle.position.lng];
-        console.log(`🎯 NEW VEHICLE SELECTED - flying to real-time position for ${realtimeVehicle.name}:`, position);
         setFlyToPositionWhenSelected(position);
         lastFlyEventRef.current = 'sidebar_selection_realtime';
       } else if (selectedVehicle.position) {
         // Fallback ke posisi dari selectedVehicle jika tidak ada real-time
-        console.log(`🎯 NEW VEHICLE SELECTED - flying to fallback position for ${selectedVehicle.name}`);
-        setFlyToPositionWhenSelected([selectedVehicle.position.lat, selectedVehicle.position.lng]);
+        const fallbackPosition = [selectedVehicle.position.lat, selectedVehicle.position.lng];
+        setFlyToPositionWhenSelected(fallbackPosition);
         lastFlyEventRef.current = 'sidebar_selection_fallback';
       } else {
-        console.log(`⚠️ Vehicle ${selectedVehicle.name} selected but has no position`);
         setFlyToPositionWhenSelected(null);
       }
     }
@@ -658,7 +648,7 @@ const MapComponent = forwardRef(({
       <MapContainer
         ref={mapRef}
         center={initialCenter}
-        zoom={12}
+        zoom={5}
         style={{ width: "100%", height: "100vh" }}
         className="map-container"
         dragging={!isDrawingMode}
