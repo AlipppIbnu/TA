@@ -1,5 +1,5 @@
 // pages/register.js
-import { useState } from "react"; // Removed useEffect import
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Head from 'next/head';
 import { FaEye, FaEyeSlash } from "react-icons/fa";

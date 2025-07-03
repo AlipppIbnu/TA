@@ -243,7 +243,7 @@ export default function Login() {
                             <rect x="-20" y="-12" width="40" height="24" fill="white" rx="4" />
                             <circle cx="-12" cy="15" r="4" fill="#3B82F6" />
                             <circle cx="12" cy="15" r="4" fill="#3B82F6" />
-                            <animateTransform
+                                                  <animateTransform
                               attributeName="transform"
                               type="translate"
                               values="50,200;200,100;350,200"

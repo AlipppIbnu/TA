@@ -1,9 +1,9 @@
 // pages/login.js
-
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
+import Image from "next/image";
 import { login, getCurrentUser } from "../lib/authService";
 import Head from 'next/head';
 
@@ -14,6 +14,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isScrolled, setIsScrolled] = useState(false);
   
   const router = useRouter();
 
@@ -25,6 +26,15 @@ export default function Login() {
     }
     setLoading(false);
   }, [router]);
+
+  // Handle scroll effect untuk navbar
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -56,8 +66,43 @@ export default function Login() {
         <meta name="description" content="Login to your VehiTrack account" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
+
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
-        
+        {/* Header Navigation - sama dengan index.js */}
+        <header className={`fixed w-full top-0 z-50 bg-white/80 backdrop-blur-sm transition-all duration-300 ${
+          isScrolled ? 'shadow-md' : ''
+        }`}>
+          <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              <Link href="/" className="flex items-center">
+                <Image
+                  src="/icon/logo_web.png"
+                  alt="VehiTrack Logo"
+                  width={150}
+                  height={50}
+                  className="cursor-pointer"
+                  priority
+                />
+              </Link>
+              
+              <div className="flex items-center space-x-4">
+                <Link 
+                  href="/register"
+                  className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
+                >
+                  Don't have an account?
+                </Link>
+                <Link 
+                  href="/register"
+                  className="px-5 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transform hover:-translate-y-0.5 transition-all duration-200 shadow-md hover:shadow-lg"
+                >
+                  Register
+                </Link>
+              </div>
+            </div>
+          </nav>
+        </header>
+
         {/* Main Content */}
         <main className="pt-16 min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8">
           <div className="max-w-6xl w-full">
@@ -200,7 +245,7 @@ export default function Login() {
 
                     {/* Register Link */}
                     <p className="mt-8 text-center text-sm text-gray-600">
-                      Don&apos;t have an account?{' '}
+                      Don't have an account?{' '}
                       <Link href="/register" className="font-medium text-blue-600 hover:text-blue-700">
                         Create one now
                       </Link>

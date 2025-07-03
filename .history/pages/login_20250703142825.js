@@ -1,10 +1,9 @@
 // pages/login.js
-
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
-import { login, getCurrentUser } from "../lib/authService";
+import { login, getCurrentUser  } from "../lib/authService";
 import Head from 'next/head';
 
 export default function Login() {
@@ -19,7 +18,7 @@ export default function Login() {
 
   // Cek apakah user sudah login
   useEffect(() => {
-    const user = getCurrentUser();
+    const user = getCurrentUser ();
     if (user) {
       router.replace("/dashboard");
     }
@@ -56,6 +55,7 @@ export default function Login() {
         <meta name="description" content="Login to your VehiTrack account" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
+
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
         
         {/* Main Content */}
@@ -200,7 +200,7 @@ export default function Login() {
 
                     {/* Register Link */}
                     <p className="mt-8 text-center text-sm text-gray-600">
-                      Don&apos;t have an account?{' '}
+                      Don't have an account?{' '}
                       <Link href="/register" className="font-medium text-blue-600 hover:text-blue-700">
                         Create one now
                       </Link>

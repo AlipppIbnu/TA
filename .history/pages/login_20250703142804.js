@@ -1,10 +1,9 @@
 // pages/login.js
-
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
-import { login, getCurrentUser } from "../lib/authService";
+import { login, getCurrentUser  } from "../lib/authService";
 import Head from 'next/head';
 
 export default function Login() {
@@ -19,7 +18,7 @@ export default function Login() {
 
   // Cek apakah user sudah login
   useEffect(() => {
-    const user = getCurrentUser();
+    const user = getCurrentUser ();
     if (user) {
       router.replace("/dashboard");
     }
@@ -56,6 +55,7 @@ export default function Login() {
         <meta name="description" content="Login to your VehiTrack account" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
+
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
         
         {/* Main Content */}
@@ -200,7 +200,7 @@ export default function Login() {
 
                     {/* Register Link */}
                     <p className="mt-8 text-center text-sm text-gray-600">
-                      Don&apos;t have an account?{' '}
+                      Don't have an account?{' '}
                       <Link href="/register" className="font-medium text-blue-600 hover:text-blue-700">
                         Create one now
                       </Link>
@@ -273,28 +273,4 @@ export default function Login() {
                         <div className="flex items-center justify-center text-left max-w-sm mx-auto">
                           <div className="flex-shrink-0 w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
                             <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                            </svg>
-                          </div>
-                          <span className="ml-4 text-white/90">Advanced analytics dashboard</span>
-                        </div>
-                        <div className="flex items-center justify-center text-left max-w-sm mx-auto">
-                          <div className="flex-shrink-0 w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-                            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                          </div>
-                          <span className="ml-4 text-white/90">Instant alerts & notifications</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </main>
-      </div>
-    </>
-  );
-}
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a

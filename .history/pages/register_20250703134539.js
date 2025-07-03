@@ -1,6 +1,7 @@
 // pages/register.js
-import { useState } from "react"; // Removed useEffect import
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import Head from 'next/head';
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { register } from "../lib/authService";
@@ -20,6 +21,16 @@ export default function Register() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  // Handle scroll effect untuk navbar
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Handle input changes
   const handleInputChange = (e) => {
@@ -38,26 +49,26 @@ export default function Register() {
 
     // Validasi input
     if (!formData.email || !formData.password || !formData.confirmPassword || !formData.fullName || !formData.username) {
-      setError("Semua kolom wajib diisi!");
+      setError("All fields except phone number are required!");
       return;
     }
 
     // Validasi format email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      setError("Silakan masukkan alamat email yang valid.");
+      setError("Please enter a valid email address.");
       return;
     }
 
     // Validasi password cocok
     if (formData.password !== formData.confirmPassword) {
-      setError("Password tidak cocok.");
+      setError("Passwords do not match.");
       return;
     }
 
-    // Validasi kekuatan password
+    // Validasi password strength
     if (formData.password.length < 8) {
-      setError("Password minimal harus 8 karakter.");
+      setError("Password must be at least 8 characters long.");
       return;
     }
 
@@ -79,7 +90,7 @@ export default function Register() {
       }
 
       // Tampilkan pesan sukses
-      setSuccess("Registrasi berhasil! Mengarahkan ke halaman login...");
+      setSuccess("Registration successful! Redirecting to login page...");
       
       // Reset form
       setFormData({
@@ -97,8 +108,8 @@ export default function Register() {
       }, 2000);
       
     } catch (err) {
-      console.error("Error saat registrasi:", err);
-      setError("Registrasi gagal. Silakan coba lagi.");
+      console.error("Error during registration:", err);
+      setError("Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -107,12 +118,12 @@ export default function Register() {
   return (
     <>
       <Head>
-        <title>Daftar - VehiTrack</title>
-        <meta name="description" content="Buat akun VehiTrack Anda" />
+        <title>Register - VehiTrack</title>
+        <meta name="description" content="Create your VehiTrack account" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50"
 
         {/* Main Content */}
         <main className="pt-16 min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
@@ -125,10 +136,10 @@ export default function Register() {
                     {/* Welcome Text */}
                     <div className="text-center mb-8">
                       <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
-                        Buat Akun Anda
+                        Create Your Account
                       </h1>
                       <p className="text-gray-600">
-                        Bergabunglah dengan ribuan perusahaan yang mengoptimalkan manajemen armada mereka
+                        Join thousands of companies optimizing their fleet management
                       </p>
                     </div>
 
@@ -161,7 +172,7 @@ export default function Register() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                           <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
-                            Nama Lengkap
+                            Full Name
                           </label>
                           <input
                             id="fullName"
@@ -196,7 +207,7 @@ export default function Register() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                           <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                            Alamat Email
+                            Email Address
                           </label>
                           <input
                             id="email"
@@ -212,13 +223,13 @@ export default function Register() {
 
                         <div>
                           <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-2">
-                            Nomor Telepon <span className="text-gray-400">(Opsional)</span>
+                            Phone Number <span className="text-gray-400">(Optional)</span>
                           </label>
                           <input
                             id="phoneNumber"
                             name="phoneNumber"
                             type="tel"
-                            placeholder="+62 812 3456 7890"
+                            placeholder="+1 (555) 123-4567"
                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                             value={formData.phoneNumber}
                             onChange={handleInputChange}
@@ -237,7 +248,7 @@ export default function Register() {
                               id="password"
                               name="password"
                               type={showPassword ? "text" : "password"}
-                              placeholder="Minimal 8 karakter"
+                              placeholder="Minimum 8 characters"
                               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                               value={formData.password}
                               onChange={handleInputChange}
@@ -255,14 +266,14 @@ export default function Register() {
 
                         <div>
                           <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                            Konfirmasi Password
+                            Confirm Password
                           </label>
                           <div className="relative">
                             <input
                               id="confirmPassword"
                               name="confirmPassword"
                               type={showConfirmPassword ? "text" : "password"}
-                              placeholder="Ulangi password Anda"
+                              placeholder="Re-enter your password"
                               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                               value={formData.confirmPassword}
                               onChange={handleInputChange}
@@ -289,13 +300,13 @@ export default function Register() {
                           required
                         />
                         <label htmlFor="terms" className="ml-2 block text-sm text-gray-700">
-                          Saya setuju dengan{' '}
+                          I agree to the{' '}
                           <Link href="/terms" className="text-blue-600 hover:text-blue-700">
-                            Syarat dan Ketentuan
+                            Terms and Conditions
                           </Link>
-                          {' '}dan{' '}
+                          {' '}and{' '}
                           <Link href="/privacy" className="text-blue-600 hover:text-blue-700">
-                            Kebijakan Privasi
+                            Privacy Policy
                           </Link>
                         </label>
                       </div>
@@ -310,7 +321,7 @@ export default function Register() {
                             : 'bg-blue-600 text-white hover:bg-blue-700 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg'
                         }`}
                       >
-                        {loading ? 'Membuat Akun...' : 'Buat Akun'}
+                        {loading ? 'Creating Account...' : 'Create Account'}
                       </button>
                     </form>
 
@@ -321,7 +332,7 @@ export default function Register() {
                           <div className="w-full border-t border-gray-300"></div>
                         </div>
                         <div className="relative flex justify-center text-sm">
-                          <span className="px-2 bg-white text-gray-500">Atau daftar dengan</span>
+                          <span className="px-2 bg-white text-gray-500">Or sign up with</span>
                         </div>
                       </div>
 
@@ -347,9 +358,9 @@ export default function Register() {
 
                     {/* Login Link */}
                     <p className="mt-8 text-center text-sm text-gray-600">
-                      Sudah punya akun?{' '}
+                      Already have an account?{' '}
                       <Link href="/login" className="font-medium text-blue-600 hover:text-blue-700">
-                        Masuk di sini
+                        Sign in instead
                       </Link>
                     </p>
                   </div>
@@ -362,7 +373,7 @@ export default function Register() {
                     <div className="text-center text-white">
                       {/* Benefits List */}
                       <h2 className="text-3xl font-bold mb-8">
-                        Mulai Optimalkan Armada Anda Hari Ini
+                        Start Optimizing Your Fleet Today
                       </h2>
                       
                       <div className="space-y-6 text-left max-w-md mx-auto">
@@ -373,8 +384,8 @@ export default function Register() {
                             </svg>
                           </div>
                           <div className="ml-4">
-                            <h3 className="font-semibold mb-1">Kurangi Biaya hingga 30%</h3>
-                            <p className="text-blue-100 text-sm">Optimalkan rute dan kurangi konsumsi bahan bakar</p>
+                            <h3 className="font-semibold mb-1">Reduce Costs by 30%</h3>
+                            <p className="text-blue-100 text-sm">Optimize routes and reduce fuel consumption</p>
                           </div>
                         </div>
 
@@ -385,8 +396,8 @@ export default function Register() {
                             </svg>
                           </div>
                           <div className="ml-4">
-                            <h3 className="font-semibold mb-1">Pelacakan Real-Time</h3>
-                            <p className="text-blue-100 text-sm">Pantau seluruh armada Anda dari satu dasbor</p>
+                            <h3 className="font-semibold mb-1">Real-Time Tracking</h3>
+                            <p className="text-blue-100 text-sm">Monitor your entire fleet from one dashboard</p>
                           </div>
                         </div>
 
@@ -397,11 +408,38 @@ export default function Register() {
                             </svg>
                           </div>
                           <div className="ml-4">
-                            <h3 className="font-semibold mb-1">Keamanan yang Ditingkatkan</h3>
-                            <p className="text-blue-100 text-sm">Dapatkan peringatan instan untuk penggunaan kendaraan yang tidak sah</p>
+                            <h3 className="font-semibold mb-1">Enhanced Security</h3>
+                            <p className="text-blue-100 text-sm">Get instant alerts for unauthorized vehicle use</p>
                           </div>
                         </div>
 
+                        <div className="flex items-start">
+                          <div className="flex-shrink-0 w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                          </div>
+                          <div className="ml-4">
+                            <h3 className="font-semibold mb-1">Team Collaboration</h3>
+                            <p className="text-blue-100 text-sm">Share access with your team members</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Stats */}
+                      <div className="mt-12 grid grid-cols-3 gap-4">
+                        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                          <div className="text-2xl font-bold">10K+</div>
+                          <div className="text-sm text-blue-100">Active Users</div>
+                        </div>
+                        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                          <div className="text-2xl font-bold">50K+</div>
+                          <div className="text-sm text-blue-100">Vehicles Tracked</div>
+                        </div>
+                        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                          <div className="text-2xl font-bold">99.9%</div>
+                          <div className="text-sm text-blue-100">Uptime</div>
+                        </div>
                       </div>
                     </div>
                   </div>

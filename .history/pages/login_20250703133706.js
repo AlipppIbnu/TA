@@ -1,9 +1,9 @@
 // pages/login.js
-
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
+import Image from "next/image";
 import { login, getCurrentUser } from "../lib/authService";
 import Head from 'next/head';
 
@@ -14,6 +14,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isScrolled, setIsScrolled] = useState(false);
   
   const router = useRouter();
 
@@ -25,6 +26,15 @@ export default function Login() {
     }
     setLoading(false);
   }, [router]);
+
+  // Handle scroll effect untuk navbar
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -56,8 +66,10 @@ export default function Login() {
         <meta name="description" content="Login to your VehiTrack account" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
+
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
         
+
         {/* Main Content */}
         <main className="pt-16 min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8">
           <div className="max-w-6xl w-full">
@@ -200,7 +212,7 @@ export default function Login() {
 
                     {/* Register Link */}
                     <p className="mt-8 text-center text-sm text-gray-600">
-                      Don&apos;t have an account?{' '}
+                      Don't have an account?{' '}
                       <Link href="/register" className="font-medium text-blue-600 hover:text-blue-700">
                         Create one now
                       </Link>
