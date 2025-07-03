@@ -1204,16 +1204,6 @@ const SidebarComponent = ({
                     <h1 className="text-lg font-semibold text-gray-900">VehiTrack Dashboard</h1>
                   </div>
                   
-                  <div className="flex items-center justify-between mb-3">
-                    {/* WebSocket Connection Status */}
-                    <div className="flex items-center">
-                      <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                      <span className={`ml-1 text-xs ${isConnected ? 'text-green-600' : 'text-red-600'}`}>
-                        {isConnected ? 'Real-time' : 'Offline'}
-                      </span>
-                    </div>
-                  </div>
-                  
                   {/* User Info */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
@@ -1221,7 +1211,6 @@ const SidebarComponent = ({
                         {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
                       </div>
                       <div className="ml-2">
-                        <p className="text-sm font-medium text-gray-900">{currentUser?.name || 'User'}</p>
                         <p className="text-xs text-gray-500">{currentUser?.email || 'user@example.com'}</p>
                       </div>
                     </div>
