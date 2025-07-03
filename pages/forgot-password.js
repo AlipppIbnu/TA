@@ -1,4 +1,4 @@
-// pages/auth/forgot-password.js
+// pages/forgot-password.js
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";

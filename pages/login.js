@@ -1,4 +1,4 @@
-// pages/auth/login.js
+// pages/login.js
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
@@ -177,7 +177,7 @@ export default function Login() {
             {/* Link ke Register - diperbesar sedikit */}
             <div className="text-center mt-3 text-sm">
               <Link 
-                href="/auth/register" 
+                href="/register" 
                 className="text-blue-500"                   
               >
                 Register

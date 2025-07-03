@@ -516,13 +516,13 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
     const loadUserAndVehicles = async () => {
       try {
         if (!isAuthenticated()) {
-          router.push("/auth/login");
+          router.push("/login");
           return;
         }
 
         const userData = getCurrentUser();
         if (!userData) {
-          router.push("/auth/login");
+          router.push("/login");
           return;
         }
 
