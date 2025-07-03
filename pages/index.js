@@ -24,7 +24,7 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>VehiTrack - AI-Powered GPS Tracking & Fleet Management</title>
+        <title>VehiTrack - GPS Tracking & Fleet Management</title>
         <meta name="description" content="Real-time GPS tracking and fleet management. Optimize routes, monitor vehicles, and reduce operational costs with VehiTrack." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
@@ -200,7 +200,7 @@ export default function Home() {
                 <FeatureCard 
                   icon="🚚"
                   title="Smart Route Planning"
-                  description="AI algorithms optimize multi-stop deliveries in real-time."
+                  description="Optimize multi-stop deliveries in real-time."
                 />
                 <FeatureCard 
                   icon="📍"
