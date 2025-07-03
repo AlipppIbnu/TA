@@ -104,6 +104,16 @@ const SidebarComponent = ({
   // Get current user info
   const currentUser = getCurrentUser();
   
+  // Helper function to get user initials
+  const getInitials = (name) => {
+    if (!name) return 'U';
+    return name.split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+  
   // State untuk kendaraan
   const [selectedVehicleId, setSelectedVehicleId] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -139,7 +149,7 @@ const SidebarComponent = ({
   const [vehicleData, setVehicleData] = useState([]);
 
   // State untuk sidebar visibility dan active panel
-  const [isSidebarVisible, setIsSidebarVisible] = useState(false);
+  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
   const [activePanel, setActivePanel] = useState(null);
 
   // Gunakan WebSocket untuk real-time data
@@ -605,156 +615,156 @@ const SidebarComponent = ({
   const renderPanelContent = () => {
     switch(activePanel) {
       case 'vehicles':
-  return (
-    <>
+        return (
+          <>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Daftar Kendaraan</h3>
 
             {/* Vehicle Count */}
             <div className="mb-3 text-sm text-gray-600">
               {vehicles.length} kendaraan terdaftar
-      </div>
+            </div>
 
             {/* Daftar kendaraan - Without internal scroll */}
             <div className="space-y-3 mb-4">
-        {vehicles.length > 0 ? (
-          vehicles.map((vehicle) => {
-              const latestVehicleData = getVehicleDataByGpsId(vehicle.gps_id);
-            
-            return (
-            <div
-              key={vehicle.vehicle_id}
+              {vehicles.length > 0 ? (
+                vehicles.map((vehicle) => {
+                  const latestVehicleData = getVehicleDataByGpsId(vehicle.gps_id);
+                  
+                  return (
+                    <div
+                      key={vehicle.vehicle_id}
                       className={`p-3 rounded-lg cursor-pointer relative transition-all duration-200 ${
                         selectedVehicleId === vehicle.vehicle_id 
                           ? "bg-blue-50 border-2 border-blue-200" 
                           : "bg-gray-50 hover:bg-gray-100 border border-gray-200"
-              }`}
-              onClick={() => handleSelectVehicle(vehicle)}
-            >
-              <div className="flex justify-between items-start">
+                      }`}
+                      onClick={() => handleSelectVehicle(vehicle)}
+                    >
+                      <div className="flex justify-between items-start">
                         <div className="flex-grow pr-8">
                           <p className="font-bold mb-1 text-sm text-black">{vehicle.name || 'Tidak ada nama'}</p>
                           <p className="text-xs text-gray-600 mb-1">{vehicle.license_plate}</p>
                           <p className="text-xs text-gray-600 mb-1">{vehicle.make} {vehicle.model} ({vehicle.year})</p>
-                    
-                  {vehicle.sim_card_number && (
-                            <p className="text-xs text-gray-600 mb-1">SIM: {vehicle.sim_card_number}</p>
-                  )}   
                           
-                    {vehicle.relay_status && (
+                          {vehicle.sim_card_number && (
+                            <p className="text-xs text-gray-600 mb-1">SIM: {vehicle.sim_card_number}</p>
+                          )}   
+                          
+                          {vehicle.relay_status && (
                             <p className="text-xs text-gray-600 mb-1">
                               Mesin: {
-                          vehicle.relay_status === 'ON'
-                          ? <span className="text-green-600 font-semibold">ON</span>
-                          : <span className="text-red-600 font-semibold">OFF</span>
-                      }
-                    </p>
-                  )}
-                  
+                                vehicle.relay_status === 'ON'
+                                ? <span className="text-green-600 font-semibold">ON</span>
+                                : <span className="text-red-600 font-semibold">OFF</span>
+                              }
+                            </p>
+                          )}
+                          
                           {/* Data kendaraan real-time - Kompakt */}
                           <div className="text-xs text-gray-600 mb-2">
                             <span className="text-blue-600 font-semibold">{latestVehicleData?.speed || 0} km/h</span>
                             <span className="mx-2">•</span>
                             <span className={`font-semibold ${latestVehicleData?.speed > 0 ? 'text-green-600' : 'text-orange-600'}`}>
                               {latestVehicleData?.speed > 0 ? 'BERGERAK' : 'PARKIR'}
-                        </span>
-                    </div>
-                    
+                            </span>
+                          </div>
+                          
                           {/* Button controls - Lebih kompakt */}
                           <div className="flex gap-1">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleGeofence(vehicle.vehicle_id);
-                      }}
-                      className={`${
-                        vehicleGeofenceVisibility[vehicle.vehicle_id] === true
-                          ? 'bg-green-600 hover:bg-green-700' 
-                          : 'bg-blue-400 hover:bg-blue-500'
-                      } text-white rounded text-center font-bold transition-colors duration-200 px-1.5 py-0.5 text-xs`}
-                        title={`${vehicleGeofenceVisibility[vehicle.vehicle_id] === true ? 'Sembunyikan' : 'Tampilkan'} geofence untuk ${vehicle.name}`}
-                        >
-                        GEO
-                        </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleGeofence(vehicle.vehicle_id);
+                              }}
+                              className={`${
+                                vehicleGeofenceVisibility[vehicle.vehicle_id] === true
+                                  ? 'bg-green-600 hover:bg-green-700' 
+                                  : 'bg-blue-400 hover:bg-blue-500'
+                              } text-white rounded text-center font-bold transition-colors duration-200 px-1.5 py-0.5 text-xs`}
+                              title={`${vehicleGeofenceVisibility[vehicle.vehicle_id] === true ? 'Sembunyikan' : 'Tampilkan'} geofence untuk ${vehicle.name}`}
+                            >
+                              GEO
+                            </button>
 
-                        {/* Engine ON Button */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEngineOn(vehicle.vehicle_id);
-                          }}
-                          disabled={loadingVehicles[vehicle.vehicle_id] || vehicle.relay_status === 'ON'}
-                          className={`${
-                            loadingVehicles[vehicle.vehicle_id] ? 'bg-gray-400' : 
-                            vehicle.relay_status === 'ON' ? 'bg-gray-500' :
-                            'bg-green-500 hover:bg-green-600'
-                          } text-white rounded text-center font-bold transition-colors duration-200 px-1.5 py-0.5 text-xs`}
-                          title={vehicle.relay_status === 'ON' ? 'Mesin sudah menyala' : 'Nyalakan mesin'}
-                        >
-                          {loadingVehicles[vehicle.vehicle_id] ? '...' : 'ON'}
-                        </button>
+                            {/* Engine ON Button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEngineOn(vehicle.vehicle_id);
+                              }}
+                              disabled={loadingVehicles[vehicle.vehicle_id] || vehicle.relay_status === 'ON'}
+                              className={`${
+                                loadingVehicles[vehicle.vehicle_id] ? 'bg-gray-400' : 
+                                vehicle.relay_status === 'ON' ? 'bg-gray-500' :
+                                'bg-green-500 hover:bg-green-600'
+                              } text-white rounded text-center font-bold transition-colors duration-200 px-1.5 py-0.5 text-xs`}
+                              title={vehicle.relay_status === 'ON' ? 'Mesin sudah menyala' : 'Nyalakan mesin'}
+                            >
+                              {loadingVehicles[vehicle.vehicle_id] ? '...' : 'ON'}
+                            </button>
 
-                        {/* Engine OFF Button */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEngineOff(vehicle.vehicle_id);
-                          }}
-                          disabled={loadingVehicles[vehicle.vehicle_id] || vehicle.relay_status === 'OFF'}
-                          className={`${
-                            loadingVehicles[vehicle.vehicle_id] ? 'bg-gray-400' : 
-                            vehicle.relay_status === 'OFF' ? 'bg-gray-500' :
-                            'bg-red-500 hover:bg-red-600'
-                          } text-white rounded text-center font-bold transition-colors duration-200 px-1.5 py-0.5 text-xs`}
-                          title={vehicle.relay_status === 'OFF' ? 'Mesin sudah mati' : 'Matikan mesin'}
-                        >
-                          {loadingVehicles[vehicle.vehicle_id] ? '...' : 'OFF'}
-                    </button>
-                      </div>
-                  </div>
-                    
+                            {/* Engine OFF Button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEngineOff(vehicle.vehicle_id);
+                              }}
+                              disabled={loadingVehicles[vehicle.vehicle_id] || vehicle.relay_status === 'OFF'}
+                              className={`${
+                                loadingVehicles[vehicle.vehicle_id] ? 'bg-gray-400' : 
+                                vehicle.relay_status === 'OFF' ? 'bg-gray-500' :
+                                'bg-red-500 hover:bg-red-600'
+                              } text-white rounded text-center font-bold transition-colors duration-200 px-1.5 py-0.5 text-xs`}
+                              title={vehicle.relay_status === 'OFF' ? 'Mesin sudah mati' : 'Matikan mesin'}
+                            >
+                              {loadingVehicles[vehicle.vehicle_id] ? '...' : 'OFF'}
+                            </button>
+                          </div>
+                        </div>
+                        
                         {/* Button hapus kendaraan */}
-                  <button 
-                    onClick={(e) => handleShowDeleteConfirm(vehicle, e)}
+                        <button 
+                          onClick={(e) => handleShowDeleteConfirm(vehicle, e)}
                           className="bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold transition-colors duration-200 absolute top-2 right-2"
-                    title={`Hapus kendaraan ${vehicle.name}`}
-                  >
-                    ×
-                  </button>
-              </div>
-            </div>
+                          title={`Hapus kendaraan ${vehicle.name}`}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
                   )
                 })
-        ) : (
+              ) : (
                 <div className="text-center py-8">
                   <p className="text-gray-500 text-sm">Tidak ada kendaraan</p>
                   <p className="text-gray-400 text-xs mt-1">Klik tombol di bawah untuk menambah</p>
                 </div>
-        )}
-      </div>
+              )}
+            </div>
 
             {/* Tombol aksi - Fixed di bawah */}
             <div className="space-y-2 border-t border-gray-200 pt-3 mt-auto">
-        <button 
-          onClick={onTambahKendaraan} 
+              <button 
+                onClick={onTambahKendaraan} 
                 className="w-full py-2 bg-blue-500 text-white rounded-lg text-sm font-semibold hover:bg-blue-600 transition-colors duration-200"
-        >
-          TAMBAH KENDARAAN
-        </button>
-        
-        <button 
-          onClick={handleSetGeofence}
+              >
+                TAMBAH KENDARAAN
+              </button>
+              
+              <button 
+                onClick={handleSetGeofence}
                 className="w-full py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors duration-200"
-        >
-          SET GEOFENCE
-        </button>
-        
-        <button 
-          onClick={handleHistoryClick} 
+              >
+                SET GEOFENCE
+              </button>
+              
+              <button 
+                onClick={handleHistoryClick} 
                 className="w-full py-2 bg-blue-500 text-white rounded-lg text-sm font-semibold hover:bg-blue-600 transition-colors duration-200"
-        >
-          {showHistory ? "HIDE HISTORY" : "SHOW HISTORY"}
-        </button>
-      </div>
+              >
+                {showHistory ? "HIDE HISTORY" : "SHOW HISTORY"}
+              </button>
+            </div>
           </>
         );
 
@@ -766,7 +776,7 @@ const SidebarComponent = ({
               <div className="bg-blue-50 p-4 rounded-lg">
                 <h4 className="text-sm font-medium text-blue-900">Total Kendaraan</h4>
                 <p className="text-2xl font-bold text-blue-600 mt-1">{vehicles.length}</p>
-      </div>
+              </div>
 
               <div className="bg-green-50 p-4 rounded-lg">
                 <h4 className="text-sm font-medium text-green-900">Kendaraan Aktif</h4>
@@ -801,81 +811,33 @@ const SidebarComponent = ({
       case 'profile':
         return (
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Profile Setting</h3>
-            
-            {/* Profile Picture */}
-            <div className="flex justify-center mb-6">
-              <div className="w-20 h-20 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-2xl">
-                {currentUser?.fullName ? currentUser.fullName.charAt(0).toUpperCase() : 
-                 currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+            <div className="flex flex-col items-center">
+              <div className="w-20 h-20 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-2xl mb-4">
+                {getInitials(currentUser?.fullName)}
               </div>
+              <h3 className="text-lg font-semibold text-gray-900">{currentUser?.fullName || 'User'}</h3>
+              <p className="text-sm text-gray-500 mb-6">{currentUser?.email || 'user@example.com'}</p>
             </div>
-
-            {/* User Information */}
+            
             <div className="space-y-4">
-              {/* Full Name */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Full Name
-                </label>
-                <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
-                  {currentUser?.fullName || currentUser?.name || 'Not set'}
-                </div>
-              </div>
-
-              {/* Username */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Username
-                </label>
-                <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
-                  {currentUser?.username || 'Not set'}
-                </div>
-              </div>
-
-              {/* Email */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Email Address
-                </label>
-                <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
-                  {currentUser?.email || 'Not set'}
-                </div>
-                <p className="text-xs text-gray-500 mt-1">This is your login email</p>
-              </div>
-
-              {/* Phone Number */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Phone Number
-                </label>
-                <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
-                  {currentUser?.phoneNumber || 'Not set'}
-                </div>
-              </div>
-
-              {/* User ID */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  User ID
-                </label>
-                <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
-                  {currentUser?.userId || 'Not set'}
-                </div>
-              </div>
-
-              {/* Note */}
-              <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg className="h-4 w-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                    </svg>
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <h4 className="text-sm font-medium text-gray-900 mb-2">Informasi Akun</h4>
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-xs text-gray-500">Nama Lengkap</p>
+                    <p className="text-sm">{currentUser?.fullName || '-'}</p>
                   </div>
-                  <div className="ml-2">
-                    <p className="text-xs text-blue-700">
-                      Profil hanya dapat dilihat. Tidak dapat mengubah informasi profil.
-                    </p>
+                  <div>
+                    <p className="text-xs text-gray-500">Email</p>
+                    <p className="text-sm">{currentUser?.email || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Username</p>
+                    <p className="text-sm">{currentUser?.username || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">No. Telepon</p>
+                    <p className="text-sm">{currentUser?.phoneNumber || '-'}</p>
                   </div>
                 </div>
               </div>
@@ -1149,9 +1111,11 @@ const SidebarComponent = ({
                     activePanel === 'profile' ? 'text-white bg-blue-600' : 'text-gray-600 hover:text-blue-600 hover:bg-gray-100'
                   }`}
                 >
-                  <svg className="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
+                  <div className={`w-6 h-6 mx-auto rounded-full flex items-center justify-center text-xs font-medium ${
+                    activePanel === 'profile' ? 'bg-white text-blue-600' : 'bg-blue-100 text-blue-600'
+                  }`}>
+                    {getInitials(currentUser?.fullName)}
+                  </div>
                   {!activePanel && (
                     <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                       Profile
@@ -1207,10 +1171,11 @@ const SidebarComponent = ({
                   {/* User Info */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
-                      <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
-                        {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+                      <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                        {getInitials(currentUser?.fullName)}
                       </div>
                       <div className="ml-2">
+                        <p className="text-sm font-medium text-gray-900">{currentUser?.fullName || 'User'}</p>
                         <p className="text-xs text-gray-500">{currentUser?.email || 'user@example.com'}</p>
                       </div>
                     </div>
@@ -1323,21 +1288,21 @@ const SidebarComponent = ({
               </div>
               
               <div className="flex flex-col sm:flex-row gap-2 justify-center">
-              <button 
-                onClick={handleCancelDelete}
+                <button 
+                  onClick={handleCancelDelete}
                   className="px-4 py-1.5 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors duration-200 font-medium text-sm"
-              >
-                Batal
-              </button>
-              <button 
+                >
+                  Batal
+                </button>
+                <button 
                   onClick={() => handleDeleteVehicle(vehicleToDelete)}
                   className="px-4 py-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200 font-medium text-sm"
-              >
+                >
                   Ya, Hapus Kendaraan
-              </button>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
         </div>,
         document.body
       )}
@@ -1451,7 +1416,7 @@ const SidebarComponent = ({
                 </button>
               </div>
             </div>
-        </div>
+          </div>
         </div>,
         document.body
       )}
