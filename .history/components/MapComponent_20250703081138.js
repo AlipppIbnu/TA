@@ -114,38 +114,38 @@ const DrawingHandler = forwardRef((props, ref) => {
   }));
 
   const clearTemporaryElements = useCallback(() => {
-    tempMarkersRef.current.forEach(marker => {
-      try {
-        if (marker && map.hasLayer(marker)) {
-          map.removeLayer(marker);
+          tempMarkersRef.current.forEach(marker => {
+        try {
+          if (marker && map.hasLayer(marker)) {
+            map.removeLayer(marker);
+          }
+        } catch (error) {
+          // Error saat menghapus marker - tidak kritis
         }
-      } catch {
-        // Error saat menghapus marker - tidak kritis
-      }
-    });
-    tempMarkersRef.current = [];
-    
-    if (tempPolylineRef.current) {
-      try {
-        if (map.hasLayer(tempPolylineRef.current)) {
-          map.removeLayer(tempPolylineRef.current);
+      });
+      tempMarkersRef.current = [];
+      
+      if (tempPolylineRef.current) {
+        try {
+          if (map.hasLayer(tempPolylineRef.current)) {
+            map.removeLayer(tempPolylineRef.current);
+          }
+        } catch (error) {
+          // Error saat menghapus polyline - tidak kritis
         }
-      } catch {
-        // Error saat menghapus polyline - tidak kritis
+        tempPolylineRef.current = null;
       }
-      tempPolylineRef.current = null;
-    }
-    
-    if (tempCircleRef.current) {
-      try {
-        if (map.hasLayer(tempCircleRef.current)) {
-          map.removeLayer(tempCircleRef.current);
+      
+      if (tempCircleRef.current) {
+        try {
+          if (map.hasLayer(tempCircleRef.current)) {
+            map.removeLayer(tempCircleRef.current);
+          }
+        } catch (error) {
+          // Error saat menghapus circle - tidak kritis
         }
-      } catch {
-        // Error saat menghapus circle - tidak kritis
+        tempCircleRef.current = null;
       }
-      tempCircleRef.current = null;
-    }
     
     setCurrentPolygon([]);
     setIsDrawing(false);
@@ -230,8 +230,8 @@ const DrawingHandler = forwardRef((props, ref) => {
           if (map.hasLayer(tempCircleRef.current)) {
             map.removeLayer(tempCircleRef.current);
           }
-        } catch {
-          console.warn('Error removing temp circle in mousemove');
+        } catch (error) {
+          console.warn('Error removing temp circle in mousemove:', error);
         }
         tempCircleRef.current = null;
       }
@@ -247,8 +247,8 @@ const DrawingHandler = forwardRef((props, ref) => {
         }).addTo(map);
         
         tempCircleRef.current = circle;
-      } catch {
-        console.warn('Error creating temp circle');
+      } catch (error) {
+        console.warn('Error creating temp circle:', error);
       }
     },
     
@@ -258,8 +258,8 @@ const DrawingHandler = forwardRef((props, ref) => {
           if (map.hasLayer(tempCircleRef.current)) {
             map.removeLayer(tempCircleRef.current);
           }
-        } catch {
-          console.warn('Error removing temp circle in movestart');
+        } catch (error) {
+          console.warn('Error removing temp circle in movestart:', error);
         }
         tempCircleRef.current = null;
       }
@@ -271,8 +271,8 @@ const DrawingHandler = forwardRef((props, ref) => {
           if (map.hasLayer(tempCircleRef.current)) {
             map.removeLayer(tempCircleRef.current);
           }
-        } catch {
-          console.warn('Error removing temp circle in zoomstart');
+        } catch (error) {
+          console.warn('Error removing temp circle in zoomstart:', error);
         }
         tempCircleRef.current = null;
       }
@@ -284,8 +284,8 @@ const DrawingHandler = forwardRef((props, ref) => {
           if (map.hasLayer(tempCircleRef.current)) {
             map.removeLayer(tempCircleRef.current);
           }
-        } catch {
-          console.warn('Error removing temp circle in dragstart');
+        } catch (error) {
+          console.warn('Error removing temp circle in dragstart:', error);
         }
         tempCircleRef.current = null;
       }
@@ -297,8 +297,8 @@ const DrawingHandler = forwardRef((props, ref) => {
           if (map.hasLayer(tempCircleRef.current)) {
             map.removeLayer(tempCircleRef.current);
           }
-        } catch {
-          console.warn('Error removing temp circle in mouseout');
+        } catch (error) {
+          console.warn('Error removing temp circle in mouseout:', error);
         }
         tempCircleRef.current = null;
       }
@@ -331,8 +331,8 @@ const DrawingHandler = forwardRef((props, ref) => {
             if (map.hasLayer(tempCircleRef.current)) {
               map.removeLayer(tempCircleRef.current);
             }
-          } catch {
-            console.warn('Error in periodic cleanup');
+          } catch (error) {
+            console.warn('Error in periodic cleanup:', error);
           }
           tempCircleRef.current = null;
         }
