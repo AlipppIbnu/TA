@@ -1,21 +1,21 @@
-// pages/api/alerts.js - API untuk alerts (GET dan POST)
+// pages/api/alerts.js - API untuk mengelola alerts (GET dan POST)
 import directusConfig from '@/lib/directusConfig';
 
 export default async function handler(req, res) {
   try {
-    // Handle GET request - fetch alerts
+    // Tangani request GET - ambil alerts
     if (req.method === 'GET') {
       const { limit = 20, sort = '-alert_id', since_id, user_id } = req.query;
       
-      // SECURITY: Require user_id from authenticated client
+      // KEAMANAN: Memerlukan user_id dari client yang terautentikasi
       if (!user_id) {
         return res.status(400).json({
           success: false,
-          message: 'User ID is required'
+          message: 'User ID diperlukan'
         });
       }
       
-      // First, get user's vehicle IDs to filter alerts
+      // Pertama, ambil ID kendaraan user untuk filter alerts
       const vehiclesUrl = `${directusConfig.baseURL}/items/vehicle?filter[user_id][_eq]=${user_id}&fields=vehicle_id`;
       const vehiclesResponse = await fetch(vehiclesUrl, {
         headers: directusConfig.headers
@@ -24,14 +24,14 @@ export default async function handler(req, res) {
       if (!vehiclesResponse.ok) {
         return res.status(500).json({
           success: false,
-          message: 'Failed to fetch user vehicles'
+          message: 'Gagal mengambil data kendaraan user'
         });
       }
       
       const vehiclesData = await vehiclesResponse.json();
       const userVehicleIds = (vehiclesData.data || []).map(v => v.vehicle_id);
       
-      // If user has no vehicles, return empty alerts
+      // Jika user tidak punya kendaraan, return alerts kosong
       if (userVehicleIds.length === 0) {
         return res.status(200).json({
           success: true,
@@ -39,13 +39,13 @@ export default async function handler(req, res) {
         });
       }
       
-      // Build alerts URL with vehicle_id filter for user's vehicles only  
+      // Buat URL alerts dengan filter vehicle_id hanya untuk kendaraan user
       let url = `${directusConfig.baseURL}/items/alerts?sort=${sort}&limit=${limit}`;
       
-      // Add filter for user's vehicles only - SECURITY FILTER
+      // Tambah filter untuk kendaraan user saja - FILTER KEAMANAN
       url += `&filter[vehicle_id][_in]=${userVehicleIds.join(',')}`;
       
-      // Add filter for alerts since a specific ID
+      // Tambah filter untuk alerts sejak ID tertentu
       if (since_id) {
         url += `&filter[alert_id][_gt]=${since_id}`;
       }
@@ -60,7 +60,7 @@ export default async function handler(req, res) {
         return res.status(200).json(data);
       } else {
         const errorText = await response.text();
-        console.error("❌ Directus GET error:", errorText);
+        console.error("Error Directus GET:", errorText);
         return res.status(response.status).json({
           success: false,
           message: 'Gagal mengambil alerts'
@@ -68,7 +68,7 @@ export default async function handler(req, res) {
   }
     }
     
-    // Handle POST request - create alert
+    // Tangani request POST - buat alert
     else if (req.method === 'POST') {
     const { vehicle_id, alert_type, alert_message, lokasi, timestamp } = req.body;
 
@@ -80,16 +80,16 @@ export default async function handler(req, res) {
       });
     }
 
-    // SECURITY: Verify user owns the vehicle  
+    // KEAMANAN: Verifikasi user memiliki kendaraan tersebut
     const { user_id } = req.body;
     if (!user_id) {
       return res.status(400).json({
         success: false,
-        message: 'User ID is required'
+        message: 'User ID diperlukan'
       });
     }
 
-    // Check if vehicle belongs to current user
+    // Cek apakah kendaraan milik user saat ini
     const vehicleCheckUrl = `${directusConfig.baseURL}/items/vehicle?filter[vehicle_id][_eq]=${vehicle_id}&filter[user_id][_eq]=${user_id}&fields=vehicle_id`;
     const vehicleCheckResponse = await fetch(vehicleCheckUrl, {
       headers: directusConfig.headers
@@ -98,7 +98,7 @@ export default async function handler(req, res) {
     if (!vehicleCheckResponse.ok) {
       return res.status(500).json({
         success: false,
-        message: 'Failed to verify vehicle ownership'
+        message: 'Gagal memverifikasi kepemilikan kendaraan'
       });
     }
     
@@ -106,7 +106,7 @@ export default async function handler(req, res) {
     if (!vehicleCheckData.data || vehicleCheckData.data.length === 0) {
       return res.status(403).json({
         success: false,
-        message: 'Access denied: Vehicle does not belong to current user'
+        message: 'Akses ditolak: Kendaraan bukan milik user saat ini'
       });
     }
 
@@ -118,8 +118,6 @@ export default async function handler(req, res) {
       lokasi: lokasi || null,
       timestamp: timestamp || new Date().toISOString()
     };
-
-    console.log('🚨 Menyimpan alert:', directusData);
 
     // Kirim ke Directus
     const response = await fetch(`${directusConfig.baseURL}/items/alerts`, {
@@ -134,26 +132,24 @@ export default async function handler(req, res) {
     if (response.ok) {
       const data = await response.json();
       
-      console.log('✅ Alert berhasil disimpan:', data);
-      
       return res.status(200).json({
         success: true,
         message: 'Alert berhasil disimpan',
         data: data.data
       });
     } else {
-      // Handle error response
+      // Tangani response error
       const responseText = await response.text();
       
-      console.error("❌ Directus error response:", responseText);
-      console.error("❌ Response status:", response.status);
+      console.error("Error response Directus:", responseText);
+      console.error("Status response:", response.status);
       
       let errorData;
       try {
         errorData = JSON.parse(responseText);
-        console.error("❌ Parsed error data:", errorData);
+        console.error("Data error yang diparsing:", errorData);
       } catch {
-        console.error("❌ Could not parse error response as JSON");
+        console.error("Tidak bisa parsing error response sebagai JSON");
         errorData = { message: responseText };
       }
 
@@ -165,19 +161,19 @@ export default async function handler(req, res) {
       }
     }
     
-    // Handle DELETE request - delete all user alerts
+    // Tangani request DELETE - hapus semua alerts user
     else if (req.method === 'DELETE') {
       const { user_id } = req.body;
       
-      // SECURITY: Require user_id from authenticated client
+      // KEAMANAN: Memerlukan user_id dari client yang terautentikasi
       if (!user_id) {
         return res.status(400).json({
           success: false,
-          message: 'User ID is required'
+          message: 'User ID diperlukan'
         });
       }
       
-      // First, get user's vehicle IDs to filter alerts
+      // Pertama, ambil ID kendaraan user untuk filter alerts
       const vehiclesUrl = `${directusConfig.baseURL}/items/vehicle?filter[user_id][_eq]=${user_id}&fields=vehicle_id`;
       const vehiclesResponse = await fetch(vehiclesUrl, {
         headers: directusConfig.headers
@@ -186,24 +182,24 @@ export default async function handler(req, res) {
       if (!vehiclesResponse.ok) {
         return res.status(500).json({
           success: false,
-          message: 'Failed to fetch user vehicles'
+          message: 'Gagal mengambil data kendaraan user'
         });
       }
       
       const vehiclesData = await vehiclesResponse.json();
       const userVehicleIds = (vehiclesData.data || []).map(v => v.vehicle_id);
       
-      // If user has no vehicles, nothing to delete
+      // Jika user tidak punya kendaraan, tidak ada yang dihapus
       if (userVehicleIds.length === 0) {
         return res.status(200).json({
           success: true,
-          message: 'No alerts to delete',
+          message: 'Tidak ada alerts untuk dihapus',
           deleted_count: 0
         });
       }
       
-      // Get all alert IDs for user's vehicles
-      const alertsUrl = `${directusConfig.baseURL}/items/alerts?filter[vehicle_id][_in]=${userVehicleIds.join(',')}&fields=alert_id`;
+      // Ambil semua ID alert untuk kendaraan user dengan limit tinggi untuk memastikan semua alert terambil
+      const alertsUrl = `${directusConfig.baseURL}/items/alerts?filter[vehicle_id][_in]=${userVehicleIds.join(',')}&fields=alert_id&limit=10000`;
       const alertsResponse = await fetch(alertsUrl, {
         headers: directusConfig.headers
       });
@@ -211,7 +207,7 @@ export default async function handler(req, res) {
       if (!alertsResponse.ok) {
         return res.status(500).json({
           success: false,
-          message: 'Failed to fetch user alerts'
+          message: 'Gagal mengambil alerts user'
         });
       }
       
@@ -221,16 +217,14 @@ export default async function handler(req, res) {
       if (alertIds.length === 0) {
         return res.status(200).json({
           success: true,
-          message: 'No alerts to delete',
+          message: 'Tidak ada alerts untuk dihapus',
           deleted_count: 0
         });
       }
       
-      // Delete alerts one by one to ensure reliability
+      // Hapus alerts satu per satu untuk memastikan reliabilitas
       let deletedCount = 0;
       let errors = [];
-      
-      console.log(`🗑️ Starting to delete ${alertIds.length} alerts for user ${user_id}`);
       
       for (const alertId of alertIds) {
         try {
@@ -242,24 +236,21 @@ export default async function handler(req, res) {
           
           if (deleteResponse.ok) {
             deletedCount++;
-            console.log(`✅ Deleted alert ${alertId}`);
           } else {
             const errorText = await deleteResponse.text();
-            console.error(`❌ Failed to delete alert ${alertId}:`, errorText);
+            console.error(`Gagal menghapus alert ${alertId}:`, errorText);
             errors.push(`Alert ${alertId}: ${errorText}`);
           }
         } catch (error) {
-          console.error(`❌ Error deleting alert ${alertId}:`, error);
+          console.error(`Error menghapus alert ${alertId}:`, error);
           errors.push(`Alert ${alertId}: ${error.message}`);
         }
       }
       
-      console.log(`🏁 Deletion complete: ${deletedCount}/${alertIds.length} alerts deleted`);
-      
       if (deletedCount > 0) {
         return res.status(200).json({
           success: true,
-          message: `Successfully deleted ${deletedCount} out of ${alertIds.length} alerts`,
+          message: `Berhasil menghapus ${deletedCount} dari ${alertIds.length} alerts`,
           deleted_count: deletedCount,
           total_requested: alertIds.length,
           errors: errors.length > 0 ? errors : undefined
@@ -267,19 +258,19 @@ export default async function handler(req, res) {
       } else {
         return res.status(500).json({
           success: false,
-          message: 'Failed to delete any alerts',
+          message: 'Gagal menghapus alerts apapun',
           errors: errors
       });
       }
     }
     
-    // Method not allowed
+    // Method tidak diizinkan
     else {
-      return res.status(405).json({ message: 'Method not allowed' });
+      return res.status(405).json({ message: 'Method tidak diizinkan' });
     }
 
   } catch (error) {
-    console.error("❌ API Error:", error);
+    console.error("Error API:", error);
     
     return res.status(500).json({
       success: false,

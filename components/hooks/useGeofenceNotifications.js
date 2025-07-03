@@ -1,9 +1,9 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { handleGeofenceViolation } from '@/utils/geofenceApi';
+import { handleGeofenceViolation, saveAlert } from '@/utils/geofenceApi';
 import { getGeofenceStatus } from '@/utils/geofenceUtils';
 import { getCurrentUser } from '@/lib/authService';
 
-const useGeofenceNotifications = (autoRemoveDelay = 10000) => {
+const useGeofenceNotifications = (autoRemoveDelay = 0) => {
   const [notifications, setNotifications] = useState([]);
   const notificationTimeouts = useRef({});
   const vehicleGeofenceStatusRef = useRef(new Map()); // Track current status of each vehicle
@@ -12,6 +12,12 @@ const useGeofenceNotifications = (autoRemoveDelay = 10000) => {
   const activeViolationsRef = useRef(new Map()); // Track active violations for re-showing
   const countdownTimersRef = useRef(new Map()); // Track countdown timers for re-showing
   const addViolationNotificationRef = useRef(null); // Reference to avoid circular dependency
+
+  // Konfigurasi timing untuk re-show notifikasi
+  const RESHOW_INTERVALS = {
+    violation_enter: 60000, // 1 menit untuk violation_enter
+    violation_exit: 60000   // 1 menit untuk violation_exit  
+  };
 
   // Function to generate unique violation key
   const getViolationKey = useCallback((vehicle, geofence, violationType) => {
@@ -25,20 +31,15 @@ const useGeofenceNotifications = (autoRemoveDelay = 10000) => {
     // If manually dismissed, track it to prevent re-showing
     if (isManualDismissal) {
       const notification = notifications.find(n => n.id === notificationId);
-      if (notification) {
-        const violationKey = getViolationKey(
-          { vehicle_id: notification.vehicle_id },
-          { id: notification.geofence_id || notification.geofence_name },
-          notification.event_type
-        );
-        manuallyDismissedRef.current.add(violationKey);
-        console.log(`🚫 Marking violation as manually dismissed: ${violationKey}`);
+      if (notification && notification.violationKey) {
+        manuallyDismissedRef.current.add(notification.violationKey);
+        console.log(`🚫 Marking violation as manually dismissed: ${notification.violationKey}`);
         
         // Remove from active violations and stop countdown
-        activeViolationsRef.current.delete(violationKey);
-        if (countdownTimersRef.current.has(violationKey)) {
-          clearTimeout(countdownTimersRef.current.get(violationKey));
-          countdownTimersRef.current.delete(violationKey);
+        activeViolationsRef.current.delete(notification.violationKey);
+        if (countdownTimersRef.current.has(notification.violationKey)) {
+          clearTimeout(countdownTimersRef.current.get(notification.violationKey));
+          countdownTimersRef.current.delete(notification.violationKey);
         }
       }
     }
@@ -50,7 +51,7 @@ const useGeofenceNotifications = (autoRemoveDelay = 10000) => {
       clearTimeout(notificationTimeouts.current[notificationId]);
       delete notificationTimeouts.current[notificationId];
     }
-  }, [notifications, getViolationKey]);
+  }, [notifications]);
 
   // Function to check if notification should be re-shown after countdown
   const scheduleNotificationReshow = useCallback((violationData, violationKey) => {
@@ -62,7 +63,7 @@ const useGeofenceNotifications = (autoRemoveDelay = 10000) => {
     }
 
     // Set new countdown timer with longer delay to reduce notification spam
-    const reshowDelay = 10000; // 10 seconds delay for reshow (reduced frequency)
+    const reshowDelay = RESHOW_INTERVALS[violationData.violationType] || 60000; // 1 minute delay for reshow
     const timer = setTimeout(() => {
       console.log(`⏰ Countdown expired for ${violationKey}, checking if still active...`);
       
@@ -81,7 +82,7 @@ const useGeofenceNotifications = (autoRemoveDelay = 10000) => {
     }, reshowDelay);
 
     countdownTimersRef.current.set(violationKey, timer);
-  }, []); // No dependency needed with ref approach
+  }, []);
 
   // Function to add a violation notification and save to Directus
   const addViolationNotification = useCallback(async (violationData, isReshow = false) => {
@@ -246,29 +247,9 @@ const useGeofenceNotifications = (autoRemoveDelay = 10000) => {
     manuallyDismissedRef.current.delete(violationKey);
   }, [getViolationKey]);
 
-  // Main function for real-time geofence violation detection
+  // Fungsi utama untuk deteksi pelanggaran geofence real-time
   const checkVehicleGeofenceViolations = useCallback(async (vehicles, geofences) => {
-    console.group('🔍 GEOFENCE VIOLATION CHECK');
-    console.log('Input data:', {
-      vehiclesCount: vehicles?.length || 0,
-      geofencesCount: geofences?.length || 0,
-      vehicles: vehicles?.map(v => ({
-        id: v.vehicle_id,
-        name: v.name,
-        hasPosition: !!v.position,
-        position: v.position ? `${v.position.lat.toFixed(6)}, ${v.position.lng.toFixed(6)}` : 'No position'
-      })),
-      geofences: geofences?.map(g => ({
-        id: g.geofence_id,
-        name: g.name,
-        ruleType: g.rule_type,
-        type: g.type
-      }))
-    });
-
     if (!vehicles || !geofences || vehicles.length === 0 || geofences.length === 0) {
-      console.log('⚠️ Skipping check: No vehicles or geofences available');
-      console.groupEnd();
       return;
     }
 

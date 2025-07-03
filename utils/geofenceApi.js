@@ -1,7 +1,5 @@
 // utils/geofenceApi.js - Utility functions untuk mengirim data geofence events dan alerts
 
-
-
 /**
  * Fetch alerts from Directus via local API
  * @param {Object} params - Query parameters
@@ -46,7 +44,6 @@ export async function fetchAlerts({ limit = 20, sort = '-alert_id', since_id } =
 export async function saveAlert(alertData) {
   // Only save alerts for violations
   if (alertData.alert_type !== 'violation_enter' && alertData.alert_type !== 'violation_exit') {
-    console.log(`🔕 Skipping non-violation alert: ${alertData.alert_type}`);
     return {
       success: true,
       message: 'Non-violation alert skipped',
@@ -69,7 +66,6 @@ export async function saveAlert(alertData) {
       throw new Error(data.message || 'Failed to save alert');
     }
 
-    console.log(`🚨 Saved violation alert: ${alertData.alert_type} for vehicle ${alertData.vehicle_id}`);
     return data;
   } catch (error) {
     console.error('Error saving alert:', error);
@@ -157,17 +153,6 @@ export async function handleGeofenceViolation({
       timestamp: timestamp,
       user_id: user_id // Add user_id for API validation
     };
-
-    console.log('🔔 Processing geofence event:', {
-      eventType: finalEventType,
-      vehicle: vehicle.vehicle_name || vehicle.name,
-      geofence: geofence.name,
-      ruleType: geofence.rule_type,
-      isViolation: isViolationEvent,
-      willShowNotification: isViolationEvent,
-      alertMessage: isViolationEvent ? alertData.alert_message : 'No alert (not a violation)',
-      user_id: user_id
-    });
 
     // Simpan alert (hanya untuk violation - filtered in saveAlert function)
     const alertResult = await saveAlert(alertData);

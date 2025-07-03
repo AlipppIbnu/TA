@@ -1,4 +1,4 @@
-// pages/api/history.js - Updated for new vehicle_datas structure
+// API untuk mengambil data history koordinat kendaraan
 import directusConfig from '@/lib/directusConfig';
 
 export default async function handler(req, res) {
@@ -13,14 +13,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Build filter for date range if provided
+    // Buat filter untuk rentang tanggal jika disediakan
     let filter = `filter[gps_id][_eq]=${encodeURIComponent(gps_id)}`;
     
     if (start_date && end_date) {
       filter += `&filter[timestamp][_between]=${encodeURIComponent([start_date, end_date].join(','))}`;
     }
 
-    // Construct API URL for fetching historical data for specific gps_id
+    // Konstruksi URL API untuk mengambil data historis berdasarkan gps_id spesifik
     const API_URL = `${directusConfig.baseURL}/items/vehicle_datas?${filter}&sort=-timestamp&limit=-1`;
     
     // console.log(`History API URL: ${API_URL}`); // Removed debugging log
@@ -45,18 +45,18 @@ export default async function handler(req, res) {
     
     // console.log(`History API: Retrieved ${data.data?.length || 0} records for gps_id ${gps_id}`); // Removed debugging log
 
-    // Transform and filter valid coordinates
+    // Transform dan filter koordinat yang valid
     const transformedData = {
       data: data.data
         ?.filter(item => {
-          // Filter out invalid coordinates
+          // Filter koordinat yang tidak valid
           const lat = parseFloat(item.latitude);
           const lng = parseFloat(item.longitude);
           
           return !isNaN(lat) && !isNaN(lng) && 
                  lat >= -90 && lat <= 90 && 
                  lng >= -180 && lng <= 180 &&
-                 item.gps_id === gps_id; // Ensure it matches exactly
+                 item.gps_id === gps_id; // Pastikan cocok persis
         })
         .map(item => ({
           latitude: parseFloat(item.latitude),

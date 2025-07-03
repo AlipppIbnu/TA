@@ -33,12 +33,12 @@ const NotificationsPage = () => {
       // Get current user for filtering
       const user = getCurrentUser();
       if (!user) {
-        router.push("/auth/login");
+        router.push("/login");
         return;
       }
       
       // Fetch alerts with user_id filter for security
-      const response = await fetch(`/api/alerts?limit=1000&sort=-timestamp&user_id=${user.userId}`);
+      const response = await fetch(`/api/alerts?limit=10000&sort=-timestamp&user_id=${user.userId}`);
       const data = await response.json();
 
       if (data.success || data.data) {
@@ -61,7 +61,7 @@ const NotificationsPage = () => {
   useEffect(() => {
     // Check authentication
     if (!isAuthenticated()) {
-      router.push("/auth/login");
+      router.push("/login");
       return;
     }
 
@@ -89,7 +89,7 @@ const NotificationsPage = () => {
       // Get current user for security
       const user = getCurrentUser();
       if (!user) {
-        router.push("/auth/login");
+        router.push("/login");
         return;
       }
       
