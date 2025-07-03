@@ -1,4 +1,4 @@
-// pages/dashboard.js - Fixed to wait for latest WebSocket data
+// pages/dashboard.js - Full Screen Version with Floating Sidebar
 import dynamic from "next/dynamic";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/router";
@@ -11,6 +11,7 @@ import { useWebSocket } from "@/lib/hooks/useWebSocket";
 import directusConfig from "@/lib/directusConfig";
 import { ToastContainer } from 'react-toastify';
 import GeofenceNotification from '@/components/GeofenceNotification';
+import UserDropdown from '@/components/UserDropdown';
 
 // Import dinamis untuk MapComponent (tanpa SSR)
 const MapComponent = dynamic(() => import("../components/MapComponent"), { ssr: false });
@@ -19,7 +20,7 @@ const MapComponent = dynamic(() => import("../components/MapComponent"), { ssr: 
 // LOCALSTORAGE HELPERS untuk Persist Real-time Positions
 // =============================================================================
 const REALTIME_POSITIONS_KEY = 'vehitrack_realtime_positions';
-const POSITION_CACHE_DURATION = 10 * 60 * 1000; // 10 menit
+const POSITION_CACHE_DURATION = 5 * 60 * 1000; // 5 menit
 
 const saveRealtimePositions = (vehicles) => {
   try {
@@ -33,10 +34,8 @@ const saveRealtimePositions = (vehicles) => {
       }
     });
     
-    if (Object.keys(positions).length > 0) {
-      localStorage.setItem(REALTIME_POSITIONS_KEY, JSON.stringify(positions));
-      console.log('💾 Saved realtime positions to localStorage:', Object.keys(positions));
-    }
+    localStorage.setItem(REALTIME_POSITIONS_KEY, JSON.stringify(positions));
+    console.log('💾 Saved realtime positions to localStorage:', Object.keys(positions));
   } catch (error) {
     console.warn('Failed to save positions to localStorage:', error);
   }
@@ -50,11 +49,11 @@ const loadRealtimePositions = () => {
     const positions = JSON.parse(saved);
     const now = Date.now();
     
-    // Filter out old positions
+    // Filter out old positions (older than 5 minutes)
     const validPositions = {};
     Object.keys(positions).forEach(gpsId => {
       const position = positions[gpsId];
-      if (position && (now - position.savedAt) < POSITION_CACHE_DURATION) {
+      if (now - position.savedAt < POSITION_CACHE_DURATION) {
         validPositions[gpsId] = position;
       }
     });
@@ -330,70 +329,52 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
     checkVehicleGeofenceViolations
   } = useGeofenceNotifications(10000);
 
-  // Hook WebSocket untuk real-time GPS updates - FIXED: removed getConnectionStats
-  const { data: wsData, isConnected } = useWebSocket();
+  // Hook WebSocket untuk real-time GPS updates
+  const { data: wsData, isConnected, getConnectionStats } = useWebSocket();
 
   // State untuk user dan loading
   const [loading, setLoading] = useState(true);
   
-  // State untuk kendaraan - initialize tanpa position dari server
-  const [vehicles, setVehicles] = useState([]);
+  // State untuk kendaraan - initialize dengan data dari server
+  const [vehicles, setVehicles] = useState(initialVehicles || []);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
 
   // =============================================================================
-  // PERBAIKAN UTAMA: Wait for Latest WebSocket Data Only
+  // SOLUSI 1 + 2: WebSocket Priority + localStorage Persistence
   // =============================================================================
   
-  // State untuk tracking WebSocket connection
-  const [wsConnected, setWsConnected] = useState(false);
-  
-  // State untuk tracking apakah sudah menerima data WebSocket pertama kali
+  // State untuk tracking WebSocket data telah diterima
   const [hasReceivedWebSocketData, setHasReceivedWebSocketData] = useState(false);
   
-  // State untuk menyimpan data terbaru dari WebSocket
-  const [latestWebSocketPositions, setLatestWebSocketPositions] = useState({});
-  
-  // State untuk kontrol tampilan map - tunggu data WebSocket terbaru
-  const [showMap, setShowMap] = useState(false);
+  // State untuk cached positions dari localStorage
+  const [cachedPositions, setCachedPositions] = useState(() => loadRealtimePositions());
 
-  // Monitor WebSocket connection status
+  // Monitor kapan WebSocket data pertama kali diterima
   useEffect(() => {
-    setWsConnected(isConnected);
-    if (isConnected) {
-      console.log('✅ Dashboard: WebSocket connected - waiting for latest GPS data');
-    } else {
-      console.warn('⚠️ Dashboard: WebSocket disconnected');
+    if (wsData && wsData.data && wsData.data.length > 0 && !hasReceivedWebSocketData) {
+      console.log('✅ First WebSocket data received, marking as priority source');
+      setHasReceivedWebSocketData(true);
     }
-  }, [isConnected]);
+  }, [wsData, hasReceivedWebSocketData]);
 
-  // PERBAIKAN UTAMA: Tunggu data WebSocket terbaru sebelum menampilkan map
+  // Update cachedPositions ketika ada data WebSocket baru
   useEffect(() => {
     if (wsData && wsData.data && wsData.data.length > 0) {
-      console.log('📡 Received WebSocket data:', wsData.data.length, 'coordinates');
+      const newPositions = { ...cachedPositions };
+      let hasUpdates = false;
       
-      // Check if this is initial load with latest data
-      if (wsData.isInitialLoad) {
-        console.log('🎯 Initial load with latest positions only');
-      }
-      
-      const newPositions = {};
-      let hasValidData = false;
-      
-      // Process WebSocket data untuk mendapatkan koordinat terbaru
       wsData.data.forEach(coord => {
         if (coord && coord.gps_id) {
           const lat = parseFloat(coord.latitude);
           const lng = parseFloat(coord.longitude);
           
           if (!isNaN(lat) && !isNaN(lng)) {
-            // For initial load, data is already filtered to latest only
-            // For real-time updates, we still need to check timestamps
             const currentTime = new Date(coord.timestamp);
             const existingTime = newPositions[coord.gps_id]?.timestamp ? 
               new Date(newPositions[coord.gps_id].timestamp) : new Date(0);
             
-            // Only update if this is newer data or initial load
-            if (wsData.isInitialLoad || currentTime >= existingTime) {
+            // Only update if this is newer data
+            if (currentTime > existingTime) {
               newPositions[coord.gps_id] = {
                 lat,
                 lng,
@@ -403,101 +384,109 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
                 battery_level: coord.battery_level,
                 fuel_level: coord.fuel_level,
                 isRealTimeUpdate: true,
-                isLatestData: coord.isLatestData || false,
                 savedAt: Date.now()
               };
-              hasValidData = true;
+              hasUpdates = true;
             }
           }
         }
       });
       
-      if (hasValidData) {
-        setLatestWebSocketPositions(newPositions);
-        
-        // Mark bahwa sudah menerima data WebSocket
-        if (!hasReceivedWebSocketData) {
-          setHasReceivedWebSocketData(true);
-          console.log('🎯 First valid WebSocket data received with latest positions - map will be shown');
-        }
-        
-        // Save to localStorage untuk recovery setelah refresh
+      if (hasUpdates) {
+        setCachedPositions(newPositions);
+        // Save to localStorage
         saveRealtimePositions(Object.keys(newPositions).map(gpsId => ({
           gps_id: gpsId,
           position: newPositions[gpsId]
         })));
       }
     }
-  }, [wsData, hasReceivedWebSocketData]);
+  }, [wsData, cachedPositions]);
 
-  // Kontrol tampilan map: tunggu WebSocket data atau fallback ke cached data
-  useEffect(() => {
-    if (vehicles.length === 0) {
-      setShowMap(false);
-      return;
-    }
-
-    // Prioritas 1: WebSocket data terbaru
-    if (hasReceivedWebSocketData && Object.keys(latestWebSocketPositions).length > 0) {
-      setShowMap(true);
-      console.log('🗺️ Showing map with latest WebSocket data');
-      return;
-    }
-
-    // Prioritas 2: Cached data sebagai fallback (untuk recovery setelah refresh)
-    const cachedPositions = loadRealtimePositions();
-    if (Object.keys(cachedPositions).length > 0) {
-      setShowMap(true);
-      console.log('🗺️ Showing map with cached positions (fallback)');
-      return;
-    }
-
-    // Jika tidak ada data sama sekali, tunggu WebSocket
-    setShowMap(false);
-    console.log('⏳ Waiting for WebSocket data before showing map');
-  }, [vehicles.length, hasReceivedWebSocketData, latestWebSocketPositions]);
-
-  // Vehicles dengan position terbaru dari WebSocket
+  // SOLUSI 1 + 2: Merge vehicle data dengan priority: WebSocket > Cached > Server
   const updatedVehicles = useMemo(() => {
     if (!vehicles || vehicles.length === 0) {
       return [];
     }
 
-    console.group('🔄 Dashboard: Processing vehicles with latest WebSocket data');
+    console.group('🔄 Dashboard: Processing vehicles with cached + real-time GPS data');
     console.log('Base vehicles:', vehicles.length);
-    console.log('Latest WebSocket positions:', Object.keys(latestWebSocketPositions).length);
-    console.log('Has received WebSocket data:', hasReceivedWebSocketData);
+    console.log('Cached positions:', Object.keys(cachedPositions).length);
+    console.log('WebSocket GPS data points:', wsData?.data?.length || 0);
+    console.log('WebSocket connected:', isConnected);
 
-    const result = vehicles.map(vehicle => {
-      let finalPosition = null;
+    let result = vehicles.map(vehicle => {
+      // Prioritas: WebSocket data terbaru > Cached position > Server position
+      let bestPosition = vehicle.position;
       
-      // PRIORITAS 1: Data WebSocket terbaru
-      const wsPosition = latestWebSocketPositions[vehicle.gps_id];
-      if (wsPosition) {
-        finalPosition = wsPosition;
-        console.log(`🔴 Using latest WebSocket position for ${vehicle.name}`);
-      } else {
-        // PRIORITAS 2: Fallback ke cached data (untuk recovery)
-        const cachedPositions = loadRealtimePositions();
-        const cachedPosition = cachedPositions[vehicle.gps_id];
-        if (cachedPosition && cachedPosition.isRealTimeUpdate) {
-          finalPosition = cachedPosition;
-          console.log(`📱 Using cached position for ${vehicle.name} (fallback)`);
+      // 1. Cek cached position (dari localStorage)
+      const cachedPosition = cachedPositions[vehicle.gps_id];
+      if (cachedPosition) {
+        const cachedTime = new Date(cachedPosition.timestamp);
+        const vehicleTime = bestPosition?.timestamp ? new Date(bestPosition.timestamp) : new Date(0);
+        
+        if (cachedTime > vehicleTime || !bestPosition?.isRealTimeUpdate) {
+          bestPosition = cachedPosition;
+          console.log(`📱 Using cached position for ${vehicle.name}`);
+        }
+      }
+      
+      // 2. Cek WebSocket data terbaru (prioritas tertinggi)
+      if (wsData && wsData.data && wsData.data.length > 0) {
+        const coordinateUpdates = {};
+        
+        // Get latest coordinate for this vehicle from WebSocket
+        wsData.data.forEach(coord => {
+          if (coord && coord.gps_id === vehicle.gps_id) {
+            const existing = coordinateUpdates[coord.gps_id];
+            if (!existing || (coord.timestamp && existing.timestamp && 
+                new Date(coord.timestamp) > new Date(existing.timestamp))) {
+              coordinateUpdates[coord.gps_id] = coord;
+            }
+          }
+        });
+
+        const wsUpdate = coordinateUpdates[vehicle.gps_id];
+        if (wsUpdate) {
+          const lat = parseFloat(wsUpdate.latitude);
+          const lng = parseFloat(wsUpdate.longitude);
+          
+          if (!isNaN(lat) && !isNaN(lng)) {
+            const wsTime = new Date(wsUpdate.timestamp);
+            const bestTime = bestPosition?.timestamp ? new Date(bestPosition.timestamp) : new Date(0);
+            
+            // Selalu gunakan data WebSocket jika tersedia dan lebih baru
+            if (wsTime >= bestTime || !bestPosition?.isRealTimeUpdate) {
+              bestPosition = {
+                lat,
+                lng,
+                timestamp: wsUpdate.timestamp,
+                speed: wsUpdate.speed || 0,
+                ignition_status: wsUpdate.ignition_status,
+                battery_level: wsUpdate.battery_level,
+                fuel_level: wsUpdate.fuel_level,
+                isRealTimeUpdate: true
+              };
+              console.log(`🔴 Using fresh WebSocket position for ${vehicle.name}:`, {
+                lat, lng, speed: wsUpdate.speed || 0
+              });
+            }
+          }
         }
       }
       
       return {
         ...vehicle,
-        position: finalPosition // null jika tidak ada data real-time
+        position: bestPosition
       };
     });
     
     const vehiclesWithPosition = result.filter(v => v.position);
-    console.log(`✅ Processed ${result.length} total vehicles, ${vehiclesWithPosition.length} with positions`);
+    console.log(`✅ Dashboard: Processed ${result.length} total vehicles, ${vehiclesWithPosition.length} with GPS positions`);
     console.groupEnd();
     
     return result;
-  }, [vehicles, latestWebSocketPositions, hasReceivedWebSocketData]);
+  }, [vehicles, wsData, cachedPositions, isConnected]);
   
   // State untuk modal dan notifikasi
   const [showTambahModal, setShowTambahModal] = useState(false); 
@@ -511,7 +500,7 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
   const [geofences, setGeofences] = useState([]);
   const [vehicleGeofenceVisibility, setVehicleGeofenceVisibility] = useState({});
 
-  // Load user data dan kendaraan
+  // SOLUSI 1: Load user data dan kendaraan dengan WebSocket priority
   useEffect(() => {
     const loadUserAndVehicles = async () => {
       try {
@@ -526,21 +515,39 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
           return;
         }
 
-        // Set vehicles dari server tanpa position - tunggu WebSocket
-        const vehiclesWithoutPosition = (initialVehicles || []).map(vehicle => ({
-          ...vehicle,
-          position: null // Selalu null - tunggu WebSocket data terbaru
-        }));
+        // Gunakan data dari server terlebih dahulu, kemudian fetch fresh data
+        let userVehicles = initialVehicles;
         
-        setVehicles(vehiclesWithoutPosition);
+        // Jika tidak ada data dari server atau perlu refresh, fetch dari API
+        if (!userVehicles || userVehicles.length === 0) {
+          console.log('📡 No initial vehicles data, fetching from API...');
+          userVehicles = await getUserVehicles();
+        } else {
+          console.log('✅ Using initial vehicles data from server:', userVehicles.length);
+          
+          // PERBAIKAN: Fetch fresh data di background HANYA jika belum ada WebSocket data
+          if (!hasReceivedWebSocketData) {
+            getUserVehicles().then(freshData => {
+              if (freshData && freshData.length > 0) {
+                console.log('🔄 Updating with fresh vehicle data (no WebSocket yet):', freshData.length);
+                setVehicles(freshData);
+              }
+            }).catch(err => {
+              console.warn('⚠️ Failed to fetch fresh vehicle data:', err);
+            });
+          } else {
+            console.log('⏭️ Skipping fresh data fetch - WebSocket data available');
+          }
+        }
         
-        if (vehiclesWithoutPosition.length > 0) {
-          setSelectedVehicle(vehiclesWithoutPosition[0]);
+        setVehicles(userVehicles);
+        if (userVehicles.length > 0) {
+          setSelectedVehicle(userVehicles[0]);
         }
 
-        console.log('✅ Vehicles loaded without positions, waiting for latest WebSocket data...');
+        console.log('✅ Dashboard: Initial vehicles loaded:', userVehicles.length);
+
         await loadGeofences();
-        
       } catch (error) {
         console.error('Error loading data:', error);
         setErrorMessage('Gagal memuat data kendaraan');
@@ -551,7 +558,26 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
     };
 
     loadUserAndVehicles();
-  }, [router, initialVehicles]);
+  }, [router, initialVehicles, hasReceivedWebSocketData]);
+
+  // Fallback untuk koneksi WebSocket yang belum tersambung
+  useEffect(() => {
+    if (!isConnected && vehicles.length > 0) {
+      console.log('🚀 Dashboard: WebSocket not connected at startup, fetching fresh data...');
+      const fetchFreshData = async () => {
+        try {
+          const userVehicles = await getUserVehicles();
+          setVehicles(userVehicles);
+          console.log('🚀 Dashboard: Fresh vehicle data loaded:', userVehicles.length);
+        } catch (error) {
+          console.error('Error fetching fresh vehicle data on startup:', error);
+        }
+      };
+      
+      const timeout = setTimeout(fetchFreshData, 1000);
+      return () => clearTimeout(timeout);
+    }
+  }, [isConnected, vehicles.length]);
 
   // Muat geofences dari API
   const loadGeofences = async () => {
@@ -576,37 +602,95 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
     }
   };
 
-  // Backup polling untuk metadata saja (bukan position)
+  // Monitor untuk reload vehicle positions secara berkala (reduced frequency when WebSocket active)
   useEffect(() => {
-    if (!wsConnected && vehicles.length > 0) {
-      console.log('🔄 WebSocket disconnected, enabling backup polling for metadata only');
-      
-      const backupInterval = setInterval(async () => {
-        try {
+    const reloadVehiclePositions = async () => {
+      try {
+        if (!isConnected) {
+          console.log('🔄 Dashboard: WebSocket disconnected, fetching vehicles via REST API');
           const userVehicles = await getUserVehicles();
-          // Hanya update metadata, posisi tetap dari WebSocket/cache
-          const updatedVehicles = userVehicles.map(vehicle => ({
-            ...vehicle,
-            position: null
-          }));
-          setVehicles(updatedVehicles);
-          console.log('🔄 Updated vehicle metadata via backup polling');
-        } catch (error) {
-          console.error('Backup polling error:', error);
+          setVehicles(userVehicles);
+          
+          if (selectedVehicle) {
+            const updatedSelectedVehicle = userVehicles.find(v => v.vehicle_id === selectedVehicle.vehicle_id);
+            if (updatedSelectedVehicle) {
+              setSelectedVehicle(prev => ({
+                ...updatedSelectedVehicle,
+                path: prev.path
+              }));
+            }
+          }
+        } else {
+          console.log('✅ Dashboard: WebSocket connected, using real-time data');
         }
-      }, 30000); // Setiap 30 detik untuk metadata
 
-      return () => clearInterval(backupInterval);
-    }
-  }, [wsConnected, vehicles.length]);
+      } catch (error) {
+        console.error('Error reloading vehicle positions:', error);
+      }
+    };
+
+    // Reduced polling frequency when WebSocket is connected
+    const interval = isConnected ? 30000 : 3000; // 30s vs 3s
+    console.log(`📡 Dashboard: Setting reload interval to ${interval/1000}s (WebSocket: ${isConnected ? 'connected' : 'disconnected'})`);
+    
+    const positionInterval = setInterval(reloadVehiclePositions, interval);
+
+    return () => {
+      clearInterval(positionInterval);
+    };
+  }, [selectedVehicle, isConnected]);
 
   // REAL-TIME GEOFENCE VIOLATION DETECTION
   useEffect(() => {
     if (updatedVehicles.length > 0 && geofences.length > 0) {
-      console.log('🔄 Dashboard: Running geofence detection with latest WebSocket data');
+      console.log('🔄 Dashboard: Running geofence detection with real-time data');
       checkVehicleGeofenceViolations(updatedVehicles, geofences);
     }
   }, [updatedVehicles, geofences, checkVehicleGeofenceViolations]);
+
+  // Monitor WebSocket connection status
+  useEffect(() => {
+    if (isConnected) {
+      console.log('✅ Dashboard: WebSocket connected - using real-time GPS data');
+    } else {
+      console.warn('⚠️ Dashboard: WebSocket disconnected - falling back to periodic REST API updates');
+    }
+  }, [isConnected]);
+
+  // Monitor geofence notifications
+  useEffect(() => {
+    if (geofenceNotifications.length > 0) {
+      console.log(`📱 Active geofence notifications: ${geofenceNotifications.length}`, 
+        geofenceNotifications.map(n => ({
+          id: n.id,
+          vehicle: n.vehicle_name,
+          type: n.event_type || n.alert_type,
+          geofence: n.geofence_name,
+          timestamp: n.timestamp
+        }))
+      );
+    }
+  }, [geofenceNotifications]);
+
+  // Clean up localStorage saat component unmount
+  useEffect(() => {
+    return () => {
+      // Optionally clean up very old data
+      const positions = loadRealtimePositions();
+      const now = Date.now();
+      const cleanPositions = {};
+      
+      Object.keys(positions).forEach(gpsId => {
+        if (now - positions[gpsId].savedAt < POSITION_CACHE_DURATION) {
+          cleanPositions[gpsId] = positions[gpsId];
+        }
+      });
+      
+      if (Object.keys(cleanPositions).length !== Object.keys(positions).length) {
+        localStorage.setItem(REALTIME_POSITIONS_KEY, JSON.stringify(cleanPositions));
+      }
+    };
+  }, []);
 
   // Error handling functions
   const showErrorMessage = (message) => {
@@ -740,13 +824,9 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
       await Promise.all([
         loadGeofences(),
         getUserVehicles().then(userVehicles => {
-          const vehiclesWithoutPosition = userVehicles.map(vehicle => ({
-            ...vehicle,
-            position: null
-          }));
-          setVehicles(vehiclesWithoutPosition);
+          setVehicles(userVehicles);
           if (selectedVehicle) {
-            const updatedSelectedVehicle = vehiclesWithoutPosition.find(v => v.vehicle_id === selectedVehicle.vehicle_id);
+            const updatedSelectedVehicle = userVehicles.find(v => v.vehicle_id === selectedVehicle.vehicle_id);
             if (updatedSelectedVehicle) {
               setSelectedVehicle(updatedSelectedVehicle);
             }
@@ -763,13 +843,9 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
       await Promise.all([
         loadGeofences(),
         getUserVehicles().then(userVehicles => {
-          const vehiclesWithoutPosition = userVehicles.map(vehicle => ({
-            ...vehicle,
-            position: null
-          }));
-          setVehicles(vehiclesWithoutPosition);
+          setVehicles(userVehicles);
           if (selectedVehicle) {
-            const updatedSelectedVehicle = vehiclesWithoutPosition.find(v => v.vehicle_id === selectedVehicle.vehicle_id);
+            const updatedSelectedVehicle = userVehicles.find(v => v.vehicle_id === selectedVehicle.vehicle_id);
             if (updatedSelectedVehicle) {
               setSelectedVehicle(updatedSelectedVehicle);
             }
@@ -843,7 +919,7 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
     }
   };
 
-  // Function to handle update vehicle
+  // Function to handle update vehicle (untuk relay status dll)
   const handleUpdateVehicle = (vehicleId, updates) => {
     setVehicles(prevVehicles => 
       prevVehicles.map(vehicle => 
@@ -853,6 +929,7 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
       )
     );
 
+    // Update selected vehicle jika sedang dipilih
     if (selectedVehicle && selectedVehicle.vehicle_id === vehicleId) {
       setSelectedVehicle(prevSelected => ({
         ...prevSelected,
@@ -861,18 +938,38 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
     }
   };
 
-  // Enhanced loading screen
+  // State untuk track apakah sudah menerima position data
+  const [hasPositionData, setHasPositionData] = useState(false);
+
+  // Monitor ketika position data pertama kali diterima
+  useEffect(() => {
+    const vehiclesWithPosition = updatedVehicles.filter(v => v.position && v.position.isRealTimeUpdate);
+    
+    if (vehiclesWithPosition.length > 0 && !hasPositionData) {
+      console.log('✅ First real-time positions received:', vehiclesWithPosition.length);
+      setHasPositionData(true);
+    }
+  }, [updatedVehicles, hasPositionData]);
+
+  // Enhanced loading screen dengan informasi lebih detail
   if (loading) return (
     <div className="flex items-center justify-center h-screen bg-gray-900">
       <div className="text-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
-        <p className="text-white text-sm font-medium">Loading VehiTrack Dashboard...</p>
+        <p className="text-white text-sm font-medium">Loading Dashboard...</p>
         <p className="text-gray-400 text-xs mt-2">
-          WebSocket: {wsConnected ? 'Connected' : 'Connecting...'}
+          Vehicles: {vehicles.length} | WebSocket: {isConnected ? 'Connected' : 'Connecting...'}
         </p>
-        <p className="text-blue-400 text-xs mt-1">
-          🎯 Waiting for latest GPS data...
-        </p>
+        {vehicles.length > 0 && !hasPositionData && (
+          <p className="text-yellow-400 text-xs mt-1">
+            ⏳ Waiting for real-time positions...
+          </p>
+        )}
+        {Object.keys(cachedPositions).length > 0 && (
+          <p className="text-blue-400 text-xs mt-1">
+            📱 Cached positions: {Object.keys(cachedPositions).length}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -880,9 +977,9 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
   return (
     <div className="h-screen bg-gray-900 relative overflow-hidden">
 
-      {/* Full Screen Map Container - Hanya tampil jika sudah ada data terbaru */}
+      {/* Full Screen Map Container - Always full screen */}
       <div className="absolute inset-0 w-full h-full z-0">
-        {showMap && vehicles.length > 0 ? (
+        {vehicles.length > 0 ? (
           <MapComponent
             ref={mapRef}
             vehicles={updatedVehicles}
@@ -899,37 +996,14 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
         ) : (
           <div className="flex items-center justify-center h-full bg-gray-100">
             <div className="text-center">
-              {vehicles.length === 0 ? (
-                <>
-                  <p className="text-gray-600 text-lg mb-2">Tidak ada data kendaraan</p>
-                  <p className="text-gray-500 text-sm">Tambahkan kendaraan untuk melihat peta</p>
-                </>
-              ) : (
-                <>
-                  <div className="animate-pulse">
-                    <div className="w-16 h-16 bg-blue-200 rounded-full mx-auto mb-4 flex items-center justify-center">
-                      <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                    </div>
-                  </div>
-                  <p className="text-gray-600 text-lg mb-2">Menunggu Data GPS Terbaru</p>
-                  <p className="text-gray-500 text-sm mb-2">
-                    {wsConnected ? 'Koneksi WebSocket aktif...' : 'Menghubungkan ke server...'}
-                  </p>
-                  <div className="text-xs text-gray-400">
-                    <p>Kendaraan: {vehicles.length}</p>
-                    <p>Status: {hasReceivedWebSocketData ? 'Data diterima' : 'Menunggu data terbaru'}</p>
-                  </div>
-                </>
-              )}
+              <p className="text-gray-600 text-lg mb-2">Tidak ada data kendaraan</p>
+              <p className="text-gray-500 text-sm">Tambahkan kendaraan untuk melihat peta</p>
             </div>
           </div>
         )}
       </div>
 
-      {/* Floating Sidebar */}
+      {/* Floating Sidebar - Using SidebarComponent with higher z-index */}
       <div className="absolute top-0 left-0 z-40">
         <SidebarComponent 
           vehicles={updatedVehicles}
@@ -946,7 +1020,7 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
         />
       </div>
 
-      {/* Geofence Notifications */}
+      {/* Geofence Notifications - Floating on the right */}
       <div className={`absolute right-4 z-60 space-y-1.5 max-w-[220px] w-full transition-all duration-300 ${
         isDrawingMode ? 'top-8' : 'top-8'
       }`}>
@@ -959,6 +1033,7 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
           />
         ))}
         
+        {/* Dismiss All Button */}
         {geofenceNotifications.length > 1 && (
           <div className="flex justify-end">
             <button 
@@ -971,7 +1046,17 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
         )}
       </div>
 
-
+      {/* Debug Info - Remove in production */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="absolute bottom-4 left-4 z-50 bg-black/80 text-white p-3 rounded-lg text-xs max-w-xs">
+          <div className="space-y-1">
+            <div>🔌 WebSocket: {isConnected ? '✅ Connected' : '❌ Disconnected'}</div>
+            <div>📱 Cached: {Object.keys(cachedPositions).length} positions</div>
+            <div>🚗 Vehicles: {updatedVehicles.length} total, {updatedVehicles.filter(v => v.position?.isRealTimeUpdate).length} real-time</div>
+            <div>⚡ WS Data: {hasReceivedWebSocketData ? '✅ Received' : '⏳ Waiting'}</div>
+          </div>
+        </div>
+      )}
 
       {/* Modals */}
       {showGeofenceModal && (
@@ -1000,7 +1085,7 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
       {showErrorAlert && (
         <div className="absolute inset-0 z-[9999] bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white p-4 rounded-lg shadow-lg max-w-sm mx-4">
-            <h3 className="text-base font-bold mb-3 text-red-500 text-center">Error</h3>
+            <h3 className="text-base font-bold mb-3 text-red-500 text-center">Tidak Ada Data History</h3>
             <p className="mb-3 text-center text-sm text-gray-700">
               {errorMessage}
             </p>
@@ -1035,50 +1120,80 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
   );
 }
 
-// =============================================================================
-// SERVER-SIDE PROPS: Tetap tanpa position data
-// =============================================================================
+// Server-side props tetap sama
 export async function getServerSideProps() {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
     
-    const resVehicles = await fetch(`${directusConfig.baseURL}/items/vehicle`, {
-      signal: controller.signal,
-      headers: directusConfig.headers
-    });
+    const [resVehicles, resVehicleData] = await Promise.all([
+      fetch(`${directusConfig.baseURL}/items/vehicle`, {
+        signal: controller.signal,
+        headers: directusConfig.headers
+      }),
+      fetch(`${directusConfig.baseURL}/items/vehicle_datas?sort=-timestamp&limit=1000`, {
+        signal: controller.signal,
+        headers: directusConfig.headers
+      })
+    ]);
     
     clearTimeout(timeoutId);
 
-    if (!resVehicles.ok) {
-      console.error("Fetch failed:", { vehiclesStatus: resVehicles.status });
-      throw new Error("Gagal fetch vehicle data dari server");
+    if (!resVehicles.ok || !resVehicleData.ok) {
+      console.error("Fetch failed:", { 
+        vehiclesStatus: resVehicles.status, 
+        vehicleDataStatus: resVehicleData.status 
+      });
+      throw new Error("Gagal fetch dari Directus.");
     }
 
     const vehiclesData = await resVehicles.json();
+    const vehicleDataResponse = await resVehicleData.json();
 
-    // Return vehicles tanpa position - tunggu WebSocket data terbaru
-    const vehicles = vehiclesData.data.map(vehicle => ({
-      ...vehicle,
-      position: null
-    }));
+    const latestPositions = {};
+    vehicleDataResponse.data.forEach(data => {
+      if (!data.gps_id) {
+        console.warn("Vehicle data without gps_id:", data);
+        return;
+      }
+      
+      if (!latestPositions[data.gps_id] || new Date(data.timestamp) > new Date(latestPositions[data.gps_id].timestamp)) {
+        latestPositions[data.gps_id] = {
+          lat: parseFloat(data.latitude),
+          lng: parseFloat(data.longitude),
+          timestamp: data.timestamp
+        };
+      }
+    });
 
-    console.log('🚀 SSR: Vehicles loaded WITHOUT position data, waiting for latest WebSocket data:', vehicles.length);
+    const vehicles = vehiclesData.data.map(vehicle => {
+      const position = latestPositions[vehicle.gps_id] || null;
+      
+      return {
+        ...vehicle,
+        position
+      };
+    });
 
-    return { 
-      props: { 
-        vehicles 
-      } 
-    };
+    return { props: { vehicles } };
   } catch (err) {
-    console.error("❌ Server-side fetch error:", err);
+    console.error("❌ Gagal fetch data server:", err);
+    
+    const errorMessage = err.message || String(err);
+    const isTimeout = err.name === 'AbortError';
+    
+    console.error({
+      error: errorMessage,
+      isTimeout,
+      stack: err.stack
+    });
     
     return { 
       props: { 
         vehicles: [],
         error: {
-          message: err.message || String(err),
-          isTimeout: err.name === 'AbortError'
+          message: errorMessage,
+          isTimeout 
         }
       } 
     };

@@ -208,7 +208,7 @@ const useGeofenceNotifications = (autoRemoveDelay = 10000) => {
     }
 
     return notification.id;
-  }, [getViolationKey, autoRemoveDelay, removeNotification, scheduleNotificationReshow]); // FIXED: Added scheduleNotificationReshow to dependencies
+  }, [getViolationKey, autoRemoveDelay, removeNotification]);
 
   // Store reference after function is created to avoid circular dependency
   useEffect(() => {
@@ -438,7 +438,7 @@ const useGeofenceNotifications = (autoRemoveDelay = 10000) => {
     }
     
     console.groupEnd();
-  }, [addViolationNotification, clearViolation, getViolationKey]); // FIXED: Added getViolationKey to dependencies
+  }, [addViolationNotification, clearViolation]);
 
   // Backward compatibility functions (now just wrappers or no-ops)
   const addNotification = useCallback((eventData) => {

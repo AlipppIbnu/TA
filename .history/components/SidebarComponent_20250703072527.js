@@ -177,6 +177,12 @@ const SidebarComponent = ({
     setShowLogoutConfirm(false);
   };
 
+  // Fungsi untuk ke halaman notifications
+  const handleNotifications = () => {
+    setActivePanel('notifications'); // Buka panel notifications di sidebar
+    fetchNotifications(); // Load notifications data
+  };
+
   // Fungsi untuk fetch notifications
   const fetchNotifications = async () => {
     try {
@@ -264,6 +270,11 @@ const SidebarComponent = ({
     }
   };
 
+  // Fungsi untuk ke halaman profile
+  const handleProfile = () => {
+    setActivePanel('profile'); // Buka panel profile di sidebar
+  };
+
   // Update vehicle data ketika WebSocket mengirim data baru
   useEffect(() => {
     if (wsData && wsData.data && Array.isArray(wsData.data)) {
@@ -313,17 +324,7 @@ const SidebarComponent = ({
 
   // Toggle panel
   const togglePanel = (panel) => {
-    // If clicking the same panel, close it. Otherwise, open the new panel
-    if (activePanel === panel) {
-      setActivePanel(null);
-    } else {
-      setActivePanel(panel);
-      
-      // Load notifications data when opening notifications panel
-      if (panel === 'notifications') {
-        fetchNotifications();
-      }
-    }
+    setActivePanel(activePanel === panel ? null : panel);
   };
 
   // Calculate sidebar width
@@ -885,7 +886,7 @@ const SidebarComponent = ({
 
       case 'notifications':
         return (
-          <>
+          <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Notifikasi</h3>
             
             {/* Statistics Cards */}
@@ -956,8 +957,8 @@ const SidebarComponent = ({
               </button>
             )}
 
-            {/* Notifications List - Without internal scroll */}
-            <div className="space-y-2">
+            {/* Notifications List */}
+            <div className="space-y-2 max-h-[400px] overflow-y-auto">
               {notificationsLoading ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
@@ -1019,17 +1020,8 @@ const SidebarComponent = ({
                   </p>
                 </div>
               )}
-              
-              {/* Show count indicator if there are many notifications */}
-              {getFilteredNotifications().length > 20 && (
-                <div className="text-center pt-2 pb-1">
-                  <p className="text-xs text-gray-500 font-medium">
-                    Total: {getFilteredNotifications().length} notifikasi
-                  </p>
-                </div>
-              )}
             </div>
-          </>
+          </div>
         );
 
       case 'settings':
@@ -1109,8 +1101,8 @@ const SidebarComponent = ({
                     activePanel === 'vehicles' ? 'text-white bg-blue-600' : 'text-gray-600 hover:text-blue-600 hover:bg-gray-100'
                   }`}
                 >
-                  <svg className="w-6 h-6 mx-auto" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
+                  <svg className="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
                   </svg>
                   {!activePanel && (
                     <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
@@ -1144,7 +1136,7 @@ const SidebarComponent = ({
               <div className="space-y-2">
                 {/* Profile */}
                 <button 
-                  onClick={() => togglePanel('profile')}
+                  onClick={handleProfile}
                   className={`w-full p-3 rounded-lg transition-colors relative group ${
                     activePanel === 'profile' ? 'text-white bg-blue-600' : 'text-gray-600 hover:text-blue-600 hover:bg-gray-100'
                   }`}
@@ -1161,7 +1153,7 @@ const SidebarComponent = ({
 
                 {/* Notifications */}
                 <button 
-                  onClick={() => togglePanel('notifications')}
+                  onClick={handleNotifications}
                   className={`w-full p-3 rounded-lg transition-colors relative group ${
                     activePanel === 'notifications' ? 'text-white bg-blue-600' : 'text-gray-600 hover:text-blue-600 hover:bg-gray-100'
                   }`}

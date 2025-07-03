@@ -330,8 +330,8 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
     checkVehicleGeofenceViolations
   } = useGeofenceNotifications(10000);
 
-  // Hook WebSocket untuk real-time GPS updates - FIXED: removed getConnectionStats
-  const { data: wsData, isConnected } = useWebSocket();
+  // Hook WebSocket untuk real-time GPS updates
+  const { data: wsData, isConnected, getConnectionStats } = useWebSocket();
 
   // State untuk user dan loading
   const [loading, setLoading] = useState(true);
@@ -971,7 +971,19 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
         )}
       </div>
 
-
+      {/* Debug Info - Development Mode Only */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="absolute bottom-4 left-4 z-50 bg-black/90 text-white p-3 rounded-lg text-xs max-w-xs border border-gray-600">
+          <div className="space-y-1">
+            <div className="text-green-400 font-bold">🎯 LATEST DATA ONLY</div>
+            <div>🔌 WebSocket: {wsConnected ? '✅ Connected' : '❌ Disconnected'}</div>
+            <div>📡 WS Data Received: {hasReceivedWebSocketData ? '✅ Yes' : '⏳ Waiting'}</div>
+            <div>🗺️ Show Map: {showMap ? '✅ Yes' : '❌ No'}</div>
+            <div>🚗 Vehicles: {updatedVehicles.length} total, {updatedVehicles.filter(v => v.position?.isRealTimeUpdate).length} with latest data</div>
+            <div>📊 WS Positions: {Object.keys(latestWebSocketPositions).length}</div>
+          </div>
+        </div>
+      )}
 
       {/* Modals */}
       {showGeofenceModal && (

@@ -330,8 +330,8 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
     checkVehicleGeofenceViolations
   } = useGeofenceNotifications(10000);
 
-  // Hook WebSocket untuk real-time GPS updates - FIXED: removed getConnectionStats
-  const { data: wsData, isConnected } = useWebSocket();
+  // Hook WebSocket untuk real-time GPS updates
+  const { data: wsData, isConnected, getConnectionStats } = useWebSocket();
 
   // State untuk user dan loading
   const [loading, setLoading] = useState(true);

@@ -1,4 +1,3 @@
-// File: pages/profile/settings.js
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { getCurrentUser, isAuthenticated } from '@/lib/authService';

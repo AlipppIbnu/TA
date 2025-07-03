@@ -75,7 +75,7 @@ const AnimatedMarker = ({ position, ...markerProps }) => {
     lastValidPositionRef.current = position;
     hasReceivedValidPositionRef.current = true;
 
-  }, [position, currentPosition]); // FIXED: Added currentPosition to dependency array
+  }, [position]);
 
   // FIXED: Handle position updates dengan validasi ketat
   useEffect(() => {

@@ -330,8 +330,8 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
     checkVehicleGeofenceViolations
   } = useGeofenceNotifications(10000);
 
-  // Hook WebSocket untuk real-time GPS updates - FIXED: removed getConnectionStats
-  const { data: wsData, isConnected } = useWebSocket();
+  // Hook WebSocket untuk real-time GPS updates
+  const { data: wsData, isConnected, getConnectionStats } = useWebSocket();
 
   // State untuk user dan loading
   const [loading, setLoading] = useState(true);
@@ -371,11 +371,6 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
     if (wsData && wsData.data && wsData.data.length > 0) {
       console.log('📡 Received WebSocket data:', wsData.data.length, 'coordinates');
       
-      // Check if this is initial load with latest data
-      if (wsData.isInitialLoad) {
-        console.log('🎯 Initial load with latest positions only');
-      }
-      
       const newPositions = {};
       let hasValidData = false;
       
@@ -386,14 +381,12 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
           const lng = parseFloat(coord.longitude);
           
           if (!isNaN(lat) && !isNaN(lng)) {
-            // For initial load, data is already filtered to latest only
-            // For real-time updates, we still need to check timestamps
             const currentTime = new Date(coord.timestamp);
             const existingTime = newPositions[coord.gps_id]?.timestamp ? 
               new Date(newPositions[coord.gps_id].timestamp) : new Date(0);
             
-            // Only update if this is newer data or initial load
-            if (wsData.isInitialLoad || currentTime >= existingTime) {
+            // Hanya ambil data yang lebih baru
+            if (currentTime >= existingTime) {
               newPositions[coord.gps_id] = {
                 lat,
                 lng,
@@ -403,7 +396,6 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
                 battery_level: coord.battery_level,
                 fuel_level: coord.fuel_level,
                 isRealTimeUpdate: true,
-                isLatestData: coord.isLatestData || false,
                 savedAt: Date.now()
               };
               hasValidData = true;
@@ -418,7 +410,7 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
         // Mark bahwa sudah menerima data WebSocket
         if (!hasReceivedWebSocketData) {
           setHasReceivedWebSocketData(true);
-          console.log('🎯 First valid WebSocket data received with latest positions - map will be shown');
+          console.log('🎯 First valid WebSocket data received - map will be shown');
         }
         
         // Save to localStorage untuk recovery setelah refresh
@@ -971,7 +963,19 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
         )}
       </div>
 
-
+      {/* Debug Info - Development Mode Only */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="absolute bottom-4 left-4 z-50 bg-black/90 text-white p-3 rounded-lg text-xs max-w-xs border border-gray-600">
+          <div className="space-y-1">
+            <div className="text-green-400 font-bold">🎯 LATEST DATA ONLY</div>
+            <div>🔌 WebSocket: {wsConnected ? '✅ Connected' : '❌ Disconnected'}</div>
+            <div>📡 WS Data Received: {hasReceivedWebSocketData ? '✅ Yes' : '⏳ Waiting'}</div>
+            <div>🗺️ Show Map: {showMap ? '✅ Yes' : '❌ No'}</div>
+            <div>🚗 Vehicles: {updatedVehicles.length} total, {updatedVehicles.filter(v => v.position?.isRealTimeUpdate).length} with latest data</div>
+            <div>📊 WS Positions: {Object.keys(latestWebSocketPositions).length}</div>
+          </div>
+        </div>
+      )}
 
       {/* Modals */}
       {showGeofenceModal && (

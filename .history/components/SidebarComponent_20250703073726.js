@@ -177,6 +177,12 @@ const SidebarComponent = ({
     setShowLogoutConfirm(false);
   };
 
+  // Fungsi untuk ke halaman notifications
+  const handleNotifications = () => {
+    setActivePanel('notifications'); // Buka panel notifications di sidebar
+    fetchNotifications(); // Load notifications data
+  };
+
   // Fungsi untuk fetch notifications
   const fetchNotifications = async () => {
     try {
@@ -262,6 +268,11 @@ const SidebarComponent = ({
       setIsDeletingAll(false);
       setShowDeleteAllConfirm(false);
     }
+  };
+
+  // Fungsi untuk ke halaman profile
+  const handleProfile = () => {
+    setActivePanel('profile'); // Buka panel profile di sidebar
   };
 
   // Update vehicle data ketika WebSocket mengirim data baru
@@ -964,7 +975,7 @@ const SidebarComponent = ({
                   <p className="text-sm text-gray-600">Loading notifikasi...</p>
                 </div>
               ) : getFilteredNotifications().length > 0 ? (
-                getFilteredNotifications().map((alert) => (
+                getFilteredNotifications().slice(0, 10).map((alert) => (
                   <div key={alert.alert_id} className="bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition-colors">
                     <div className="flex items-start space-x-2">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
@@ -1020,11 +1031,11 @@ const SidebarComponent = ({
                 </div>
               )}
               
-              {/* Show count indicator if there are many notifications */}
-              {getFilteredNotifications().length > 20 && (
-                <div className="text-center pt-2 pb-1">
-                  <p className="text-xs text-gray-500 font-medium">
-                    Total: {getFilteredNotifications().length} notifikasi
+              {/* Show more indicator if there are more than 10 notifications */}
+              {getFilteredNotifications().length > 10 && (
+                <div className="text-center pt-2">
+                  <p className="text-xs text-gray-500">
+                    Menampilkan 10 dari {getFilteredNotifications().length} notifikasi
                   </p>
                 </div>
               )}

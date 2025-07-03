@@ -177,6 +177,12 @@ const SidebarComponent = ({
     setShowLogoutConfirm(false);
   };
 
+  // Fungsi untuk ke halaman notifications
+  const handleNotifications = () => {
+    setActivePanel('notifications'); // Buka panel notifications di sidebar
+    fetchNotifications(); // Load notifications data
+  };
+
   // Fungsi untuk fetch notifications
   const fetchNotifications = async () => {
     try {
@@ -262,6 +268,11 @@ const SidebarComponent = ({
       setIsDeletingAll(false);
       setShowDeleteAllConfirm(false);
     }
+  };
+
+  // Fungsi untuk ke halaman profile
+  const handleProfile = () => {
+    setActivePanel('profile'); // Buka panel profile di sidebar
   };
 
   // Update vehicle data ketika WebSocket mengirim data baru
@@ -885,7 +896,7 @@ const SidebarComponent = ({
 
       case 'notifications':
         return (
-          <>
+          <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Notifikasi</h3>
             
             {/* Statistics Cards */}
@@ -956,8 +967,8 @@ const SidebarComponent = ({
               </button>
             )}
 
-            {/* Notifications List - Without internal scroll */}
-            <div className="space-y-2">
+            {/* Notifications List */}
+            <div className="space-y-2 max-h-[400px] overflow-y-auto">
               {notificationsLoading ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
@@ -1019,17 +1030,8 @@ const SidebarComponent = ({
                   </p>
                 </div>
               )}
-              
-              {/* Show count indicator if there are many notifications */}
-              {getFilteredNotifications().length > 20 && (
-                <div className="text-center pt-2 pb-1">
-                  <p className="text-xs text-gray-500 font-medium">
-                    Total: {getFilteredNotifications().length} notifikasi
-                  </p>
-                </div>
-              )}
             </div>
-          </>
+          </div>
         );
 
       case 'settings':

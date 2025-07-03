@@ -148,18 +148,6 @@ const SidebarComponent = ({
   // State untuk modal logout
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  // State untuk notifications
-  const [notifications, setNotifications] = useState([]);
-  const [notificationsLoading, setNotificationsLoading] = useState(false);
-  const [notificationStats, setNotificationStats] = useState({
-    total: 0,
-    areaViolations: 0,
-    exitViolations: 0
-  });
-  const [notificationFilter, setNotificationFilter] = useState('all');
-  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
-  const [isDeletingAll, setIsDeletingAll] = useState(false);
-
   // Fungsi untuk logout
   const handleLogout = () => {
     setShowLogoutConfirm(true); // Tampilkan modal konfirmasi custom
@@ -177,91 +165,14 @@ const SidebarComponent = ({
     setShowLogoutConfirm(false);
   };
 
-  // Fungsi untuk fetch notifications
-  const fetchNotifications = async () => {
-    try {
-      setNotificationsLoading(true);
-      
-      const user = getCurrentUser();
-      if (!user) return;
-      
-      const response = await fetch(`/api/alerts?limit=1000&sort=-timestamp&user_id=${user.userId}`);
-      const data = await response.json();
-
-      if (data.success || data.data) {
-        const alertsData = data.data || [];
-        setNotifications(alertsData);
-        
-        // Calculate statistics
-        const total = alertsData.length;
-        const areaViolations = alertsData.filter(alert => alert.alert_type === 'violation_enter').length;
-        const exitViolations = alertsData.filter(alert => alert.alert_type === 'violation_exit').length;
-        
-        setNotificationStats({
-          total,
-          areaViolations,
-          exitViolations
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-      showErrorMessage('Gagal memuat notifikasi');
-    } finally {
-      setNotificationsLoading(false);
-    }
+  // Fungsi untuk ke halaman notifications
+  const handleNotifications = () => {
+    router.push('/notifications');
   };
 
-  // Fungsi untuk filter notifications
-  const getFilteredNotifications = () => {
-    if (notificationFilter === 'area_terlarang') {
-      return notifications.filter(n => n.alert_type === 'violation_enter');
-    } else if (notificationFilter === 'keluar_area_wajib') {
-      return notifications.filter(n => n.alert_type === 'violation_exit');
-    }
-    return notifications;
-  };
-
-  // Fungsi untuk hapus semua notifications
-  const handleDeleteAllNotifications = async () => {
-    try {
-      setIsDeletingAll(true);
-      
-      const user = getCurrentUser();
-      if (!user) return;
-      
-      const response = await fetch('/api/alerts', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          user_id: user.userId
-        })
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setNotifications([]);
-        setNotificationStats({
-          total: 0,
-          areaViolations: 0,
-          exitViolations: 0
-        });
-        setNotificationFilter('all');
-        
-        setSuccessMessage(`Berhasil menghapus ${data.deleted_count} notifikasi`);
-        setShowSuccessNotification(true);
-      } else {
-        showErrorMessage('Gagal menghapus notifikasi: ' + data.message);
-      }
-    } catch (error) {
-      console.error('Error deleting all notifications:', error);
-      showErrorMessage('Terjadi kesalahan saat menghapus notifikasi');
-    } finally {
-      setIsDeletingAll(false);
-      setShowDeleteAllConfirm(false);
-    }
+  // Fungsi untuk ke halaman profile
+  const handleProfile = () => {
+    router.push('/profile/settings'); // Redirect ke halaman profile/settings
   };
 
   // Update vehicle data ketika WebSocket mengirim data baru
@@ -313,17 +224,7 @@ const SidebarComponent = ({
 
   // Toggle panel
   const togglePanel = (panel) => {
-    // If clicking the same panel, close it. Otherwise, open the new panel
-    if (activePanel === panel) {
-      setActivePanel(null);
-    } else {
-      setActivePanel(panel);
-      
-      // Load notifications data when opening notifications panel
-      if (panel === 'notifications') {
-        fetchNotifications();
-      }
-    }
+    setActivePanel(activePanel === panel ? null : panel);
   };
 
   // Calculate sidebar width
@@ -608,6 +509,15 @@ const SidebarComponent = ({
         return (
           <>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Daftar Kendaraan</h3>
+            
+            {/* Debug info - remove in production */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+                <div>Total vehicles: {vehicles.length}</div>
+                <div>WebSocket: {isConnected ? '✅ Connected' : '❌ Disconnected'}</div>
+                <div>Vehicle data: {vehicleData.length} records</div>
+              </div>
+            )}
 
             {/* Vehicle Count */}
             <div className="mb-3 text-sm text-gray-600">
@@ -798,240 +708,6 @@ const SidebarComponent = ({
           </div>
         );
 
-      case 'profile':
-        return (
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Profile Setting</h3>
-            
-            {/* Profile Picture */}
-            <div className="flex justify-center mb-6">
-              <div className="w-20 h-20 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-2xl">
-                {currentUser?.fullName ? currentUser.fullName.charAt(0).toUpperCase() : 
-                 currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
-              </div>
-            </div>
-
-            {/* User Information */}
-            <div className="space-y-4">
-              {/* Full Name */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Full Name
-                </label>
-                <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
-                  {currentUser?.fullName || currentUser?.name || 'Not set'}
-                </div>
-              </div>
-
-              {/* Username */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Username
-                </label>
-                <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
-                  {currentUser?.username || 'Not set'}
-                </div>
-              </div>
-
-              {/* Email */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Email Address
-                </label>
-                <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
-                  {currentUser?.email || 'Not set'}
-                </div>
-                <p className="text-xs text-gray-500 mt-1">This is your login email</p>
-              </div>
-
-              {/* Phone Number */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Phone Number
-                </label>
-                <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
-                  {currentUser?.phoneNumber || 'Not set'}
-                </div>
-              </div>
-
-              {/* User ID */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  User ID
-                </label>
-                <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
-                  {currentUser?.userId || 'Not set'}
-                </div>
-              </div>
-
-              {/* Note */}
-              <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg className="h-4 w-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div className="ml-2">
-                    <p className="text-xs text-blue-700">
-                      Profil hanya dapat dilihat. Tidak dapat mengubah informasi profil.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'notifications':
-        return (
-          <>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Notifikasi</h3>
-            
-            {/* Statistics Cards */}
-            <div className="space-y-2 mb-4">
-              {/* Total */}
-              <div 
-                onClick={() => setNotificationFilter('all')}
-                className={`rounded-lg p-3 cursor-pointer transition-all ${
-                  notificationFilter === 'all' 
-                    ? 'bg-blue-50 border-2 border-blue-500' 
-                    : 'bg-gray-50 border border-gray-200 hover:border-blue-300'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-lg font-bold text-gray-900">{notificationStats.total}</p>
-                    <p className="text-xs text-gray-600">Total Pelanggaran</p>
-                  </div>
-                  <span className="text-lg">📊</span>
-                </div>
-              </div>
-
-              {/* Area Violations */}
-              <div 
-                onClick={() => setNotificationFilter('area_terlarang')}
-                className={`rounded-lg p-3 cursor-pointer transition-all ${
-                  notificationFilter === 'area_terlarang' 
-                    ? 'bg-orange-50 border-2 border-orange-500' 
-                    : 'bg-gray-50 border border-gray-200 hover:border-orange-300'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-lg font-bold text-orange-600">{notificationStats.areaViolations}</p>
-                    <p className="text-xs text-gray-600">Area Terlarang</p>
-                  </div>
-                  <span className="text-lg">🚫</span>
-                </div>
-              </div>
-
-              {/* Exit Violations */}
-              <div 
-                onClick={() => setNotificationFilter('keluar_area_wajib')}
-                className={`rounded-lg p-3 cursor-pointer transition-all ${
-                  notificationFilter === 'keluar_area_wajib' 
-                    ? 'bg-red-50 border-2 border-red-500' 
-                    : 'bg-gray-50 border border-gray-200 hover:border-red-300'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-lg font-bold text-red-600">{notificationStats.exitViolations}</p>
-                    <p className="text-xs text-gray-600">Keluar Area Wajib</p>
-                  </div>
-                  <span className="text-lg">⛔</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Delete All Button */}
-            {notifications.length > 0 && (
-              <button
-                onClick={() => setShowDeleteAllConfirm(true)}
-                disabled={isDeletingAll}
-                className="w-full mb-3 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {isDeletingAll ? 'Menghapus...' : 'Hapus Semua Notifikasi'}
-              </button>
-            )}
-
-            {/* Notifications List - Without internal scroll */}
-            <div className="space-y-2">
-              {notificationsLoading ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
-                  <p className="text-sm text-gray-600">Loading notifikasi...</p>
-                </div>
-              ) : getFilteredNotifications().length > 0 ? (
-                getFilteredNotifications().map((alert) => (
-                  <div key={alert.alert_id} className="bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition-colors">
-                    <div className="flex items-start space-x-2">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        alert.alert_type === 'violation_enter' 
-                          ? 'bg-orange-100' 
-                          : 'bg-red-100'
-                      }`}>
-                        <span className="text-sm">
-                          {alert.alert_type === 'violation_enter' ? '🚫' : '⛔'}
-                        </span>
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-gray-900 mb-1">
-                          {alert.alert_type === 'violation_enter' 
-                            ? 'MASUK AREA TERLARANG' 
-                            : 'KELUAR AREA WAJIB'}
-                        </p>
-                        
-                        <p className="text-xs text-gray-700 mb-1 break-words">
-                          {alert.alert_message}
-                        </p>
-                        
-                        <div className="text-xs text-gray-500">
-                          <span>🕐 {new Date(alert.timestamp).toLocaleDateString('id-ID', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}</span>
-                          {alert.lokasi && (
-                            <div className="mt-1">📍 {alert.lokasi}</div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-8">
-                  <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <span className="text-lg">📭</span>
-                  </div>
-                  <p className="text-sm font-medium text-gray-900 mb-1">
-                    Tidak ada notifikasi
-                  </p>
-                  <p className="text-xs text-gray-600">
-                    {notificationFilter === 'all' 
-                      ? 'Belum ada notifikasi pelanggaran.'
-                      : 'Tidak ada notifikasi untuk filter ini.'}
-                  </p>
-                </div>
-              )}
-              
-              {/* Show count indicator if there are many notifications */}
-              {getFilteredNotifications().length > 20 && (
-                <div className="text-center pt-2 pb-1">
-                  <p className="text-xs text-gray-500 font-medium">
-                    Total: {getFilteredNotifications().length} notifikasi
-                  </p>
-                </div>
-              )}
-            </div>
-          </>
-        );
-
       case 'settings':
         return (
           <div>
@@ -1062,15 +738,15 @@ const SidebarComponent = ({
 
   return (
     <>
-      {/* Sidebar - Floating style with proper z-index */}
-      <aside className={`fixed top-0 h-full bg-white/95 backdrop-blur-sm border-r border-gray-200 shadow-xl z-40 transition-all duration-300 ${
-        isSidebarVisible ? 'left-0' : (activePanel ? '-left-16' : '-left-80')
+      {/* Sidebar - Floating style with rounded corners and margin */}
+      <aside className={`fixed top-4 left-4 h-[calc(100vh-2rem)] bg-white/95 backdrop-blur-sm border border-gray-200 shadow-2xl rounded-2xl z-40 transition-all duration-300 ${
+        isSidebarVisible ? 'translate-x-0' : (activePanel ? '-translate-x-16' : '-translate-x-80')
       }`}>
-        <div className="flex h-full">
+        <div className="flex h-full rounded-2xl overflow-hidden">
           {/* Icon Sidebar */}
-          <div className="w-16 flex flex-col h-full">
+          <div className="w-16 flex flex-col h-full bg-gradient-to-b from-blue-50 to-blue-100 rounded-l-2xl">
             {/* Logo */}
-            <div className="p-4 border-b border-gray-200">
+            <div className="p-4 border-b border-blue-200">
               <div className="flex justify-center">
                 <Image 
                   src="/icon/logo_web.png" 
@@ -1083,20 +759,22 @@ const SidebarComponent = ({
             </div>
 
             {/* Navigation Icons */}
-            <nav className="flex-1 p-2">
-              <div className="space-y-2">
+            <nav className="flex-1 p-3">
+              <div className="space-y-3">
                 {/* Dashboard */}
                 <button 
                   onClick={() => togglePanel('dashboard')}
-                  className={`w-full p-3 rounded-lg transition-colors relative group ${
-                    activePanel === 'dashboard' ? 'text-white bg-blue-600' : 'text-gray-600 hover:text-blue-600 hover:bg-gray-100'
+                  className={`w-full p-2.5 rounded-xl transition-all duration-200 relative group ${
+                    activePanel === 'dashboard' 
+                      ? 'text-white bg-blue-600 shadow-lg transform scale-105' 
+                      : 'text-gray-600 hover:text-blue-600 hover:bg-white/70 hover:shadow-md'
                   }`}
                 >
-                  <svg className="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a2 2 0 002 2h10a2 2 0 002-2V10m-9 4h.01" />
                   </svg>
                   {!activePanel && (
-                    <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                    <div className="absolute left-full ml-3 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-lg">
                       Dashboard
                     </div>
                   )}
@@ -1105,15 +783,17 @@ const SidebarComponent = ({
                 {/* Vehicles */}
                 <button 
                   onClick={() => togglePanel('vehicles')}
-                  className={`w-full p-3 rounded-lg transition-colors relative group ${
-                    activePanel === 'vehicles' ? 'text-white bg-blue-600' : 'text-gray-600 hover:text-blue-600 hover:bg-gray-100'
+                  className={`w-full p-2.5 rounded-xl transition-all duration-200 relative group ${
+                    activePanel === 'vehicles' 
+                      ? 'text-white bg-blue-600 shadow-lg transform scale-105' 
+                      : 'text-gray-600 hover:text-blue-600 hover:bg-white/70 hover:shadow-md'
                   }`}
                 >
-                  <svg className="w-6 h-6 mx-auto" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
+                  <svg className="w-5 h-5 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
                   </svg>
                   {!activePanel && (
-                    <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                    <div className="absolute left-full ml-3 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-lg">
                       Kendaraan
                     </div>
                   )}
@@ -1122,16 +802,18 @@ const SidebarComponent = ({
                 {/* Settings */}
                 <button 
                   onClick={() => togglePanel('settings')}
-                  className={`w-full p-3 rounded-lg transition-colors relative group ${
-                    activePanel === 'settings' ? 'text-white bg-blue-600' : 'text-gray-600 hover:text-blue-600 hover:bg-gray-100'
+                  className={`w-full p-2.5 rounded-xl transition-all duration-200 relative group ${
+                    activePanel === 'settings' 
+                      ? 'text-white bg-blue-600 shadow-lg transform scale-105' 
+                      : 'text-gray-600 hover:text-blue-600 hover:bg-white/70 hover:shadow-md'
                   }`}
                 >
-                  <svg className="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                   {!activePanel && (
-                    <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                    <div className="absolute left-full ml-3 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-lg">
                       Pengaturan
                     </div>
                   )}
@@ -1140,20 +822,18 @@ const SidebarComponent = ({
             </nav>
 
             {/* Bottom Navigation Icons */}
-            <div className="p-2 border-t border-gray-200">
-              <div className="space-y-2">
+            <div className="p-3 border-t border-blue-200">
+              <div className="space-y-3">
                 {/* Profile */}
                 <button 
-                  onClick={() => togglePanel('profile')}
-                  className={`w-full p-3 rounded-lg transition-colors relative group ${
-                    activePanel === 'profile' ? 'text-white bg-blue-600' : 'text-gray-600 hover:text-blue-600 hover:bg-gray-100'
-                  }`}
+                  onClick={handleProfile}
+                  className="w-full p-2.5 rounded-xl text-gray-600 hover:text-blue-600 hover:bg-white/70 hover:shadow-md transition-all duration-200 relative group"
                 >
-                  <svg className="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                   {!activePanel && (
-                    <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                    <div className="absolute left-full ml-3 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-lg">
                       Profile
                     </div>
                   )}
@@ -1161,16 +841,14 @@ const SidebarComponent = ({
 
                 {/* Notifications */}
                 <button 
-                  onClick={() => togglePanel('notifications')}
-                  className={`w-full p-3 rounded-lg transition-colors relative group ${
-                    activePanel === 'notifications' ? 'text-white bg-blue-600' : 'text-gray-600 hover:text-blue-600 hover:bg-gray-100'
-                  }`}
+                  onClick={handleNotifications}
+                  className="w-full p-2.5 rounded-xl text-gray-600 hover:text-blue-600 hover:bg-white/70 hover:shadow-md transition-all duration-200 relative group"
                 >
-                  <svg className="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
                   </svg>
                   {!activePanel && (
-                    <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                    <div className="absolute left-full ml-3 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-lg">
                       Notifikasi
                     </div>
                   )}
@@ -1179,13 +857,13 @@ const SidebarComponent = ({
                 {/* Logout */}
                 <button 
                   onClick={handleLogout}
-                  className="w-full p-3 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors relative group"
+                  className="w-full p-2.5 rounded-xl text-gray-600 hover:text-red-600 hover:bg-red-50 hover:shadow-md transition-all duration-200 relative group"
                 >
-                  <svg className="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                   </svg>
                   {!activePanel && (
-                    <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                    <div className="absolute left-full ml-3 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-lg">
                       Logout
                     </div>
                   )}
@@ -1196,7 +874,7 @@ const SidebarComponent = ({
 
           {/* Detail Panel */}
           {activePanel && (
-            <div className="w-64 border-l border-gray-200 bg-white flex flex-col h-full">
+            <div className="w-64 bg-white flex flex-col h-full rounded-r-2xl">
               <div className="p-4">
                 {/* Header Section - Added to panel */}
                 <div className="mb-4 pb-4 border-b border-gray-200">
@@ -1238,27 +916,29 @@ const SidebarComponent = ({
         </div>
       </aside>
 
-      {/* Toggle Button - Floating over map with higher z-index */}
+      {/* Toggle Button - Floating with rounded style */}
       <button
         onClick={() => setIsSidebarVisible(!isSidebarVisible)}
-        className="fixed top-6 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg p-2.5 shadow-lg hover:shadow-xl hover:bg-white transition-all duration-200 z-50"
+        className="fixed top-8 bg-white/95 backdrop-blur-sm border border-gray-300 rounded-full p-3 shadow-xl hover:shadow-2xl hover:bg-white transition-all duration-300 hover:scale-110 z-50"
         style={{
           left: isSidebarVisible 
-            ? `${getSidebarWidth() + 16}px`
+            ? `${getSidebarWidth() + 32}px`
             : activePanel 
-              ? '272px'
-              : '24px'
+              ? '288px'
+              : '32px'
         }}
       >
-        {isSidebarVisible ? (
-          <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        ) : (
-          <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        )}
+        <div className="relative">
+          {isSidebarVisible ? (
+            <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          ) : (
+            <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          )}
+        </div>
       </button>
 
       {/* Modal peringatan pilih kendaraan */}
@@ -1510,55 +1190,6 @@ const SidebarComponent = ({
           onClose={() => setShowHistoryDateRangeModal(false)}
           onSelectDateRange={handleSelectDateRange}
         />,
-        document.body
-      )}
-
-      {/* Modal konfirmasi hapus semua notifikasi */}
-      {showDeleteAllConfirm && createPortal(
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
-          <div className="bg-white p-4 rounded-lg shadow-2xl max-w-xs w-full mx-4">
-            <div className="text-center">
-              <div className="mx-auto h-10 w-10 text-red-500 flex items-center justify-center mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-10 h-10">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                </svg>
-              </div>
-              
-              <h3 className="text-base font-bold mb-2 text-gray-800">Hapus Semua Notifikasi?</h3>
-              
-              <div className="mb-3">
-                <p className="text-sm text-gray-600 mb-2">
-                  Apakah Anda yakin ingin menghapus semua notifikasi?
-                </p>
-                <div className="bg-gray-50 p-2 rounded-md">
-                  <p className="font-semibold text-sm text-gray-800">Total: {notifications.length} notifikasi</p>
-                  <p className="text-xs text-gray-600">Area Terlarang: {notificationStats.areaViolations}</p>
-                  <p className="text-xs text-gray-600">Keluar Area: {notificationStats.exitViolations}</p>
-                </div>
-                <p className="text-red-600 text-xs mt-2 font-medium">
-                  ⚠️ Tindakan ini tidak dapat dibatalkan
-                </p>
-              </div>
-              
-              <div className="flex gap-2 justify-center">
-                <button 
-                  onClick={() => setShowDeleteAllConfirm(false)}
-                  disabled={isDeletingAll}
-                  className="px-3 py-1.5 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors duration-200 text-sm font-medium disabled:opacity-50"
-                >
-                  Batal
-                </button>
-                <button 
-                  onClick={handleDeleteAllNotifications}
-                  disabled={isDeletingAll}
-                  className="px-3 py-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200 text-sm font-medium disabled:opacity-50"
-                >
-                  {isDeletingAll ? 'Menghapus...' : 'Ya, Hapus'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>,
         document.body
       )}
 

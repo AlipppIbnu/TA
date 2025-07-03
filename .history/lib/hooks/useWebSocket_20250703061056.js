@@ -1,11 +1,10 @@
-// lib/hooks/useWebSocket.js - Fixed to handle large data and show latest position immediately
+// lib/hooks/useWebSocket.js - Fixed to show latest position immediately
 import { useEffect, useCallback, useRef, useState } from 'react';
 
 const WEBSOCKET_URL = 'wss://vehitrack.my.id/websocket';
 const RECONNECT_INTERVAL = 5000;
 const HEARTBEAT_INTERVAL = 30000;
 const MAX_RECONNECT_ATTEMPTS = 10;
-const MAX_DATA_AGE = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 export const useWebSocket = () => {
   const wsRef = useRef(null);
@@ -15,7 +14,6 @@ export const useWebSocket = () => {
   const heartbeatIntervalRef = useRef(null);
   const reconnectAttemptsRef = useRef(0);
   const latestDataMapRef = useRef(new Map());
-  const isProcessingRef = useRef(false);
 
   // Enhanced connect function with better error handling
   const connect = useCallback(() => {
@@ -45,16 +43,7 @@ export const useWebSocket = () => {
         console.log('📡 Subscribing to vehicle_datas for real-time GPS updates...');
         ws.send(JSON.stringify({
           type: 'subscribe',
-          collection: 'vehicle_datas',
-          query: {
-            limit: -1,  // Get all data
-            sort: ['-timestamp'],  // Sort by timestamp descending (newest first)
-            filter: {
-              timestamp: {
-                _gte: new Date(Date.now() - MAX_DATA_AGE).toISOString() // Only last 24 hours
-              }
-            }
-          }
+          collection: 'vehicle_datas'
         }));
 
         // Setup heartbeat to keep connection alive
@@ -65,7 +54,7 @@ export const useWebSocket = () => {
         }, HEARTBEAT_INTERVAL);
       };
 
-      ws.onmessage = async (event) => {
+      ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
           
@@ -79,44 +68,20 @@ export const useWebSocket = () => {
             const { event, data: messageData } = message;
             
             if (event === 'init' && messageData && Array.isArray(messageData)) {
-              // Prevent concurrent processing
-              if (isProcessingRef.current) {
-                console.log('⚠️ Already processing data, skipping...');
-                return;
-              }
-              
-              isProcessingRef.current = true;
-              
               // Initial data load - PROCESS ONLY THE LATEST DATA FOR EACH GPS_ID
               console.log(`📥 Initial GPS data received: ${messageData.length} records`);
-              
-              // Filter out invalid timestamps and old data
-              const now = Date.now();
-              const validData = messageData.filter(item => {
-                if (!item.timestamp) return false;
-                
-                const timestamp = new Date(item.timestamp).getTime();
-                // Filter out future dates and very old data
-                return timestamp <= now && timestamp > (now - MAX_DATA_AGE);
-              });
-              
-              console.log(`📊 Valid data after filtering: ${validData.length} records`);
-              
-              // Sort data by timestamp descending (newest first)
-              const sortedData = validData.sort((a, b) => {
-                const timeA = new Date(a.timestamp || 0).getTime();
-                const timeB = new Date(b.timestamp || 0).getTime();
-                return timeB - timeA; // Newest first
-              });
               
               // Group data by GPS ID and find the latest record for each
               const latestDataByGpsId = new Map();
               
-              // Process sorted data to get only the first (latest) entry for each GPS ID
-              sortedData.forEach(item => {
+              // Process all data to find the latest timestamp for each GPS ID
+              messageData.forEach(item => {
                 if (item.gps_id && item.latitude && item.longitude) {
-                  // Only add if we haven't seen this GPS ID yet (since we're processing newest first)
-                  if (!latestDataByGpsId.has(item.gps_id)) {
+                  const existing = latestDataByGpsId.get(item.gps_id);
+                  
+                  // Compare timestamps to keep only the latest
+                  if (!existing || !existing.timestamp || !item.timestamp ||
+                      new Date(item.timestamp) > new Date(existing.timestamp)) {
                     latestDataByGpsId.set(item.gps_id, {
                       ...item,
                       isLatestData: true // Mark as latest data
@@ -140,8 +105,6 @@ export const useWebSocket = () => {
                 isInitialLoad: true // Flag to indicate this is the initial load
               });
               
-              isProcessingRef.current = false;
-              
             } else if ((event === 'create' || event === 'update') && messageData && messageData.length > 0) {
               // Real-time update - THIS IS THE CORE FOR REALTIME MARKER MOVEMENT
               const newItem = messageData[0];
@@ -152,16 +115,6 @@ export const useWebSocket = () => {
                 console.log('New Position:', `${newItem.latitude}, ${newItem.longitude}`);
                 console.log('Speed:', newItem.speed || 0, 'km/h');
                 console.log('Timestamp:', newItem.timestamp);
-                
-                // Validate timestamp
-                const timestamp = new Date(newItem.timestamp).getTime();
-                const now = Date.now();
-                
-                if (timestamp > now || timestamp < (now - MAX_DATA_AGE)) {
-                  console.log('⚠️ Skipping update with invalid timestamp');
-                  console.groupEnd();
-                  return;
-                }
                 
                 // Update the latest data map with real-time flag
                 latestDataMapRef.current.set(newItem.gps_id, {
@@ -187,18 +140,6 @@ export const useWebSocket = () => {
           // Handle direct data updates (backward compatibility)
           else if (message.gps_id && message.latitude && message.longitude) {
             console.log('📍 Direct GPS update:', message.gps_id);
-            
-            // Validate timestamp
-            if (message.timestamp) {
-              const timestamp = new Date(message.timestamp).getTime();
-              const now = Date.now();
-              
-              if (timestamp > now || timestamp < (now - MAX_DATA_AGE)) {
-                console.log('⚠️ Skipping direct update with invalid timestamp');
-                return;
-              }
-            }
-            
             latestDataMapRef.current.set(message.gps_id, {
               ...message,
               isDirectUpdate: true
@@ -211,7 +152,6 @@ export const useWebSocket = () => {
 
         } catch (error) {
           console.error('❌ Failed to parse WebSocket message:', error);
-          isProcessingRef.current = false;
         }
       };
 
