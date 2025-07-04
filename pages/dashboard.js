@@ -8,7 +8,6 @@ import useGeofenceNotifications from "@/components/hooks/useGeofenceNotification
 import { getCurrentUser, isAuthenticated } from "@/lib/authService";
 import { getUserVehicles, addVehicle } from "@/lib/vehicleService";
 import { useWebSocket } from "@/lib/hooks/useWebSocket";
-import directusConfig from "@/lib/directusConfig";
 import { ToastContainer } from 'react-toastify';
 import GeofenceNotification from '@/components/GeofenceNotification';
 
@@ -315,7 +314,7 @@ function ModalTambahKendaraan({ onClose, onSucceed }) {
   );
 }
 
-export default function Dashboard({ vehicles: initialVehicles = [] }) {
+export default function Dashboard() {
   const router = useRouter();
   
   // Refs
@@ -1059,13 +1058,7 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
 // SERVER-SIDE PROPS: Kembalikan array kosong untuk multi-user security
 // =============================================================================
 export async function getServerSideProps() {
-  // KEAMANAN MULTI-USER: 
-  // Tidak mengambil data kendaraan di server-side karena tidak ada akses ke user session
-  // Biarkan client-side yang mengambil data setelah user terauthentikasi
-  
   return {
-    props: { 
-      vehicles: [] // Selalu kembalikan array kosong, client akan fetch data user-specific
-    } 
+    props: {}
   };
 }
