@@ -879,26 +879,28 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
   );
 
   return (
-    <div className="h-screen bg-gray-900 relative overflow-hidden">
+    <div className="h-screen bg-gray-900 relative overflow-hidden" style={{ pointerEvents: isDrawingMode ? 'none' : 'auto' }}>
 
       {/* Full Screen Map Container - Hanya tampil jika sudah ada data terbaru */}
-      <div className="absolute inset-0 w-full h-full z-0">
+      <div className="absolute inset-0 w-full h-full z-0" style={{ pointerEvents: 'auto' }}>
         {showMap && vehicles.length > 0 ? (
-          <MapComponent
-            ref={mapRef}
-            vehicles={updatedVehicles}
-            selectedVehicle={selectedVehicle}
-            isDrawingMode={isDrawingMode}
-            drawingType={drawingType}
-            onPolygonComplete={handlePolygonComplete}
-            onCircleComplete={handleCircleComplete}
-            geofences={getVisibleGeofences()}
-            allGeofences={geofences}
-            onGeofenceDeleted={handleGeofenceDeleted}
-            checkVehicleGeofenceViolations={checkVehicleGeofenceViolations}
-          />
+          <div className="w-full h-full relative" style={{ zIndex: isDrawingMode ? 1 : 0, pointerEvents: 'auto' }}>
+            <MapComponent
+              ref={mapRef}
+              vehicles={updatedVehicles}
+              selectedVehicle={selectedVehicle}
+              isDrawingMode={isDrawingMode}
+              drawingType={drawingType}
+              onPolygonComplete={handlePolygonComplete}
+              onCircleComplete={handleCircleComplete}
+              geofences={getVisibleGeofences()}
+              allGeofences={geofences}
+              onGeofenceDeleted={handleGeofenceDeleted}
+              checkVehicleGeofenceViolations={checkVehicleGeofenceViolations}
+            />
+          </div>
         ) : (
-          <div className="flex items-center justify-center h-full bg-gray-100">
+          <div className="flex items-center justify-center h-full bg-gray-100" style={{ pointerEvents: isDrawingMode ? 'none' : 'auto' }}>
             <div className="text-center">
               {vehicles.length === 0 ? (
                 <>
@@ -930,80 +932,80 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
         )}
       </div>
 
-      {/* Floating Sidebar */}
-      <div className="absolute top-0 left-0 z-40">
-      <SidebarComponent 
-        vehicles={updatedVehicles}
-        onSelectVehicle={handleSelectVehicle}
-        onHistoryClick={handleHistoryClick}
-        onTambahKendaraan={handleTambahKendaraan}
-        onDeleteVehicle={handleDeleteVehicle}
-        onSetGeofence={handleSetGeofence}
-        selectedVehicle={selectedVehicle}
-        geofences={geofences}
-        onToggleGeofence={handleToggleGeofence}
-          onHideHistory={handleHideHistory}
-          onUpdateVehicle={handleUpdateVehicle}
-        />
-            </div>
+      {/* Floating Sidebar - Sembunyikan saat mode drawing aktif */}
+      {!isDrawingMode && (
+        <div className="absolute top-0 left-0 z-40" style={{ pointerEvents: 'auto' }}>
+          <SidebarComponent 
+            vehicles={updatedVehicles}
+            onSelectVehicle={handleSelectVehicle}
+            onHistoryClick={handleHistoryClick}
+            onTambahKendaraan={handleTambahKendaraan}
+            onDeleteVehicle={handleDeleteVehicle}
+            onSetGeofence={handleSetGeofence}
+            selectedVehicle={selectedVehicle}
+            geofences={geofences}
+            onToggleGeofence={handleToggleGeofence}
+            onHideHistory={handleHideHistory}
+            onUpdateVehicle={handleUpdateVehicle}
+          />
+        </div>
+      )}
             
       {/* Geofence Notifications */}
       <div className={`absolute right-4 z-60 space-y-1.5 max-w-[220px] w-full transition-all duration-300 ${
         isDrawingMode ? 'top-8' : 'top-8'
-          }`}>
-            {geofenceNotifications.map((notification) => (
-              <GeofenceNotification
-                key={notification.id}
-                notification={notification}
-                onRemove={removeGeofenceNotification}
-                autoRemoveDelay={10000}
-              />
-            ))}
-            
-            {geofenceNotifications.length > 1 && (
-              <div className="flex justify-end">
-              <button 
-                  onClick={removeAllGeofenceNotifications}
-                  className="bg-gray-800 hover:bg-gray-900 text-white text-xs px-2.5 py-1 rounded-md transition-all duration-200 shadow-sm hover:shadow-md font-medium"
-              >
-                  Tutup Semua ({geofenceNotifications.length})
-              </button>
-            </div>
-            )}
+      }`} style={{ pointerEvents: isDrawingMode ? 'none' : 'auto' }}>
+        {geofenceNotifications.map((notification) => (
+          <GeofenceNotification
+            key={notification.id}
+            notification={notification}
+            onRemove={removeGeofenceNotification}
+            autoRemoveDelay={10000}
+          />
+        ))}
+        
+        {geofenceNotifications.length > 1 && (
+          <div className="flex justify-end">
+            <button 
+              onClick={removeAllGeofenceNotifications}
+              className="bg-gray-800 hover:bg-gray-900 text-white text-xs px-2.5 py-1 rounded-md transition-all duration-200 shadow-sm hover:shadow-md font-medium"
+            >
+              Tutup Semua ({geofenceNotifications.length})
+            </button>
           </div>
-
-
+        )}
+      </div>
 
       {/* Modals */}
-          {showGeofenceModal && (
-        <div className="absolute inset-0 z-[9998]">
-            <ModalSetGeofence
-              ref={geofenceModalRef}
-              onClose={handleCloseGeofenceModal}
-              onSucceed={handleGeofenceSukses}
-              onStartDrawing={handleStartDrawing}
-              vehicles={updatedVehicles}
-              selectedVehicle={selectedVehicle}
-            />
+      {showGeofenceModal && (
+        <div className="absolute inset-0 z-[9998]" style={{ pointerEvents: isDrawingMode ? 'none' : 'auto' }}>
+          <ModalSetGeofence
+            ref={geofenceModalRef}
+            onClose={handleCloseGeofenceModal}
+            onSucceed={handleGeofenceSukses}
+            onStartDrawing={handleStartDrawing}
+            vehicles={updatedVehicles}
+            selectedVehicle={selectedVehicle}
+          />
         </div>
       )}
 
       {showTambahModal && (
-        <div className="absolute inset-0 z-[9999]">
-        <ModalTambahKendaraan
-          onClose={() => setShowTambahModal(false)}
-          onSucceed={handleTambahSukses}
-        />
+        <div className="absolute inset-0 z-[9999]" style={{ pointerEvents: isDrawingMode ? 'none' : 'auto' }}>
+          <ModalTambahKendaraan
+            onClose={() => setShowTambahModal(false)}
+            onSucceed={handleTambahSukses}
+          />
         </div>
       )}
 
       {/* Error Alert */}
       {showErrorAlert && (
-        <div className="absolute inset-0 z-[9999] bg-black bg-opacity-50 flex items-center justify-center">
+        <div className="absolute inset-0 z-[9999] bg-black bg-opacity-50 flex items-center justify-center" style={{ pointerEvents: isDrawingMode ? 'none' : 'auto' }}>
           <div className="bg-white p-4 rounded-lg shadow-lg max-w-sm mx-4">
             <h3 className="text-base font-bold mb-3 text-red-500 text-center">Error</h3>
             <p className="mb-3 text-center text-sm text-gray-700">
-                    {errorMessage}
+              {errorMessage}
             </p>
             <div className="flex justify-end mt-4">
               <button 
@@ -1017,21 +1019,22 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
         </div>
       )}
 
-        {/* Toast Container */}
-        <ToastContainer
-          position="bottom-right"
-          autoClose={5000}
-          hideProgressBar={false}
-          newestOnTop={false}
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-          theme="light"
+      {/* Toast Container */}
+      <ToastContainer
+        position="bottom-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
         className="toast-container !z-[9999]"
-          toastClassName="toast-item"
-        />
+        toastClassName="toast-item"
+        style={{ pointerEvents: isDrawingMode ? 'none' : 'auto' }}
+      />
     </div>
   );
 }

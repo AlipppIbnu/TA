@@ -154,12 +154,14 @@ const DrawingHandler = forwardRef((props, ref) => {
 
   useMapEvents({
     click: (e) => {
+      console.log('Map click event:', { isDrawingMode, drawingType, e: e.latlng });
       if (!isDrawingMode) return;
       
       if (drawingType === "polygon") {
         const newPoint = [e.latlng.lat, e.latlng.lng];
         const newPolygon = [...currentPolygon, newPoint];
         
+        console.log('Adding polygon point:', newPoint, 'Total points:', newPolygon.length);
         setCurrentPolygon(newPolygon);
         setIsDrawing(true);
         
@@ -185,6 +187,7 @@ const DrawingHandler = forwardRef((props, ref) => {
         }
       } else if (drawingType === "circle") {
         if (!isDrawing) {
+          console.log('Setting circle center:', e.latlng);
           setCircleCenter(e.latlng);
           setIsDrawing(true);
           
@@ -196,6 +199,7 @@ const DrawingHandler = forwardRef((props, ref) => {
           tempMarkersRef.current = [marker];
         } else if (circleCenter) {
           const radius = circleCenter.distanceTo(e.latlng);
+          console.log('Circle radius:', radius);
           
           if (radius >= 10) {
             onPolygonComplete({
@@ -210,9 +214,11 @@ const DrawingHandler = forwardRef((props, ref) => {
     },
     
     contextmenu: () => {
+      console.log('Map contextmenu event:', { isDrawingMode, drawingType, currentPolygonLength: currentPolygon.length });
       if (!isDrawingMode) return;
       
       if (drawingType === "polygon" && currentPolygon.length >= 3) {
+        console.log('Completing polygon with', currentPolygon.length, 'points');
         onPolygonComplete(currentPolygon);
         clearTemporaryElements();
       }
@@ -649,8 +655,13 @@ const MapComponent = forwardRef(({
         ref={mapRef}
         center={initialCenter}
         zoom={5}
-        style={{ width: "100%", height: "100vh" }}
-        className="map-container"
+        style={{ 
+          width: "100%", 
+          height: "100vh",
+          position: "relative",
+          zIndex: isDrawingMode ? 1 : 0
+        }}
+        className={`map-container leaflet-container ${isDrawingMode ? 'drawing-mode' : ''}`}
         dragging={!isDrawingMode}
         scrollWheelZoom={!isDrawingMode}
         doubleClickZoom={false}
@@ -1119,7 +1130,7 @@ const MapComponent = forwardRef(({
 
         {/* Drawing mode indicator - menggunakan styling asli */}
         {isDrawingMode && (
-          <div className="absolute top-2 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-3 py-1.5 rounded text-xs z-[1000] shadow-md">
+          <div className="absolute top-2 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-3 py-1.5 rounded text-xs z-[9999] shadow-md">
             <span className="flex items-center">
               Mode Drawing Aktif ({drawingType === "circle" ? "Circle" : "Polygon"}) - 
               {drawingType === "polygon" 

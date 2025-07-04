@@ -279,19 +279,29 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
 
   return (
     <div 
-      className="fixed inset-0 z-[9999] flex items-center justify-center"
+      className={`fixed inset-0 z-[9999] flex items-center justify-center ${isDrawing ? 'drawing-modal' : ''}`}
       style={{
         background: isDrawing ? 'transparent' : 'rgba(0, 0, 0, 0.5)',
         pointerEvents: isDrawing ? 'none' : 'auto'
       }}
     >
       <div 
-        className={`bg-white p-4 rounded shadow-lg max-h-[90vh] overflow-y-auto ${
+        className={`bg-white p-4 rounded shadow-lg max-h-[90vh] overflow-y-auto modal-content ${
           isDrawing 
             ? 'fixed top-20 right-4 w-56 z-[10000]'
             : 'w-full max-w-xs'
         }`}
-        style={{ pointerEvents: 'auto' }}
+        style={{ 
+          pointerEvents: isDrawing ? 'auto' : 'auto',
+          // Pastikan modal tidak menghalangi peta saat drawing
+          ...(isDrawing && {
+            position: 'fixed',
+            top: '20px',
+            right: '16px',
+            width: '224px',
+            zIndex: 10000
+          })
+        }}
       >
         <h2 className="text-lg font-bold mb-3">Set Geofence</h2>
         
@@ -396,8 +406,6 @@ const ModalSetGeofence = forwardRef(({ onClose, onSucceed, onStartDrawing, vehic
               <option value="FORBIDDEN">Forbidden (Area terlarang)</option>
             </select>
           </div>
-
-
 
           {/* Status drawing */}
           {(isDrawing || polygonCoordinates.length > 0 || (circleData.center && circleData.radius > 0)) && (

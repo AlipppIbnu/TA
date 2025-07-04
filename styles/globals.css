@@ -2,3 +2,37 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Map Container Styles */
+.map-container {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+/* Ensure map is clickable during drawing mode */
+.map-container.leaflet-container {
+  pointer-events: auto !important;
+}
+
+/* Drawing mode specific styles */
+.drawing-mode .map-container {
+  z-index: 1 !important;
+}
+
+/* Ensure map events work properly */
+.leaflet-map-pane {
+  pointer-events: auto !important;
+}
+
+.leaflet-tile-pane {
+  pointer-events: auto !important;
+}
+
+/* Modal styles for drawing mode */
+.drawing-modal {
+  pointer-events: none !important;
+}
+
+.drawing-modal .modal-content {
+  pointer-events: auto !important;
+}
