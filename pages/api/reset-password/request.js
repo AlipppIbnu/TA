@@ -39,6 +39,7 @@ export default async function handler(req, res) {
     );
 
     if (!checkResponse.ok) {
+      console.error('Directus API error:', await checkResponse.text());
       return res.status(500).json({ message: 'Gagal memeriksa email' });
     }
 
@@ -47,23 +48,39 @@ export default async function handler(req, res) {
       return res.status(404).json({ message: 'Email tidak ditemukan dalam sistem' });
     }
 
-    // Generate OTP 6 digit
-    const otp = crypto.randomInt(100000, 999999).toString();
-    
-    // Simpan OTP di Redis dengan expiry 5 menit (300 detik)
-    await restRedis.setex(`reset_${email}`, 300, otp);
+    try {
+      // Generate OTP 6 digit
+      const otp = crypto.randomInt(100000, 999999).toString();
+      
+      // Simpan OTP di Redis dengan expiry 1 menit (60 detik)
+      await restRedis.setex(`reset_${email}`, 60, otp);
 
-    // Kirim email OTP
-    await sendOTPEmail(email, otp);
+      try {
+        // Kirim email OTP
+        await sendOTPEmail(email, otp);
 
-    return res.status(200).json({ 
-      message: 'Kode OTP telah dikirim ke email Anda',
-      success: true 
-    });
-    
-  } catch {
+        return res.status(200).json({ 
+          message: 'Kode OTP telah dikirim ke email Anda',
+          success: true 
+        });
+      } catch (emailError) {
+        console.error('Email sending error:', emailError);
+        // Hapus OTP jika gagal mengirim email
+        await restRedis.del(`reset_${email}`);
+        return res.status(500).json({ 
+          message: 'Gagal mengirim email OTP. Silakan coba lagi.' 
+        });
+      }
+    } catch (redisError) {
+      console.error('Redis error:', redisError);
+      return res.status(500).json({ 
+        message: 'Layanan sementara tidak tersedia. Silakan coba lagi dalam beberapa saat.' 
+      });
+    }
+  } catch (error) {
+    console.error('Unexpected error:', error);
     return res.status(500).json({ 
-      message: 'Gagal mengirim email reset password'
+      message: 'Terjadi kesalahan. Silakan coba lagi.' 
     });
   }
 } 

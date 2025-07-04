@@ -7,7 +7,19 @@ export default async function handler(req, res) {
   }
 
   try {
-    const response = await fetch(`${directusConfig.baseURL}/items/geofence`, {
+    const { user_id } = req.query;
+    
+    // KEAMANAN: Memerlukan user_id dari client yang terautentikasi
+    if (!user_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID diperlukan'
+      });
+    }
+
+    // Filter geofences berdasarkan user_id
+    const url = `${directusConfig.baseURL}/items/geofence?filter[user_id][_eq]=${user_id}`;
+    const response = await fetch(url, {
       headers: directusConfig.headers
     });
 

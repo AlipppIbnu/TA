@@ -1,7 +1,5 @@
 // API handler untuk mengambil data koordinat kendaraan dari Directus
-
-// Directus base API URL - Updated to use new endpoint
-const DIRECTUS_API_URL = 'https://vehitrack.my.id/directus/items/vehicle_datas';
+import directusConfig from '@/lib/directusConfig';
 
 /**
  * API handler untuk mengambil data koordinat kendaraan dari Directus
@@ -11,6 +9,7 @@ const DIRECTUS_API_URL = 'https://vehitrack.my.id/directus/items/vehicle_datas';
  * - limit: Batasi jumlah hasil (default: 100, -1 untuk semua)
  * - last_only: Hanya ambil koordinat terakhir untuk setiap kendaraan (default: false)
  * - since: Ambil koordinat sejak timestamp tertentu (format ISO, opsional)
+ * - user_id: ID pengguna untuk verifikasi kepemilikan kendaraan (wajib)
  */
 export default async function handler(req, res) {
   // Hanya terima request GET
@@ -23,12 +22,70 @@ export default async function handler(req, res) {
     vehicle_id, // Changed from 'id' to 'vehicle_id' 
     limit = 100, 
     last_only = false, 
-    since = null 
+    since = null,
+    user_id
   } = req.query;
 
+  // KEAMANAN: Memerlukan user_id untuk verifikasi kepemilikan
+  if (!user_id) {
+    return res.status(400).json({
+      success: false,
+      message: 'User ID diperlukan untuk mengakses data koordinat'
+    });
+  }
+
   try {
+    // Jika vehicle_id diberikan, verifikasi kepemilikan kendaraan
+    if (vehicle_id) {
+      const vehicleCheckUrl = `${directusConfig.baseURL}/items/vehicle?filter[vehicle_id][_eq]=${vehicle_id}&filter[user_id][_eq]=${user_id}&fields=vehicle_id,gps_id`;
+      const vehicleCheckResponse = await fetch(vehicleCheckUrl, {
+        headers: directusConfig.headers
+      });
+      
+      if (!vehicleCheckResponse.ok) {
+        return res.status(500).json({
+          success: false,
+          message: 'Gagal memverifikasi kepemilikan kendaraan'
+        });
+      }
+      
+      const vehicleCheckData = await vehicleCheckResponse.json();
+      if (!vehicleCheckData.data || vehicleCheckData.data.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: 'Akses ditolak: Kendaraan bukan milik user saat ini'
+        });
+      }
+    }
+
+    // Ambil semua kendaraan user untuk filter koordinat
+    const userVehiclesUrl = `${directusConfig.baseURL}/items/vehicle?filter[user_id][_eq]=${user_id}&fields=vehicle_id,gps_id`;
+    const userVehiclesResponse = await fetch(userVehiclesUrl, {
+      headers: directusConfig.headers
+    });
+    
+    if (!userVehiclesResponse.ok) {
+      return res.status(500).json({
+        success: false,
+        message: 'Gagal mengambil data kendaraan user'
+      });
+    }
+    
+    const userVehiclesData = await userVehiclesResponse.json();
+    const userVehicleIds = (userVehiclesData.data || []).map(v => v.vehicle_id);
+    
+    // Jika user tidak punya kendaraan, return data kosong
+    if (userVehicleIds.length === 0) {
+      return res.status(200).json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        count: 0,
+        data: []
+      });
+    }
+
     // Buat URL query untuk Directus
-    let apiUrl = DIRECTUS_API_URL;
+    let apiUrl = `${directusConfig.baseURL}/items/vehicle_datas`;
     
     // Tambahkan parameter query
     const queryParams = new URLSearchParams();
@@ -38,9 +95,12 @@ export default async function handler(req, res) {
       queryParams.append('limit', limit);
     }
     
-    // Filter berdasarkan vehicle_id jika diberikan
+    // Filter berdasarkan vehicle_id jika diberikan (sudah diverifikasi kepemilikannya)
     if (vehicle_id) {
       queryParams.append('filter[vehicle_id][_eq]', vehicle_id);
+    } else {
+      // Jika tidak ada vehicle_id spesifik, filter semua kendaraan user
+      queryParams.append('filter[vehicle_id][_in]', userVehicleIds.join(','));
     }
     
     // Filter berdasarkan timestamp jika parameter since diberikan
@@ -63,9 +123,7 @@ export default async function handler(req, res) {
     // Fetch data dari Directus API
     const response = await fetch(apiUrl, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: directusConfig.headers,
       signal: controller.signal,
       // Pastikan mendapatkan data terbaru
       cache: 'no-store'

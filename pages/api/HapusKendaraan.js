@@ -8,13 +8,19 @@ export default async function handler(req, res) {
 
   try {
     const id = req.query.id || req.body.id;
+    const { user_id } = req.body;
     
     if (!id) {
       return res.status(400).json({ message: 'ID kendaraan diperlukan' });
     }
 
-    // First, find the vehicle record to get the correct Directus primary key
-    const checkUrl = `${directusConfig.baseURL}/items/vehicle?filter[vehicle_id][_eq]=${id}`;
+    // KEAMANAN: Memerlukan user_id untuk verifikasi kepemilikan
+    if (!user_id) {
+      return res.status(400).json({ message: 'User ID diperlukan' });
+    }
+
+    // First, find the vehicle record and verify user ownership
+    const checkUrl = `${directusConfig.baseURL}/items/vehicle?filter[vehicle_id][_eq]=${id}&filter[user_id][_eq]=${user_id}`;
     
     const checkResponse = await fetch(checkUrl, {
       headers: directusConfig.headers
@@ -31,7 +37,7 @@ export default async function handler(req, res) {
 
     if (!checkData.data || checkData.data.length === 0) {
       return res.status(404).json({ 
-        message: 'Kendaraan tidak ditemukan',
+        message: 'Kendaraan tidak ditemukan atau bukan milik user saat ini',
         receivedId: id
       });
     }

@@ -526,8 +526,11 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
           return;
         }
 
-        // Set vehicles dari server tanpa position - tunggu WebSocket
-        const vehiclesWithoutPosition = (initialVehicles || []).map(vehicle => ({
+        // MULTI-USER: Ambil kendaraan user-specific dari API
+        const userVehicles = await getUserVehicles();
+        
+        // Set vehicles tanpa position - tunggu WebSocket data terbaru
+        const vehiclesWithoutPosition = userVehicles.map(vehicle => ({
           ...vehicle,
           position: null // Selalu null - tunggu WebSocket data terbaru
         }));
@@ -539,7 +542,7 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
         //   setSelectedVehicle(vehiclesWithoutPosition[0]);
         // }
 
-        console.log('✅ Vehicles loaded without positions, waiting for latest WebSocket data...');
+        console.log('✅ User vehicles loaded without positions, waiting for latest WebSocket data...', vehiclesWithoutPosition.length);
         await loadGeofences();
         
       } catch (error) {
@@ -552,12 +555,17 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
     };
 
     loadUserAndVehicles();
-  }, [router, initialVehicles]);
+  }, [router]); // Hapus initialVehicles dependency karena sekarang menggunakan getUserVehicles()
 
   // Muat geofences dari API
   const loadGeofences = async () => {
     try {
-      const response = await fetch('/api/geofences');
+      const userData = getCurrentUser();
+      if (!userData) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await fetch(`/api/geofences?user_id=${userData.userId}`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch geofences');
@@ -816,11 +824,19 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
 
   const handleDeleteVehicle = async (vehicleId) => {
     try {
+      const userData = getCurrentUser();
+      if (!userData) {
+        throw new Error('User not authenticated');
+      }
+
       const response = await fetch(`/api/HapusKendaraan?id=${vehicleId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-        }
+        },
+        body: JSON.stringify({
+          user_id: userData.userId
+        })
       });
       
       const data = await response.json();
@@ -1040,51 +1056,16 @@ export default function Dashboard({ vehicles: initialVehicles = [] }) {
 }
 
 // =============================================================================
-// SERVER-SIDE PROPS: Tetap tanpa position data
+// SERVER-SIDE PROPS: Kembalikan array kosong untuk multi-user security
 // =============================================================================
 export async function getServerSideProps() {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-    
-    const resVehicles = await fetch(`${directusConfig.baseURL}/items/vehicle`, {
-        signal: controller.signal,
-        headers: directusConfig.headers
-    });
-    
-    clearTimeout(timeoutId);
-
-    if (!resVehicles.ok) {
-      console.error("Fetch failed:", { vehiclesStatus: resVehicles.status });
-      throw new Error("Gagal fetch vehicle data dari server");
-    }
-
-    const vehiclesData = await resVehicles.json();
-
-    // Return vehicles tanpa position - tunggu WebSocket data terbaru
-    const vehicles = vehiclesData.data.map(vehicle => ({
-      ...vehicle,
-      position: null
-    }));
-
-    console.log('🚀 SSR: Vehicles loaded WITHOUT position data, waiting for latest WebSocket data:', vehicles.length);
-      
-      return {
-      props: { 
-        vehicles 
-      } 
-      };
-  } catch (err) {
-    console.error("❌ Server-side fetch error:", err);
-    
-    return { 
-      props: { 
-        vehicles: [],
-        error: {
-          message: err.message || String(err),
-          isTimeout: err.name === 'AbortError'
-        }
-      } 
-    };
-  }
+  // KEAMANAN MULTI-USER: 
+  // Tidak mengambil data kendaraan di server-side karena tidak ada akses ke user session
+  // Biarkan client-side yang mengambil data setelah user terauthentikasi
+  
+  return {
+    props: { 
+      vehicles: [] // Selalu kembalikan array kosong, client akan fetch data user-specific
+    } 
+  };
 }
