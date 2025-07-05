@@ -125,6 +125,7 @@ const SidebarComponent = ({
   // State untuk notifikasi
   const [showSuccessNotification, setShowSuccessNotification] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [successAction, setSuccessAction] = useState(''); // 'vehicle' atau 'notification'
   const [showSelectVehicleAlert, setShowSelectVehicleAlert] = useState(false);
   const [showNoHistoryAlert, setShowNoHistoryAlert] = useState(false);
   const [showRelayNotification, setShowRelayNotification] = useState(false);
@@ -261,6 +262,7 @@ const SidebarComponent = ({
         setNotificationFilter('all');
         
         setSuccessMessage(`Berhasil menghapus ${data.deleted_count} notifikasi`);
+        setSuccessAction('notification');
         setShowSuccessNotification(true);
       } else {
         showErrorMessage('Gagal menghapus notifikasi: ' + data.message);
@@ -578,6 +580,7 @@ const SidebarComponent = ({
         }
         
         setSuccessMessage(`Kendaraan ${vehicleToDelete.name} berhasil dihapus!`);
+        setSuccessAction('vehicle');
         setShowSuccessNotification(true);
         
         setTimeout(() => {
@@ -1311,7 +1314,9 @@ const SidebarComponent = ({
       {showSuccessNotification && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
           <div className="bg-white p-3 rounded-md shadow-lg max-w-xs">
-            <h3 className="text-base font-bold mb-2 text-green-600 text-center">Berhasil Menghapus Kendaraan!</h3>
+            <h3 className="text-base font-bold mb-2 text-green-600 text-center">
+              {successAction === 'notification' ? 'Berhasil Menghapus Notifikasi!' : 'Berhasil Menghapus Kendaraan!'}
+            </h3>
             <p className="mb-3 text-sm">{successMessage}</p>
             <div className="flex justify-end mt-3">
               <button 

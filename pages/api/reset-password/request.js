@@ -13,9 +13,9 @@ export default async function handler(req, res) {
   const clientIP = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
 
   // Pembatasan rate limiting
-  if (!checkRateLimit(clientIP, 5, 300000)) {
+  if (!checkRateLimit(clientIP, 5, 600000)) {
     return res.status(429).json({ 
-      message: 'Terlalu banyak percobaan. Coba lagi dalam 5 menit.' 
+      message: 'Terlalu banyak percobaan. Coba lagi dalam 10 menit.' 
     });
   }
 

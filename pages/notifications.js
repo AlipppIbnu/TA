@@ -117,7 +117,7 @@ const NotificationsPage = () => {
         
         // Show success modal
         setResultModalType('success');
-        setResultMessage(`Berhasil menghapus ${data.deleted_count} notifikasi`);
+        setResultMessage(`Berhasil menghapus ${data.deleted_count} Notifikasi`);
         setShowResultModal(true);
       } else {
         // Show error modal
