@@ -43,7 +43,7 @@ export default function Login() {
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-gray-600">Memuat...</p>
         </div>
       </div>
     );
@@ -52,8 +52,8 @@ export default function Login() {
   return (
     <>
       <Head>
-        <title>Login - VehiTrack</title>
-        <meta name="description" content="Login to your VehiTrack account" />
+        <title>Masuk - VehiTrack</title>
+        <meta name="description" content="Masuk ke akun VehiTrack Anda" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
@@ -69,10 +69,10 @@ export default function Login() {
                     {/* Welcome Text */}
                     <div className="text-center mb-8">
                       <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
-                        Welcome Back
+                        Selamat Datang Kembali
                       </h1>
                       <p className="text-gray-600">
-                        Login to access your fleet dashboard
+                        Masuk untuk mengakses dashboard armada Anda
                       </p>
                     </div>
 
@@ -93,13 +93,13 @@ export default function Login() {
                       {/* Email Input */}
                       <div>
                         <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                          Email Address
+                          Alamat Email
                         </label>
                         <input
                           id="email"
                           name="email"
                           type="email"
-                          placeholder="Enter your email"
+                          placeholder="Masukkan email Anda"
                           className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
@@ -110,14 +110,14 @@ export default function Login() {
                       {/* Password Input */}
                       <div>
                         <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                          Password
+                          Kata Sandi
                         </label>
                         <div className="relative">
                           <input
                             id="password"
                             name="password"
                             type={showPassword ? "text" : "password"}
-                            placeholder="Enter your password"
+                            placeholder="Masukkan kata sandi Anda"
                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
@@ -127,7 +127,7 @@ export default function Login() {
                             type="button"
                             className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
                             onClick={() => setShowPassword(!showPassword)}
-                            aria-label={showPassword ? "Hide password" : "Show password"}
+                            aria-label={showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
                           >
                             {showPassword ? 
                               <FaEyeSlash size={20} /> : 
@@ -143,7 +143,7 @@ export default function Login() {
                           href="/reset-password" 
                           className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                         >
-                          Forgot password?
+                          Lupa kata sandi?
                         </Link>
                       </div>
 
@@ -152,17 +152,15 @@ export default function Login() {
                         type="submit"
                         className="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transform hover:-translate-y-0.5 transition-all duration-200 shadow-md hover:shadow-lg"
                       >
-                        Sign In
+                        Masuk
                       </button>
                     </form>
 
-
-
                     {/* Register Link */}
                     <p className="mt-8 text-center text-sm text-gray-600">
-                      Don&apos;t have an account?{' '}
+                      Belum punya akun?{' '}
                       <Link href="/register" className="font-medium text-blue-600 hover:text-blue-700">
-                        Create one now
+                        Buat akun sekarang
                       </Link>
                     </p>
                   </div>
@@ -174,10 +172,10 @@ export default function Login() {
                   <div className="relative h-full flex flex-col justify-center">
                     <div className="text-center mb-12">
                       <h2 className="text-3xl font-bold text-white mb-4">
-                        Track Your Fleet in Real-Time
+                        Lacak Armada Anda secara Real-Time
                       </h2>
                       <p className="text-blue-100 text-lg">
-                        Monitor vehicles, optimize routes, and improve efficiency with our powerful GPS tracking platform.
+                        Pantau kendaraan, optimalkan rute, dan tingkatkan efisiensi dengan platform GPS tracking kami yang canggih.
                       </p>
                     </div>
 
@@ -189,7 +187,7 @@ export default function Login() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                           </div>
-                        <span className="text-white text-lg">Real-time GPS tracking</span>
+                        <span className="text-white text-lg">Pelacakan GPS real-time</span>
                         </div>
 
                       <div className="flex items-center text-left">
@@ -198,7 +196,7 @@ export default function Login() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                             </svg>
                           </div>
-                        <span className="text-white text-lg">Advanced analytics dashboard</span>
+                        <span className="text-white text-lg">Dashboard analitik yang canggih</span>
                         </div>
 
                       <div className="flex items-center text-left">
@@ -207,7 +205,7 @@ export default function Login() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                             </svg>
                         </div>
-                        <span className="text-white text-lg">Instant alerts & notifications</span>
+                        <span className="text-white text-lg">Peringatan & notifikasi instan</span>
                       </div>
                     </div>
                   </div>
