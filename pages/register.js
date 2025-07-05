@@ -167,7 +167,6 @@ export default function Register() {
                             id="fullName"
                             name="fullName"
                             type="text"
-                            placeholder="John Doe"
                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                             value={formData.fullName}
                             onChange={handleInputChange}
@@ -183,7 +182,6 @@ export default function Register() {
                             id="username"
                             name="username"
                             type="text"
-                            placeholder="johndoe"
                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                             value={formData.username}
                             onChange={handleInputChange}
@@ -202,7 +200,6 @@ export default function Register() {
                             id="email"
                             name="email"
                             type="email"
-                            placeholder="john@example.com"
                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                             value={formData.email}
                             onChange={handleInputChange}
@@ -218,7 +215,6 @@ export default function Register() {
                             id="phoneNumber"
                             name="phoneNumber"
                             type="tel"
-                            placeholder="+62 812 3456 7890"
                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                             value={formData.phoneNumber}
                             onChange={handleInputChange}
