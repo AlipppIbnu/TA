@@ -12,7 +12,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { relay_status, issued_by } = req.body;
+    const { relay_status } = req.body;
     
     // Validasi input
     if (!relay_status || !['ON', 'OFF'].includes(relay_status)) {
