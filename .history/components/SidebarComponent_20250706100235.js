@@ -1532,4 +1532,21 @@ const SidebarComponent = ({
   );
 };
 
-export default SidebarComponent;
+export default SidebarComponent; 'ON'}
+                            </button>
+
+                            {/* Engine OFF Button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEngineOff(vehicle.vehicle_id);
+                              }}
+                              disabled={loadingVehicles[vehicle.vehicle_id] || vehicle.relay_status === 'OFF'}
+                              className={`${
+                                loadingVehicles[vehicle.vehicle_id] ? 'bg-gray-400' : 
+                                vehicle.relay_status === 'OFF' ? 'bg-gray-500' :
+                                'bg-red-500 hover:bg-red-600'
+                              } text-white rounded text-center font-bold transition-colors duration-200 px-1.5 py-0.5 text-xs`}
+                              title={vehicle.relay_status === 'OFF' ? 'Mesin sudah mati' : 'Matikan mesin'}
+                            >
+                              {loadingVehicles[vehicle.vehicle_id] ? '...' :

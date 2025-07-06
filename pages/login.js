@@ -82,7 +82,7 @@ export default function Login() {
           }
           
           setCountdown(60); // Start 60 second countdown
-        } catch (otpError) {
+        } catch {
           setError('Gagal mengirim kode OTP. Silakan coba lagi.');
           setShowOtpStep(false);
         } finally {
@@ -184,7 +184,7 @@ export default function Login() {
       
       setCountdown(60); // Reset countdown
       setOtp(""); // Clear OTP input
-    } catch (err) {
+    } catch {
       setError('Gagal mengirim ulang kode OTP.');
     } finally {
       setOtpSending(false);

@@ -98,6 +98,7 @@ export default async function handler(req, res) {
     // If device is recognized, return success without OTP
     if (!requireOtp) {
       // Return user data without password_hash
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password_hash, ...userWithoutPassword } = user;
       
       return res.status(200).json({
