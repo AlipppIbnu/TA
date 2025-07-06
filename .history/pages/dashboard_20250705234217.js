@@ -1,6 +1,6 @@
-// pages/dashboard.js - Complete Fixed Version
+// pages/dashboard.js - Updated with basemap support
 import dynamic from "next/dynamic";
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/router";
 import SidebarComponent from "../components/SidebarComponent";
 import ModalSetGeofence from "@/components/ModalSetGeofence";
@@ -321,10 +321,6 @@ export default function Dashboard() {
   const mapRef = useRef(null);
   const geofenceModalRef = useRef(null);
 
-  // State untuk user authentication
-  const [user, setUser] = useState(null);
-  const [authChecked, setAuthChecked] = useState(false);
-
   // Hook notifikasi geofence dengan real-time detection
   const {
     notifications: geofenceNotifications,
@@ -343,6 +339,10 @@ export default function Dashboard() {
   const [vehicles, setVehicles] = useState([]);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
 
+  // =============================================================================
+  // PERBAIKAN UTAMA: Wait for Latest WebSocket Data Only
+  // =============================================================================
+  
   // State untuk tracking WebSocket connection
   const [wsConnected, setWsConnected] = useState(false);
   
@@ -355,116 +355,6 @@ export default function Dashboard() {
   // State untuk kontrol tampilan map - tunggu data WebSocket terbaru
   const [showMap, setShowMap] = useState(false);
 
-  // State untuk modal dan notifikasi
-  const [showTambahModal, setShowTambahModal] = useState(false); 
-  const [showErrorAlert, setShowErrorAlert] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-  
-  // State untuk geofence
-  const [showGeofenceModal, setShowGeofenceModal] = useState(false);
-  const [isDrawingMode, setIsDrawingMode] = useState(false);
-  const [drawingType, setDrawingType] = useState('polygon');
-  const [geofences, setGeofences] = useState([]);
-  const [vehicleGeofenceVisibility, setVehicleGeofenceVisibility] = useState({});
-
-  // State untuk sidebar alignment (untuk basemap selector)
-  const [sidebarState, setSidebarState] = useState({
-    isSidebarVisible: true,
-    activePanel: null,
-    sidebarWidth: 0
-  });
-
-  // Helper function untuk mendapatkan user ID yang konsisten
-  const getUserId = useCallback((userData) => {
-    return userData?.userId || userData?.users_id || userData?.user_id || null;
-  }, []);
-
-  // Enhanced authentication check
-  useEffect(() => {
-    const checkAuth = () => {
-      // Check if user is authenticated
-      if (!isAuthenticated()) {
-        console.log('❌ User not authenticated, redirecting to login');
-        router.push("/login");
-        return;
-      }
-
-      // Get user data from session
-      const userData = getCurrentUser();
-      if (!userData) {
-        console.log('❌ No user data found, redirecting to login');
-        router.push("/login");
-        return;
-      }
-
-      // Validate user data structure
-      const userId = getUserId(userData);
-      if (!userId) {
-        console.log('❌ Invalid user data structure, redirecting to login');
-        if (typeof window !== 'undefined') {
-          sessionStorage.removeItem('user');
-          localStorage.removeItem('user');
-        }
-        router.push("/login");
-        return;
-      }
-
-      console.log('✅ User authenticated:', {
-        userId: userId,
-        email: userData.email,
-        name: userData.name || userData.fullName || userData.full_name
-      });
-
-      setUser(userData);
-      setAuthChecked(true);
-    };
-
-    checkAuth();
-  }, [router, getUserId]);
-
-  // Load vehicles only after auth is confirmed
-  useEffect(() => {
-    if (!authChecked || !user) return;
-
-    const loadUserVehicles = async () => {
-      try {
-        setLoading(true);
-        
-        // Get userId with proper field mapping
-        const userId = getUserId(user);
-        
-        if (!userId) {
-          console.error('❌ No valid user ID found');
-          router.push("/login");
-          return;
-        }
-
-        // MULTI-USER: Ambil kendaraan user-specific dari API
-        const userVehicles = await getUserVehicles();
-        
-        // Set vehicles tanpa position - tunggu WebSocket data terbaru
-        const vehiclesWithoutPosition = userVehicles.map(vehicle => ({
-          ...vehicle,
-          position: null // Selalu null - tunggu WebSocket data terbaru
-        }));
-        
-        setVehicles(vehiclesWithoutPosition);
-        
-        console.log('✅ User vehicles loaded without positions, waiting for latest WebSocket data...', vehiclesWithoutPosition.length);
-        await loadGeofences();
-        
-      } catch (error) {
-        console.error('Error loading data:', error);
-        setErrorMessage('Gagal memuat data kendaraan');
-        setShowErrorAlert(true);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadUserVehicles();
-  }, [authChecked, user, router, getUserId]);
-
   // Monitor WebSocket connection status
   useEffect(() => {
     setWsConnected(isConnected);
@@ -475,7 +365,7 @@ export default function Dashboard() {
     }
   }, [isConnected]);
 
-  // Process WebSocket data untuk mendapatkan koordinat terbaru
+  // PERBAIKAN UTAMA: Tunggu data WebSocket terbaru sebelum menampilkan map
   useEffect(() => {
     if (wsData && wsData.data && wsData.data.length > 0) {
       console.log('📡 Received WebSocket data:', wsData.data.length, 'coordinates');
@@ -607,32 +497,86 @@ export default function Dashboard() {
     
     return result;
   }, [vehicles, latestWebSocketPositions, hasReceivedWebSocketData]);
+  
+  // State untuk modal dan notifikasi
+  const [showTambahModal, setShowTambahModal] = useState(false); 
+  const [showErrorAlert, setShowErrorAlert] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  
+  // State untuk geofence
+  const [showGeofenceModal, setShowGeofenceModal] = useState(false);
+  const [isDrawingMode, setIsDrawingMode] = useState(false);
+  const [drawingType, setDrawingType] = useState('polygon');
+  const [geofences, setGeofences] = useState([]);
+  const [vehicleGeofenceVisibility, setVehicleGeofenceVisibility] = useState({});
 
-  // Function to handle sidebar state changes - dengan useCallback untuk prevent infinite loop
-  const handleSidebarStateChange = useCallback((newState) => {
-    setSidebarState(prevState => {
-      // Only update if state actually changed
-      if (
-        prevState.isSidebarVisible !== newState.isSidebarVisible ||
-        prevState.activePanel !== newState.activePanel ||
-        prevState.sidebarWidth !== newState.sidebarWidth
-      ) {
-        return newState;
+  // State untuk sidebar alignment (untuk basemap selector)
+  const [sidebarState, setSidebarState] = useState({
+    isSidebarVisible: true,
+    activePanel: null,
+    sidebarWidth: 0
+  });
+
+  // Function to handle sidebar state changes from SidebarComponent
+  const handleSidebarStateChange = (newState) => {
+    setSidebarState(newState);
+  };
+
+  // Load user data dan kendaraan
+  useEffect(() => {
+    const loadUserAndVehicles = async () => {
+      try {
+        if (!isAuthenticated()) {
+          router.push("/login");
+          return;
+        }
+
+        const userData = getCurrentUser();
+        if (!userData) {
+          router.push("/login");
+          return;
+        }
+
+        // MULTI-USER: Ambil kendaraan user-specific dari API
+        const userVehicles = await getUserVehicles();
+        
+        // Set vehicles tanpa position - tunggu WebSocket data terbaru
+        const vehiclesWithoutPosition = userVehicles.map(vehicle => ({
+          ...vehicle,
+          position: null // Selalu null - tunggu WebSocket data terbaru
+        }));
+        
+        setVehicles(vehiclesWithoutPosition);
+        
+        // Tidak auto-select kendaraan pertama - biarkan user memilih manual
+        // if (vehiclesWithoutPosition.length > 0) {
+        //   setSelectedVehicle(vehiclesWithoutPosition[0]);
+        // }
+
+        console.log('✅ User vehicles loaded without positions, waiting for latest WebSocket data...', vehiclesWithoutPosition.length);
+        await loadGeofences();
+        
+      } catch (error) {
+        console.error('Error loading data:', error);
+        setErrorMessage('Gagal memuat data kendaraan');
+        setShowErrorAlert(true);
+      } finally {
+        setLoading(false);
       }
-      return prevState;
-    });
-  }, []);
+    };
+
+    loadUserAndVehicles();
+  }, [router]);
 
   // Muat geofences dari API
   const loadGeofences = async () => {
     try {
-      if (!user) {
+      const userData = getCurrentUser();
+      if (!userData) {
         throw new Error('User not authenticated');
       }
 
-      const userId = getUserId(user);
-      
-      const response = await fetch(`/api/geofences?user_id=${userId}`);
+      const response = await fetch(`/api/geofences?user_id=${userData.userId}`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch geofences');
@@ -658,7 +602,7 @@ export default function Dashboard() {
       console.log('🔄 WebSocket disconnected, enabling backup polling for metadata only');
       
       const backupInterval = setInterval(async () => {
-        try {
+      try {
           const userVehicles = await getUserVehicles();
           // Hanya update metadata, posisi tetap dari WebSocket/cache
           const updatedVehicles = userVehicles.map(vehicle => ({
@@ -891,11 +835,10 @@ export default function Dashboard() {
 
   const handleDeleteVehicle = async (vehicleId) => {
     try {
-      if (!user) {
+      const userData = getCurrentUser();
+      if (!userData) {
         throw new Error('User not authenticated');
       }
-
-      const userId = getUserId(user);
 
       const response = await fetch(`/api/HapusKendaraan?id=${vehicleId}`, {
         method: 'DELETE',
@@ -903,7 +846,7 @@ export default function Dashboard() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          user_id: userId
+          user_id: userData.userId
         })
       });
       
@@ -946,25 +889,21 @@ export default function Dashboard() {
     }
   };
 
-  // Show loading while checking auth
-  if (!authChecked || loading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="text-white text-sm font-medium">Loading VehiTrack Dashboard...</p>
-          <p className="text-gray-400 text-xs mt-2">
-            {!authChecked ? 'Verifying authentication...' : 'Loading data...'}
-          </p>
-          {authChecked && (
-            <p className="text-blue-400 text-xs mt-1">
-              🎯 Waiting for latest GPS data...
-            </p>
-          )}
-        </div>
+  // Enhanced loading screen
+  if (loading) return (
+    <div className="flex items-center justify-center h-screen bg-gray-900">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+        <p className="text-white text-sm font-medium">Loading VehiTrack Dashboard...</p>
+        <p className="text-gray-400 text-xs mt-2">
+          WebSocket: {wsConnected ? 'Connected' : 'Connecting...'}
+        </p>
+        <p className="text-blue-400 text-xs mt-1">
+          🎯 Waiting for latest GPS data...
+        </p>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
     <div className="h-screen bg-gray-900 relative overflow-hidden" style={{ pointerEvents: isDrawingMode ? 'none' : 'auto' }}>

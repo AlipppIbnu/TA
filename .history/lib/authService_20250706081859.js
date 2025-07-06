@@ -13,7 +13,6 @@ export const register = async (userData) => {
     const checkResponse = await fetch(
       `${directusConfig.endpoints.users}?filter[email][_eq]=${encodeURIComponent(userData.email)}`,
       {
-        method: 'GET',
         headers: directusConfig.headers,
       }
     );
@@ -34,7 +33,9 @@ export const register = async (userData) => {
     // Buat pengguna baru
     const response = await fetch(directusConfig.endpoints.users, {
       method: 'POST',
-      headers: directusConfig.headers,
+      headers: {
+        ...directusConfig.headers,
+      },
       body: JSON.stringify({
         users_id: generateUserId(), // Generate UUID
         email: userData.email,
@@ -106,7 +107,6 @@ export const directLogin = async (email, password) => {
     const searchResponse = await fetch(
       `${directusConfig.endpoints.users}?filter[email][_eq]=${encodeURIComponent(email)}`,
       {
-        method: 'GET',
         headers: directusConfig.headers,
       }
     );

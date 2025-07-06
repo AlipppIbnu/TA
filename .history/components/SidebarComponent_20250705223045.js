@@ -96,8 +96,7 @@ const SidebarComponent = ({
   onHideHistory,
   selectedVehicle,
   onToggleGeofence,
-  onUpdateVehicle,
-  onSidebarStateChange // NEW: Callback untuk mengirim state ke parent
+  onUpdateVehicle
 }) => {
   
   const router = useRouter();
@@ -171,23 +170,6 @@ const SidebarComponent = ({
   const [notificationFilter, setNotificationFilter] = useState('all');
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
-
-  // Calculate sidebar width
-  const getSidebarWidth = () => {
-    if (!isSidebarVisible) return 0;
-    return activePanel ? 320 : 64;
-  };
-
-  // NEW: Effect untuk mengirim state ke parent component (untuk basemap alignment)
-  useEffect(() => {
-    if (onSidebarStateChange) {
-      onSidebarStateChange({
-        isSidebarVisible,
-        activePanel,
-        sidebarWidth: getSidebarWidth()
-      });
-    }
-  }, [isSidebarVisible, activePanel, onSidebarStateChange]);
 
   // Fungsi untuk logout
   const handleLogout = () => {
@@ -354,6 +336,12 @@ const SidebarComponent = ({
         fetchNotifications();
       }
     }
+  };
+
+  // Calculate sidebar width
+  const getSidebarWidth = () => {
+    if (!isSidebarVisible) return 0;
+    return activePanel ? 320 : 64;
   };
 
   // Helper function untuk mendapatkan data kendaraan berdasarkan gps_id
@@ -1230,7 +1218,6 @@ const SidebarComponent = ({
         )}
       </button>
 
-      {/* Rest of the modals and components remain the same... */}
       {/* Modal peringatan pilih kendaraan */}
       {showSelectVehicleAlert && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">

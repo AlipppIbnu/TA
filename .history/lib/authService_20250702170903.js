@@ -13,7 +13,6 @@ export const register = async (userData) => {
     const checkResponse = await fetch(
       `${directusConfig.endpoints.users}?filter[email][_eq]=${encodeURIComponent(userData.email)}`,
       {
-        method: 'GET',
         headers: directusConfig.headers,
       }
     );
@@ -34,7 +33,9 @@ export const register = async (userData) => {
     // Buat pengguna baru
     const response = await fetch(directusConfig.endpoints.users, {
       method: 'POST',
-      headers: directusConfig.headers,
+      headers: {
+        ...directusConfig.headers,
+      },
       body: JSON.stringify({
         users_id: generateUserId(), // Generate UUID
         email: userData.email,
@@ -57,56 +58,13 @@ export const register = async (userData) => {
   }
 };
 
-// Login pengguna dengan device recognition
-export const login = async (email, password, deviceId = null) => {
-  try {
-    // Call internal API endpoint yang akan handle device checking
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ 
-        email, 
-        password,
-        deviceId 
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || 'Login failed');
-    }
-
-    // Jika tidak perlu OTP (device recognized), simpan user data
-    if (!data.requireOtp) {
-      // Simpan data pengguna di localStorage
-      const userData = {
-        userId: data.user.users_id,
-        email: data.user.email,
-        fullName: data.user.name,
-        username: data.user.nickname,
-        phoneNumber: data.user.phone_number
-      };
-      
-      localStorage.setItem('user', JSON.stringify(userData));
-    }
-
-    return data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-// Login langsung tanpa device check (untuk internal use di API)
-export const directLogin = async (email, password) => {
+// Login pengguna
+export const login = async (email, password) => {
   try {
     // Pertama, cari pengguna berdasarkan email
     const searchResponse = await fetch(
       `${directusConfig.endpoints.users}?filter[email][_eq]=${encodeURIComponent(email)}`,
       {
-        method: 'GET',
         headers: directusConfig.headers,
       }
     );
@@ -129,7 +87,17 @@ export const directLogin = async (email, password) => {
       throw new Error('Invalid credentials');
     }
 
-    return user;
+    // Simpan data pengguna di localStorage
+    const userData = {
+      userId: user.users_id,
+      email: user.email,
+      fullName: user.name,
+      username: user.nickname,
+      phoneNumber: user.phone_number
+    };
+    
+    localStorage.setItem('user', JSON.stringify(userData));
+    return userData;
   } catch (error) {
     throw new Error(error.message || 'Login failed');
   }
@@ -139,8 +107,6 @@ export const directLogin = async (email, password) => {
 export const logout = async () => {
   return new Promise((resolve) => {
     localStorage.removeItem('user');
-    // Note: We don't remove device_id cookie on logout
-    // So the device remains recognized for next login
     resolve();
   });
 };
@@ -159,4 +125,4 @@ export const getCurrentUser = () => {
 // Periksa apakah pengguna sudah terotentikasi
 export const isAuthenticated = () => {
   return getCurrentUser() !== null;
-};
+}; 

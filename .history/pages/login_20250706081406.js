@@ -90,7 +90,6 @@ export default function Login() {
         }
       } else {
         // Device sudah dikenali, langsung masuk
-        // Data user sudah disimpan di localStorage oleh authService
         router.push("/dashboard");
       }
     } catch (err) {
