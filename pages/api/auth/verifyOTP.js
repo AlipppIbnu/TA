@@ -43,8 +43,8 @@ export default async function handler(req, res) {
     const otpKey = `otp:${userId}:${email}`;
     console.log("🔑 OTP Key:", otpKey);
 
-    // Store OTP in Redis with 5 minutes expiration (300 seconds)
-    const redisResult = await redis.setex(otpKey, 300, otp);
+    // Store OTP in Redis with 1 minutes expiration 
+    const redisResult = await redis.setex(otpKey, 60, otp);
     console.log("💾 Redis storage result:", redisResult);
 
     // Configure Nodemailer
@@ -102,7 +102,7 @@ export default async function handler(req, res) {
 
     // Send OTP email
     const emailResult = await transporter.sendMail({
-      from: `GPS Tracker <${process.env.EMAIL_USER}>`,
+      from: `VehiTrack <${process.env.EMAIL_USER}>`,
       to: email,
       subject: "Kode Verifikasi OTP - GPS Tracker",
       html: emailHtml,

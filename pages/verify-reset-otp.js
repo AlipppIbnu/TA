@@ -186,7 +186,7 @@ export default function VerifyResetOTP() {
                           onChange={handleOtpChange}
                           maxLength="6"
                           className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-center text-xl font-mono tracking-widest"
-                          placeholder="123456"
+                          placeholder="Masukkan 6 digit kode OTP"
                           required
                         />
                       </div>

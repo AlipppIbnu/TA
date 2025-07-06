@@ -34,15 +34,6 @@ export default async function handler(req, res) {
     const vehicleData = await vehicleResponse.json();
     const vehicle = vehicleData.data;
 
-    // Log perintah ke tabel commands
-    const commandType = relay_status === 'ON' ? 'ENGINE_ON' : 'ENGINE_OFF';
-    await logCommand({
-      issued_by: issued_by || null,
-      command_type: commandType,
-      vehicle_id: vehicle.vehicle_id,
-      gps_id: vehicle.gps_id
-    });
-
     // Kirim perintah ke relay fisik
     const relayCommand = await sendRelayCommand(vehicle, relay_status);
     
@@ -194,40 +185,6 @@ async function verifyRelayStatus(vehicle, expectedStatus) {
     
     return { success: false, error: 'Verification failed' };
   } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-/**
- * Log perintah ke tabel commands
- */
-async function logCommand({ issued_by, command_type, vehicle_id, gps_id }) {
-  try {
-    const commandData = {
-      issued_by: issued_by,
-      command_type: command_type,
-      status: 'sent',
-      date_sent: new Date().toISOString(),
-      vehicle_id: vehicle_id,
-      gps_id: gps_id
-    };
-
-    const response = await fetch(directusConfig.endpoints.commands, {
-      method: 'POST',
-      headers: directusConfig.headers,
-      body: JSON.stringify(commandData)
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      return { success: true, data: result.data };
-    } else {
-      const errorData = await response.json();
-      console.error('Failed to log command:', errorData);
-      return { success: false, error: errorData };
-    }
-  } catch (error) {
-    console.error('Error logging command:', error);
     return { success: false, error: error.message };
   }
 } 

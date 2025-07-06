@@ -331,6 +331,33 @@ export default function Login() {
                     ) : (
                       /* OTP Form */
                       <form onSubmit={handleOtpVerification} className="space-y-6">
+                        {/* Error Message */}
+                        {error && (
+                          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                            <p className="text-red-600 text-sm text-center flex items-center justify-center">
+                              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                              </svg>
+                              {error}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Countdown Timer */}
+                        <div className="text-center mb-6">
+                          <p className="text-sm text-gray-600">
+                            Kode akan kedaluwarsa dalam:{' '}
+                            <span className={`font-semibold ${countdown < 60 ? 'text-red-600' : 'text-blue-600'}`}>
+                              {formatCountdown(countdown)}
+                            </span>
+                          </p>
+                          {countdown === 0 && (
+                            <p className="text-red-600 text-sm mt-2">
+                              Kode OTP telah kedaluwarsa. Silakan minta kode baru.
+                            </p>
+                          )}
+                        </div>
+
                         <div>
                           <label htmlFor="otp" className="block text-sm font-medium text-gray-700 mb-2">
                             Kode OTP
@@ -340,7 +367,7 @@ export default function Login() {
                             name="otp"
                             type="text"
                             placeholder="Masukkan 6 digit kode OTP"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-center text-2xl font-semibold tracking-widest"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-center text-xl font-mono tracking-widest"
                             value={otp}
                             onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                             maxLength="6"
@@ -352,51 +379,33 @@ export default function Login() {
                           </p>
                         </div>
 
-                        {/* OTP Buttons */}
-                        <div className="space-y-3">
-                          <button
-                            type="submit"
-                            className="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transform hover:-translate-y-0.5 transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={otpVerifying || otp.length !== 6}
-                          >
-                            {otpVerifying ? (
-                              <>
-                                <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
-                                Memverifikasi...
-                              </>
-                            ) : (
-                              'Verifikasi'
-                            )}
-                          </button>
+                        <button
+                          type="submit"
+                          disabled={otpVerifying || otp.length !== 6 || countdown === 0}
+                          className={`w-full py-3 font-semibold rounded-xl transition-all duration-200 ${
+                            (otpVerifying || otp.length !== 6 || countdown === 0)
+                              ? 'bg-gray-400 cursor-not-allowed' 
+                              : 'bg-blue-600 text-white hover:bg-blue-700 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg'
+                          }`}
+                        >
+                          {otpVerifying ? 'Memverifikasi...' : 'Verifikasi OTP'}
+                        </button>
 
+                        {/* Resend OTP */}
+                        <div className="text-center mt-6">
                           <button
                             type="button"
                             onClick={handleResendOtp}
-                            className="w-full py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                             disabled={countdown > 0 || otpSending}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                              countdown > 0
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed hover:bg-gray-100' 
+                                : otpSending
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                            }`}
                           >
-                            {otpSending ? (
-                              <>
-                                <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-gray-700 mr-2"></span>
-                                Mengirim...
-                              </>
-                            ) : countdown > 0 ? (
-                              `Kirim ulang dalam ${formatCountdown(countdown)}`
-                            ) : (
-                              'Kirim Ulang Kode OTP'
-                            )}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowOtpStep(false);
-                              setOtp("");
-                              setError(null);
-                            }}
-                            className="w-full py-3 text-gray-600 font-medium hover:text-gray-800 transition-all duration-200"
-                          >
-                            Kembali ke Login
+                            {otpSending ? 'Mengirim ulang...' : 'Kirim ulang OTP'}
                           </button>
                         </div>
                       </form>
