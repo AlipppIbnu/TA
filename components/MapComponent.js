@@ -766,15 +766,15 @@ const MapComponent = forwardRef(({
                           </div>
                           <div>
                             <span className="text-gray-500">Status:</span>
-                            <div className={`font-semibold ${
-                              (vehicle.position.speed || 0) > 0 ? 'text-green-600' : 'text-orange-600'
-                            }`}>
-                              {(vehicle.position.speed || 0) > 0 ? 'BERGERAK' : 'PARKIR'}
-                            </div>
+                                        <div className={`font-semibold ${
+              (vehicle.position.speed || 0) > 1 ? 'text-green-600' : 'text-orange-600'
+            }`}>
+              {(vehicle.position.speed || 0) > 1 ? 'BERGERAK' : 'PARKIR'}
+            </div>
                           </div>
                           {vehicle.position.ignition_status && (
                             <div>
-                              <span className="text-gray-500">Mesin:</span>
+                              <span className="text-gray-500">Ignition:</span>
                               <div className={`font-semibold ${
                                 vehicle.position.ignition_status === 'ON' ? 'text-green-600' : 'text-red-600'
                               }`}>

@@ -421,7 +421,7 @@ const SidebarComponent = ({
     }, 3000);
   };
 
-  // Fungsi untuk menyalakan mesin
+  // Fungsi untuk menyalakan ignition
   const handleEngineOn = async (vehicleId) => {
     const selectedVehicle = vehicles.find((v) => v.vehicle_id === vehicleId);
     if (!selectedVehicle) {
@@ -430,7 +430,7 @@ const SidebarComponent = ({
     }
 
     if (selectedVehicle.relay_status === 'ON') {
-      showRelayNotif(`Mesin kendaraan ${selectedVehicle.name} sudah dalam keadaan menyala`, "error");
+      showRelayNotif(`Ignition kendaraan ${selectedVehicle.name} sudah dalam keadaan menyala`, "error");
       return;
     }
 
@@ -473,7 +473,7 @@ const SidebarComponent = ({
         if (responseData.details && responseData.details.includes('relay fisik')) {
           showRelayNotif(`Gagal menghubungi relay kendaraan. Silakan coba lagi`, "error");
         } else {
-          showRelayNotif(`Gagal menyalakan mesin: ${responseData.error || 'Terjadi kesalahan'}`, "error");
+          showRelayNotif(`Gagal menyalakan ignition: ${responseData.error || 'Terjadi kesalahan'}`, "error");
         }
       }
     } catch {
@@ -484,7 +484,7 @@ const SidebarComponent = ({
     }
   };
 
-  // Fungsi untuk mematikan mesin
+  // Fungsi untuk mematikan ignition
   const handleEngineOff = async (vehicleId) => {
     const selectedVehicle = vehicles.find((v) => v.vehicle_id === vehicleId);
     if (!selectedVehicle) {
@@ -493,7 +493,7 @@ const SidebarComponent = ({
     }
 
     if (selectedVehicle.relay_status === 'OFF') {
-      showRelayNotif(`Mesin kendaraan ${selectedVehicle.name} sudah dalam keadaan mati`, "error");
+      showRelayNotif(`Ignition kendaraan ${selectedVehicle.name} sudah dalam keadaan mati`, "error");
       return;
     }
 
@@ -536,7 +536,7 @@ const SidebarComponent = ({
         if (responseData.details && responseData.details.includes('relay fisik')) {
           showRelayNotif(`Gagal menghubungi relay kendaraan. Silakan coba lagi`, "error");
         } else {
-          showRelayNotif(`Gagal mematikan mesin: ${responseData.error || 'Terjadi kesalahan'}`, "error");
+          showRelayNotif(`Gagal mematikan ignition: ${responseData.error || 'Terjadi kesalahan'}`, "error");
         }
       }
     } catch {
@@ -667,7 +667,7 @@ const SidebarComponent = ({
                           
                           {vehicle.relay_status && (
                             <p className="text-xs text-gray-600 mb-1">
-                              Mesin: {
+                              Ignition: {
                                 vehicle.relay_status === 'ON'
                                 ? <span className="text-green-600 font-semibold">ON</span>
                                 : <span className="text-red-600 font-semibold">OFF</span>
@@ -679,9 +679,9 @@ const SidebarComponent = ({
                           <div className="text-xs text-gray-600 mb-2">
                             <span className="text-blue-600 font-semibold">{latestVehicleData?.speed || 0} km/h</span>
                             <span className="mx-2">•</span>
-                            <span className={`font-semibold ${latestVehicleData?.speed > 0 ? 'text-green-600' : 'text-orange-600'}`}>
-                              {latestVehicleData?.speed > 0 ? 'BERGERAK' : 'PARKIR'}
-                            </span>
+                                        <span className={`font-semibold ${latestVehicleData?.speed > 1 ? 'text-green-600' : 'text-orange-600'}`}>
+              {latestVehicleData?.speed > 1 ? 'BERGERAK' : 'PARKIR'}
+            </span>
                           </div>
                           
                           {/* Button controls - More compact with both ON and OFF buttons */}
@@ -713,7 +713,7 @@ const SidebarComponent = ({
                                 vehicle.relay_status === 'ON' ? 'bg-gray-500' :
                                 'bg-green-500 hover:bg-green-600'
                               } text-white rounded text-center font-bold transition-colors duration-200 px-1.5 py-0.5 text-xs`}
-                              title={vehicle.relay_status === 'ON' ? 'Mesin sudah menyala' : 'Nyalakan mesin'}
+                              title={vehicle.relay_status === 'ON' ? 'Ignition sudah menyala' : 'Nyalakan ignition'}
                             >
                               {loadingVehicles[vehicle.vehicle_id] ? '...' : 'ON'}
                             </button>
@@ -730,7 +730,7 @@ const SidebarComponent = ({
                                 vehicle.relay_status === 'OFF' ? 'bg-gray-500' :
                                 'bg-red-500 hover:bg-red-600'
                               } text-white rounded text-center font-bold transition-colors duration-200 px-1.5 py-0.5 text-xs`}
-                              title={vehicle.relay_status === 'OFF' ? 'Mesin sudah mati' : 'Matikan mesin'}
+                              title={vehicle.relay_status === 'OFF' ? 'Ignition sudah mati' : 'Matikan ignition'}
                             >
                               {loadingVehicles[vehicle.vehicle_id] ? '...' : 'OFF'}
                             </button>
@@ -798,7 +798,7 @@ const SidebarComponent = ({
                 <p className="text-2xl font-bold text-green-600 mt-1">
                   {vehicles.filter(v => {
                     const data = getVehicleDataByGpsId(v.gps_id);
-                    return data?.speed > 0;
+                    return data?.speed > 1;
                   }).length}
                 </p>
               </div>
@@ -808,7 +808,7 @@ const SidebarComponent = ({
                 <p className="text-2xl font-bold text-orange-600 mt-1">
                   {vehicles.filter(v => {
                     const data = getVehicleDataByGpsId(v.gps_id);
-                    return data?.speed === 0 || !data;
+                    return data?.speed <= 1 || !data;
                   }).length}
                 </p>
               </div>
@@ -1403,10 +1403,10 @@ const SidebarComponent = ({
               
               <p className="mb-2 text-gray-700 text-sm">
                 {relayStatusChanged 
-                  ? `Status mesin kendaraan ${relayLoadingVehicleName} ${relayLoadingVehiclePlate} sudah ${relayLoadingAction}`
+                  ? `Status ignition kendaraan ${relayLoadingVehicleName} ${relayLoadingVehiclePlate} sudah ${relayLoadingAction}`
                   : (
                       <span>
-                        Sedang {relayLoadingAction === 'ON' ? 'menyalakan' : 'mematikan'} mesin kendaraan {relayLoadingVehicleName}
+                        Sedang {relayLoadingAction === 'ON' ? 'menyalakan' : 'mematikan'} ignition kendaraan {relayLoadingVehicleName}
                         <br />
                         <strong>{relayLoadingVehiclePlate}</strong>
                       </span>
