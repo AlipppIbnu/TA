@@ -4,7 +4,7 @@ import { Check, ChevronRight, Circle } from "lucide-react"
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 
-// Utility function dipindahkan dari lib/utils.ts untuk optimasi
+// Fungsi utilitas dipindahkan dari lib/utils.ts untuk optimasi
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }

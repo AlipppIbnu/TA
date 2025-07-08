@@ -1,25 +1,25 @@
-/* styles/globals.css */
+/* styles/globals.css - Gaya global aplikasi */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Map Container Styles */
+/* Gaya kontainer peta */
 .map-container {
   position: relative !important;
   z-index: 1 !important;
 }
 
-/* Ensure map is clickable during drawing mode */
+/* Pastikan peta dapat diklik selama mode drawing */
 .map-container.leaflet-container {
   pointer-events: auto !important;
 }
 
-/* Drawing mode specific styles */
+/* Gaya khusus untuk mode drawing */
 .drawing-mode .map-container {
   z-index: 1 !important;
 }
 
-/* Ensure map events work properly */
+/* Pastikan event peta berfungsi dengan baik */
 .leaflet-map-pane {
   pointer-events: auto !important;
 }
@@ -28,7 +28,7 @@
   pointer-events: auto !important;
 }
 
-/* Modal styles for drawing mode */
+/* Gaya modal untuk mode drawing */
 .drawing-modal {
   pointer-events: none !important;
 }

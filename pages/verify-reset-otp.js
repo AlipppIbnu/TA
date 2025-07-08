@@ -18,20 +18,23 @@ export default function VerifyResetOTP() {
     if (emailFromQuery) {
       setEmail(emailFromQuery);
     }
-
-    // Countdown timer
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
   }, [router.query.email]);
+
+  // Separate useEffect for countdown timer that restarts when countdown changes
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+  }, [countdown]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);

@@ -11,9 +11,9 @@ export default async function handler(req, res) {
   const clientIP = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
 
   // Rate limiting untuk verifikasi OTP
-  if (!checkRateLimit(`verify_${clientIP}`, 10, 300000)) {
+  if (!checkRateLimit(`verify_${clientIP}`, 5, 600000)) {
     return res.status(429).json({ 
-      message: 'Terlalu banyak percobaan verifikasi. Coba lagi dalam 5 menit.' 
+      message: 'Terlalu banyak percobaan verifikasi. Coba lagi dalam 10 menit.' 
     });
   }
 

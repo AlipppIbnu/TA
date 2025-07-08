@@ -35,13 +35,18 @@ export default function Login() {
 
   // Countdown timer untuk resend OTP
   useEffect(() => {
-    let timer;
     if (countdown > 0) {
-      timer = setTimeout(() => {
-        setCountdown(countdown - 1);
+      const timer = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            return 0;
+          }
+          return prev - 1;
+        });
       }, 1000);
+
+      return () => clearInterval(timer);
     }
-    return () => clearTimeout(timer);
   }, [countdown]);
 
   const handleLogin = async (e) => {

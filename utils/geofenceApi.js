@@ -42,7 +42,7 @@ export async function fetchAlerts({ limit = 20, sort = '-alert_id', since_id } =
  * @returns {Promise<Object>} - Response dari API
  */
 export async function saveAlert(alertData) {
-  // Only save alerts for violations
+  // Hanya simpan alert untuk pelanggaran
   if (alertData.alert_type !== 'violation_enter' && alertData.alert_type !== 'violation_exit') {
     return {
       success: true,
@@ -96,7 +96,7 @@ export function generateAlertMessage(eventType, vehicleData, geofenceData) {
     case 'violation_exit':
       return `PELANGGARAN: Kendaraan ${vehicleName} keluar dari geofence ${geofenceName} (${ruleType})`;
     default:
-      // This shouldn't happen with new filtering, but just in case
+      // Ini tidak seharusnya terjadi dengan filtering baru, tapi sebagai jaga-jaga
       return `PELANGGARAN: Kendaraan ${vehicleName} pada geofence ${geofenceName}`;
   }
 }
@@ -151,10 +151,10 @@ export async function handleGeofenceViolation({
       alert_message: generateAlertMessage(finalEventType, vehicle, geofence),
       lokasi: vehicle.position ? `${vehicle.position.lat}, ${vehicle.position.lng}` : null,
       timestamp: timestamp,
-      user_id: user_id // Add user_id for API validation
+      user_id: user_id // Tambahkan user_id untuk validasi API
     };
 
-    // Simpan alert (hanya untuk violation - filtered in saveAlert function)
+    // Simpan alert (hanya untuk violation - difilter di fungsi saveAlert)
     const alertResult = await saveAlert(alertData);
 
     return {
