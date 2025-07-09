@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Popup, Polygon, Polyline, Circle, useMap, useM
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useMemo, useCallback } from "react";
 import { useWebSocket } from '@/lib/hooks/useWebSocket';
 import L from "leaflet";
-import { getGeofenceStatus } from "@/utils/geofenceUtils";
+import { getGeofenceStatus, formatSpeedDisplay, calculateTotalDistance } from "@/utils/geofenceUtils";
 import { createPortal } from 'react-dom';
 import AnimatedMarker from './AnimatedMarker';
 
@@ -755,7 +755,7 @@ const MapComponent = forwardRef(({
                           <div>
                             <span className="text-gray-500">Kecepatan:</span>
                             <div className="font-semibold text-blue-600">
-                              {vehicle.position.speed || 0} km/h
+                              {formatSpeedDisplay(vehicle.position.speed)} km/h
                             </div>
                           </div>
                           <div>
@@ -767,9 +767,9 @@ const MapComponent = forwardRef(({
                           <div>
                             <span className="text-gray-500">Status:</span>
                                         <div className={`font-semibold ${
-              (vehicle.position.speed || 0) > 1 ? 'text-green-600' : 'text-orange-600'
+              formatSpeedDisplay(vehicle.position.speed) > 0 ? 'text-green-600' : 'text-orange-600'
             }`}>
-              {(vehicle.position.speed || 0) > 1 ? 'BERGERAK' : 'PARKIR'}
+              {formatSpeedDisplay(vehicle.position.speed) > 0 ? 'BERGERAK' : 'BERHENTI'}
             </div>
                           </div>
                           {vehicle.position.ignition_status && (
@@ -818,6 +818,19 @@ const MapComponent = forwardRef(({
                         <div className="text-xs text-gray-500 italic">Tidak ada geofence</div>
                       )}
                     </div>
+
+                    {/* Travel Distance - only show if this vehicle is selected and has path data */}
+                    {selectedVehicle && selectedVehicle.vehicle_id === vehicle.vehicle_id && 
+                     selectedVehicle.path && selectedVehicle.path.length > 1 && (
+                      <div className="bg-purple-50 p-1.5 rounded-md mb-2">
+                        <div className="font-semibold text-gray-700 mb-1 text-xs">Jarak Perjalanan</div>
+                        <div className="px-1.5 py-1 rounded border-l-4 border-purple-500 bg-purple-100">
+                          <div className="text-xs font-medium text-purple-800">
+                            <span className="font-semibold">Total Jarak:</span> {calculateTotalDistance(selectedVehicle.path)} km
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   
                     {/* ENHANCED: Timestamp */}
                     <div className="border-t border-gray-200 pt-1 text-center">

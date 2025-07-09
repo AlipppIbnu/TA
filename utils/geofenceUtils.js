@@ -206,3 +206,53 @@ export function getGeofenceStatus(vehicle, geofences) {
   
   return finalResult;
 } 
+
+/**
+ * Calculate total distance traveled from a path array
+ * @param {Array} path - Array of coordinates [{lat, lng}, {lat, lng}, ...]
+ * @returns {number} - Total distance in kilometers
+ */
+export const calculateTotalDistance = (path) => {
+  if (!path || !Array.isArray(path) || path.length < 2) {
+    return 0;
+  }
+  
+  let totalDistance = 0;
+  
+  for (let i = 0; i < path.length - 1; i++) {
+    const point1 = path[i];
+    const point2 = path[i + 1];
+    
+    // Validate coordinates
+    if (point1 && point2 && 
+        typeof point1.lat === 'number' && typeof point1.lng === 'number' &&
+        typeof point2.lat === 'number' && typeof point2.lng === 'number' &&
+        !isNaN(point1.lat) && !isNaN(point1.lng) &&
+        !isNaN(point2.lat) && !isNaN(point2.lng)) {
+      
+      const distance = calculateDistance(point1.lat, point1.lng, point2.lat, point2.lng);
+      totalDistance += distance;
+    }
+  }
+  
+  // Convert meters to kilometers and round to 2 decimal places
+  return Math.round((totalDistance / 1000) * 100) / 100;
+};
+
+/**
+ * Format speed display with threshold logic
+ * - Speed 1-5 km/h: display 0
+ * - Speed > 5 km/h: display actual speed
+ * - Speed 0 or null/undefined: display 0
+ */
+export const formatSpeedDisplay = (speed) => {
+  const numericSpeed = parseFloat(speed) || 0;
+  
+  // If speed is between 1-5 km/h, display as 0
+  if (numericSpeed >= 1 && numericSpeed <= 5) {
+    return 0;
+  }
+  
+  // Otherwise display actual speed
+  return Math.round(numericSpeed);
+}; 

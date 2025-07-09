@@ -6,6 +6,7 @@ import Image from "next/image";
 import { getCurrentUser, logout } from "@/lib/authService";
 import { useWebSocket } from '@/lib/hooks/useWebSocket';
 import { useRouter } from "next/router";
+import { formatSpeedDisplay } from "@/utils/geofenceUtils";
 
 // Modal History Date Range
 function ModalHistoryDateRange({ onClose, onSelectDateRange }) {
@@ -677,10 +678,10 @@ const SidebarComponent = ({
                           
                           {/* Data kendaraan real-time - Kompakt */}
                           <div className="text-xs text-gray-600 mb-2">
-                            <span className="text-blue-600 font-semibold">{latestVehicleData?.speed || 0} km/h</span>
+                            <span className="text-blue-600 font-semibold">{formatSpeedDisplay(latestVehicleData?.speed)} km/h</span>
                             <span className="mx-2">•</span>
-                                        <span className={`font-semibold ${latestVehicleData?.speed > 1 ? 'text-green-600' : 'text-orange-600'}`}>
-              {latestVehicleData?.speed > 1 ? 'BERGERAK' : 'PARKIR'}
+                                        <span className={`font-semibold ${formatSpeedDisplay(latestVehicleData?.speed) > 0 ? 'text-green-600' : 'text-orange-600'}`}>
+              {formatSpeedDisplay(latestVehicleData?.speed) > 0 ? 'BERGERAK' : 'BERHENTI'}
             </span>
                           </div>
                           
@@ -798,17 +799,17 @@ const SidebarComponent = ({
                 <p className="text-2xl font-bold text-green-600 mt-1">
                   {vehicles.filter(v => {
                     const data = getVehicleDataByGpsId(v.gps_id);
-                    return data?.speed > 1;
+                    return formatSpeedDisplay(data?.speed) > 0;
                   }).length}
                 </p>
               </div>
               
               <div className="bg-orange-50 p-4 rounded-lg">
-                <h4 className="text-sm font-medium text-orange-900">Kendaraan Parkir</h4>
+                <h4 className="text-sm font-medium text-orange-900">Kendaraan Berhenti</h4>
                 <p className="text-2xl font-bold text-orange-600 mt-1">
                   {vehicles.filter(v => {
                     const data = getVehicleDataByGpsId(v.gps_id);
-                    return data?.speed <= 1 || !data;
+                    return formatSpeedDisplay(data?.speed) <= 0 || !data;
                   }).length}
                 </p>
               </div>
