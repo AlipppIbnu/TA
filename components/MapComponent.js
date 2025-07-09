@@ -21,11 +21,22 @@ const HistoryPath = ({ path }) => {
 
   if (validPath.length < 2) return null;
 
+  // Urutkan berdasarkan timestamp untuk memastikan titik awal dan akhir benar
+  const sortedPath = [...validPath].sort((a, b) => {
+    if (a.timestamp && b.timestamp) {
+      return new Date(a.timestamp) - new Date(b.timestamp);
+    }
+    return 0;
+  });
+
+  // Gunakan sortedPath jika ada timestamp, jika tidak gunakan validPath
+  const finalPath = sortedPath.length > 0 && sortedPath[0].timestamp ? sortedPath : validPath;
+
   return (
     <>
       {/* Garis riwayat */}
       <Polyline
-        positions={validPath.map(coord => [coord.lat, coord.lng])}
+        positions={finalPath.map(coord => [coord.lat, coord.lng])}
         pathOptions={{
           color: "blue",
           weight: 3,
@@ -33,28 +44,30 @@ const HistoryPath = ({ path }) => {
         }}
       />
 
-      {/* Titik awal (Hijau) */}
+      {/* Titik awal (Hijau) - titik pertama secara kronologis */}
       <Circle
-        center={[validPath[0].lat, validPath[0].lng]}
-        radius={8}
+        center={[finalPath[0].lat, finalPath[0].lng]}
+        radius={10}
         pathOptions={{
           color: "green",
           fillColor: "green",
-          fillOpacity: 1
+          fillOpacity: 1,
+          weight: 2
         }}
       />
 
-      {/* Titik akhir (Merah) */}
+      {/* Titik akhir (Merah) - titik terakhir secara kronologis */}
       <Circle
         center={[
-          validPath[validPath.length - 1].lat,
-          validPath[validPath.length - 1].lng
+          finalPath[finalPath.length - 1].lat,
+          finalPath[finalPath.length - 1].lng
         ]}
-        radius={8}
+        radius={10}
         pathOptions={{
           color: "red",
           fillColor: "red",
-          fillOpacity: 1
+          fillOpacity: 1,
+          weight: 2
         }}
       />
     </>
