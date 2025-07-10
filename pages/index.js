@@ -196,12 +196,7 @@ export default function Home() {
                 <h2 className="text-4xl font-bold text-gray-900">Everything You Need to Manage Your Fleet</h2>
                 <p className="mt-4 text-lg text-gray-600">From real-time tracking to in-depth analytics, we&apos;ve got you covered.</p>
               </div>
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-                <FeatureCard 
-                  icon="🚚"
-                  title="Smart Route Planning"
-                  description="Optimize multi-stop deliveries in real-time."
-                />
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                 <FeatureCard 
                   icon="📍"
                   title="Live GPS Tracking"
