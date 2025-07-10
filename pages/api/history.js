@@ -23,7 +23,7 @@ export default async function handler(req, res) {
     // Konstruksi URL API untuk mengambil data historis berdasarkan gps_id spesifik
     const API_URL = `${directusConfig.baseURL}/items/vehicle_datas?${filter}&sort=-timestamp&limit=-1`;
     
-    // console.log(`History API URL: ${API_URL}`); // Removed debugging log
+    // console.log(`History API URL: ${API_URL}`); // Log debugging dihapus
 
     const response = await fetch(API_URL, {
       headers: directusConfig.headers,
@@ -43,7 +43,7 @@ export default async function handler(req, res) {
 
     const data = await response.json();
     
-    // console.log(`History API: Retrieved ${data.data?.length || 0} records for gps_id ${gps_id}`); // Removed debugging log
+    // console.log(`History API: Retrieved ${data.data?.length || 0} records for gps_id ${gps_id}`); // Log debugging dihapus
 
     // Transform dan filter koordinat yang valid
     const transformedData = {
@@ -67,7 +67,7 @@ export default async function handler(req, res) {
         })) || []
     };
 
-    // console.log(`History API: Returning ${transformedData.data.length} valid coordinates`); // Removed debugging log
+    // console.log(`History API: Returning ${transformedData.data.length} valid coordinates`); // Log debugging dihapus
 
     return res.status(200).json({
       success: true,

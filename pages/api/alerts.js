@@ -113,7 +113,7 @@ export default async function handler(req, res) {
     // Siapkan data untuk Directus
     const directusData = {
       vehicle_id: vehicle_id,
-      alert_type: alert_type, // violation_enter, violation_exit, etc
+      alert_type: alert_type, // violation_enter, violation_exit, dll
       alert_message: alert_message,
       lokasi: lokasi || null,
       timestamp: timestamp || new Date().toISOString()

@@ -1,12 +1,12 @@
 // utils/geofenceApi.js - Utility functions untuk mengirim data geofence events dan alerts
 
 /**
- * Fetch alerts from Directus via local API
- * @param {Object} params - Query parameters
- * @param {number} params.limit - Number of alerts to fetch
- * @param {string} params.sort - Sort order
- * @param {number} params.since_id - Get alerts since this ID
- * @returns {Promise<Object>} - Response from API
+ * Ambil alerts dari Directus melalui API lokal
+ * @param {Object} params - Parameter query
+ * @param {number} params.limit - Jumlah alerts yang akan diambil
+ * @param {string} params.sort - Urutan pengurutan
+ * @param {number} params.since_id - Ambil alerts sejak ID ini
+ * @returns {Promise<Object>} - Response dari API
  */
 export async function fetchAlerts({ limit = 20, sort = '-alert_id', since_id } = {}) {
   try {

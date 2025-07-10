@@ -379,7 +379,7 @@ const DrawingHandler = forwardRef((props, ref) => {
 
 DrawingHandler.displayName = 'DrawingHandler';
 
-// Main MapComponent with enhanced real-time GPS positioning
+// MapComponent utama dengan positioning GPS real-time yang ditingkatkan
 const MapComponent = forwardRef(({ 
   vehicles, 
   selectedVehicle, 
@@ -405,9 +405,9 @@ const MapComponent = forwardRef(({
   // ENHANCED: Gunakan WebSocket untuk real-time updates dengan monitoring yang lebih baik
   const { data: wsData, isConnected, getConnectionStats } = useWebSocket();
 
-  // REAL-TIME GEOFENCE NOTIFICATIONS: Use detection function from Dashboard
-  // Note: MapComponent uses the checkVehicleGeofenceViolations function passed as prop
-  // from Dashboard to ensure notifications are added to the correct state
+  // NOTIFIKASI GEOFENCE REAL-TIME: Gunakan fungsi deteksi dari Dashboard
+  // Catatan: MapComponent menggunakan fungsi checkVehicleGeofenceViolations yang diteruskan sebagai prop
+  // dari Dashboard untuk memastikan notifikasi ditambahkan ke state yang benar
 
   // Monitor WebSocket connection status dengan lebih detail
   useEffect(() => {
@@ -483,7 +483,7 @@ const MapComponent = forwardRef(({
     return result;
   }, [vehicles, wsData]);
 
-  // REAL-TIME GEOFENCE VIOLATION DETECTION using WebSocket data (after updatedVehicles is defined)
+  // DETEKSI PELANGGARAN GEOFENCE REAL-TIME menggunakan data WebSocket (setelah updatedVehicles didefinisikan)
   useEffect(() => {
     if (!checkVehicleGeofenceViolations) {
       console.warn('⚠️ MapComponent: checkVehicleGeofenceViolations function not provided as prop');
@@ -508,7 +508,7 @@ const MapComponent = forwardRef(({
         }))
       });
       
-      // Call real-time detection using WebSocket-updated vehicle data
+      // Panggil deteksi real-time menggunakan data kendaraan yang diperbarui WebSocket
       checkVehicleGeofenceViolations(updatedVehicles, allGeofences);
     } else {
       console.log('⚠️ MapComponent: Skipping geofence detection:', {
@@ -530,28 +530,28 @@ const MapComponent = forwardRef(({
           readyState: stats.readyState
         });
       }
-    }, 30000); // Log every 30 seconds
+    }, 30000); // Log setiap 30 detik
 
     return () => clearInterval(interval);
   }, [isConnected, getConnectionStats]);
 
-  // Initial map center calculation - Default ke Indonesia
+  // Perhitungan pusat peta awal - Default ke Indonesia
   const initialCenter = useMemo(() => {
     // Koordinat pusat Indonesia (Jakarta)
     return [-6.2088, 106.8456];
   }, []);
 
-  // ENHANCED: Expose functions to parent dengan posisi real-time
+  // DITINGKATKAN: Ekspos fungsi ke parent dengan posisi real-time
   useImperativeHandle(ref, () => ({
     flyToVehicle: (vehicleIdOrPosition) => {
-      // FIXED: Support both vehicle ID dan direct position
+      // DIPERBAIKI: Dukung ID kendaraan dan posisi langsung
       if (Array.isArray(vehicleIdOrPosition)) {
-        // Direct position array [lat, lng]
+        // Array posisi langsung [lat, lng]
         console.log('🎯 Flying to direct position:', vehicleIdOrPosition);
         setFlyToPositionWhenSelected(vehicleIdOrPosition);
         lastFlyEventRef.current = 'manual_direct_position';
       } else {
-        // Vehicle ID - cari posisi real-time terlebih dahulu
+        // ID Kendaraan - cari posisi real-time terlebih dahulu
         const vehicleId = vehicleIdOrPosition;
         const vehicle = updatedVehicles.find(v => v.vehicle_id === vehicleId);
         
@@ -567,7 +567,7 @@ const MapComponent = forwardRef(({
     }
   }), [updatedVehicles]);
 
-  // ENHANCED: Handle selectedVehicle changes dengan posisi real-time
+  // DITINGKATKAN: Tangani perubahan selectedVehicle dengan posisi real-time
   useEffect(() => {
     if (!selectedVehicle) {
       return;
@@ -578,7 +578,7 @@ const MapComponent = forwardRef(({
     if (isNewVehicleSelected) {
       setSelectedVehicleId(selectedVehicle.vehicle_id);
       
-      // FIXED: Selalu fly ke kendaraan yang dipilih (karena sekarang tidak ada auto-selection di dashboard)
+      // DIPERBAIKI: Selalu fly ke kendaraan yang dipilih (karena sekarang tidak ada auto-selection di dashboard)
       const realtimeVehicle = updatedVehicles.find(v => v.vehicle_id === selectedVehicle.vehicle_id);
       
       if (realtimeVehicle && realtimeVehicle.position) {
@@ -705,16 +705,16 @@ const MapComponent = forwardRef(({
             }
           }
 
-          // Check if GPS is online based on last update timestamp
+          // Cek apakah GPS online berdasarkan timestamp update terakhir
           const isGpsOnline = vehicle.position && vehicle.position.timestamp && 
-            (new Date() - new Date(vehicle.position.timestamp)) < 5 * 60 * 1000; // 5 minutes threshold
+                          (new Date() - new Date(vehicle.position.timestamp)) < 5 * 60 * 1000; // Threshold 5 menit
         
           return vehicle.position ? (
             <AnimatedMarker
               key={`vehicle-${vehicle.vehicle_id}-${vehicle.position.updateId || vehicle.position.timestamp}`}
               position={[vehicle.position.lat, vehicle.position.lng]}
               icon={vehicleIcon}
-              duration={1000} // Smooth animation duration
+              duration={1000} // Durasi animasi halus
             >
               <Popup maxWidth={200}>
                 <div className="p-1.5 font-sans">

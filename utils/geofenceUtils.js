@@ -208,9 +208,9 @@ export function getGeofenceStatus(vehicle, geofences) {
 } 
 
 /**
- * Calculate total distance traveled from a path array
- * @param {Array} path - Array of coordinates [{lat, lng}, {lat, lng}, ...]
- * @returns {number} - Total distance in kilometers
+ * Hitung total jarak yang ditempuh dari array path
+ * @param {Array} path - Array koordinat [{lat, lng}, {lat, lng}, ...]
+ * @returns {number} - Total jarak dalam kilometer
  */
 export const calculateTotalDistance = (path) => {
   if (!path || !Array.isArray(path) || path.length < 2) {
@@ -223,7 +223,7 @@ export const calculateTotalDistance = (path) => {
     const point1 = path[i];
     const point2 = path[i + 1];
     
-    // Validate coordinates
+    // Validasi koordinat
     if (point1 && point2 && 
         typeof point1.lat === 'number' && typeof point1.lng === 'number' &&
         typeof point2.lat === 'number' && typeof point2.lng === 'number' &&
@@ -235,24 +235,24 @@ export const calculateTotalDistance = (path) => {
     }
   }
   
-  // Convert meters to kilometers and round to 2 decimal places
+  // Konversi meter ke kilometer dan bulatkan ke 2 desimal
   return Math.round((totalDistance / 1000) * 100) / 100;
 };
 
 /**
- * Format speed display with threshold logic
- * - Speed 1-5 km/h: display 0
- * - Speed > 5 km/h: display actual speed
- * - Speed 0 or null/undefined: display 0
+ * Format tampilan kecepatan dengan logika threshold
+ * - Kecepatan 1-5 km/h: tampilkan 0
+ * - Kecepatan > 5 km/h: tampilkan kecepatan sebenarnya
+ * - Kecepatan 0 atau null/undefined: tampilkan 0
  */
 export const formatSpeedDisplay = (speed) => {
   const numericSpeed = parseFloat(speed) || 0;
   
-  // If speed is between 1-5 km/h, display as 0
+  // Jika kecepatan antara 1-5 km/h, tampilkan sebagai 0
   if (numericSpeed >= 1 && numericSpeed <= 5) {
     return 0;
   }
   
-  // Otherwise display actual speed
+  // Jika tidak, tampilkan kecepatan sebenarnya
   return Math.round(numericSpeed);
 }; 
