@@ -465,6 +465,7 @@ const MapComponent = forwardRef(({
                 ignition_status: update.ignition_status,
                 battery_level: update.battery_level,
                 fuel_level: update.fuel_level,
+                satellites_used: update.satellites_used || null, // Tambahkan satellites_used
               isFirstLoad, // Flag untuk AnimatedMarker
               updateId: `${newLat.toFixed(6)},${newLng.toFixed(6)},${update.timestamp}` // Identifier unik
             };
@@ -705,9 +706,21 @@ const MapComponent = forwardRef(({
             }
           }
 
-          // Cek apakah GPS online berdasarkan timestamp update terakhir
-          const isGpsOnline = vehicle.position && vehicle.position.timestamp && 
-                          (new Date() - new Date(vehicle.position.timestamp)) < 5 * 60 * 1000; // Threshold 5 menit
+          // Cek status GPS berdasarkan timestamp update terakhir
+          let gpsStatus = 'DISCONNECT';
+          let gpsStatusColor = 'text-red-600';
+          if (vehicle.position && vehicle.position.timestamp) {
+            const now = new Date();
+            const lastUpdate = new Date(vehicle.position.timestamp);
+            const diffMs = now - lastUpdate;
+            if (diffMs < 5 * 60 * 1000) {
+              gpsStatus = 'CONNECT';
+              gpsStatusColor = 'text-green-600';
+            } else if (diffMs < 60 * 60 * 1000) {
+              gpsStatus = 'CONNECT (IDLE)';
+              gpsStatusColor = 'text-green-600'; 
+            }
+          }
         
           return vehicle.position ? (
             <AnimatedMarker
@@ -773,8 +786,14 @@ const MapComponent = forwardRef(({
                           </div>
                           <div>
                             <span className="text-gray-500">Status GPS:</span>
-                            <div className={`font-semibold ${isGpsOnline ? 'text-green-600' : 'text-red-600'}`}>
-                              {isGpsOnline ? 'ONLINE' : 'OFFLINE'}
+                            <div className={`font-semibold ${gpsStatusColor}`}>
+                              {gpsStatus}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Satelit:</span>
+                            <div className="font-semibold text-blue-600">
+                              {vehicle.position.satellites_used !== undefined && vehicle.position.satellites_used !== null ? vehicle.position.satellites_used : '-'}
                             </div>
                           </div>
                           <div>

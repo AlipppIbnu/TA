@@ -13,6 +13,9 @@ const nextConfig: NextConfig = {
   //     },
   //   ];
   // },
+
+  // Favicon web menggunakan logo_web.png yang sudah dikonversi menjadi favicon.ico dan diletakkan di folder public
+  // Tidak perlu konfigurasi tambahan jika file favicon.ico sudah ada di public
 };
 
 export default nextConfig;
