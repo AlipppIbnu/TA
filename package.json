@@ -27,7 +27,6 @@
     "firebase": "^11.3.1",
     "firebase-admin": "^13.4.0",
     "http-proxy-middleware": "^3.0.5",
-    "ioredis": "^5.6.1",
     "js-cookie": "^3.0.5",
     "leaflet": "^1.9.4",
     "leaflet-draw": "^1.0.4",

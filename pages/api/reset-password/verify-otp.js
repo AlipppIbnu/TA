@@ -1,8 +1,17 @@
-import { restRedis } from '../../../lib/redis.js';
+import redisClient from '../../../lib/redis.js';
 import { checkRateLimit } from '../../../lib/rate-limit.js';
 import crypto from 'crypto';
 
 export default async function handler(req, res) {
+  console.log('🔍 Reset Password Verify OTP Request:', {
+    method: req.method,
+    body: req.body,
+    headers: {
+      'x-forwarded-for': req.headers['x-forwarded-for'],
+      'connection': req.connection?.remoteAddress
+    }
+  });
+
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
@@ -29,16 +38,32 @@ export default async function handler(req, res) {
   try {
     try {
       // Ambil OTP dari Redis
-      const storedOtp = await restRedis.get(`reset_${email}`);
+      const redisKey = `reset_${email}`;
+      console.log('📦 Checking Redis key:', redisKey);
+      
+      const storedOtp = await redisClient.get(redisKey);
+      console.log('🔐 OTP comparison:', {
+        storedOtp,
+        storedType: typeof storedOtp,
+        receivedOtp: otp,
+        receivedType: typeof otp,
+        redisKey
+      });
 
       if (!storedOtp) {
+        console.log('❌ No OTP found in Redis');
         return res.status(400).json({ 
           message: 'Kode OTP telah kedaluwarsa atau tidak ditemukan',
           expired: true 
         });
       }
 
-      if (storedOtp !== otp) {
+      // Convert both to string for comparison
+      const storedOtpString = String(storedOtp);
+      const receivedOtpString = String(otp);
+      
+      if (storedOtpString !== receivedOtpString) {
+        console.log('❌ OTP mismatch:', { stored: storedOtpString, received: receivedOtpString });
         return res.status(400).json({ message: 'Kode OTP tidak valid' });
       }
 
@@ -47,10 +72,10 @@ export default async function handler(req, res) {
       
       try {
         // Store reset token dengan expiry 5 menit
-        await restRedis.setex(`reset_token_${email}`, 300, resetToken);
+        await redisClient.setex(`reset_token_${email}`, 300, resetToken);
         
         // Hapus OTP setelah verifikasi berhasil
-        await restRedis.del(`reset_${email}`);
+        await redisClient.del(`reset_${email}`);
 
         return res.status(200).json({ 
           message: 'Kode OTP berhasil diverifikasi',
@@ -75,4 +100,4 @@ export default async function handler(req, res) {
       message: 'Terjadi kesalahan saat memverifikasi OTP' 
     });
   }
-} 
+}

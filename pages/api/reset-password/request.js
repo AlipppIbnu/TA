@@ -1,4 +1,4 @@
-import { restRedis } from '../../../lib/redis.js';
+import redisClient from '../../../lib/redis.js';
 import { sendOTPEmail } from '../../../lib/email.js';
 import { checkRateLimit } from '../../../lib/rate-limit.js';
 import directusConfig from '../../../lib/directusConfig.js';
@@ -53,7 +53,7 @@ export default async function handler(req, res) {
       const otp = crypto.randomInt(100000, 999999).toString();
       
       // Simpan OTP di Redis dengan expiry 1 menit (60 detik)
-      await restRedis.setex(`reset_${email}`, 60, otp);
+      await redisClient.setex(`reset_${email}`, 60, otp);
 
       try {
         // Kirim email OTP
@@ -66,7 +66,7 @@ export default async function handler(req, res) {
       } catch (emailError) {
         console.error('Email sending error:', emailError);
         // Hapus OTP jika gagal mengirim email
-        await restRedis.del(`reset_${email}`);
+        await redisClient.del(`reset_${email}`);
         return res.status(500).json({ 
           message: 'Gagal mengirim email OTP. Silakan coba lagi.' 
         });
@@ -83,4 +83,4 @@ export default async function handler(req, res) {
       message: 'Terjadi kesalahan. Silakan coba lagi.' 
     });
   }
-} 
+}

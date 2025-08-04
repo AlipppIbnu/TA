@@ -1,9 +1,20 @@
-import { restRedis } from '../../../lib/redis.js';
+import redisClient from '../../../lib/redis.js';
 import { checkRateLimit } from '../../../lib/rate-limit.js';
 import directusConfig from '../../../lib/directusConfig.js';
 import bcrypt from 'bcryptjs';
 
 export default async function handler(req, res) {
+  console.log('🔍 Reset Password Update Request:', {
+    method: req.method,
+    body: {
+      email: req.body.email,
+      hasNewPassword: !!req.body.newPassword,
+      passwordLength: req.body.newPassword?.length,
+      hasResetToken: !!req.body.resetToken,
+      resetTokenLength: req.body.resetToken?.length
+    }
+  });
+
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
@@ -29,9 +40,19 @@ export default async function handler(req, res) {
 
   try {
     // Verify reset token
-    const storedToken = await restRedis.get(`reset_token_${email}`);
+    const tokenKey = `reset_token_${email}`;
+    console.log('📦 Checking reset token with key:', tokenKey);
+    
+    const storedToken = await redisClient.get(tokenKey);
+    console.log('🔐 Token comparison:', {
+      hasStoredToken: !!storedToken,
+      storedTokenLength: storedToken?.length,
+      receivedTokenLength: resetToken?.length,
+      tokenMatch: storedToken === resetToken
+    });
     
     if (!storedToken || storedToken !== resetToken) {
+      console.log('❌ Token invalid or expired');
       return res.status(400).json({ 
         message: 'Token reset tidak valid atau telah kedaluwarsa' 
       });
@@ -75,7 +96,7 @@ export default async function handler(req, res) {
     }
 
     // Hapus reset token
-    await restRedis.del(`reset_token_${email}`);
+    await redisClient.del(`reset_token_${email}`);
 
     return res.status(200).json({ 
       message: 'Password berhasil diperbarui',
@@ -87,4 +108,4 @@ export default async function handler(req, res) {
       message: 'Terjadi kesalahan saat memperbarui password' 
     });
   }
-} 
+}

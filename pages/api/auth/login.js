@@ -1,14 +1,7 @@
-// pages/api/auth/login.js
-
-import { Redis } from "@upstash/redis";
+// pages/api/auth/login.js - Login handler with device verification
+import redisClient from "../../../lib/redis";
 import directusConfig from "../../../lib/directusConfig";
 import bcrypt from 'bcryptjs';
-
-// Initialize Upstash Redis for device storage
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN,
-});
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -69,13 +62,12 @@ export default async function handler(req, res) {
       const deviceKey = `device:${user.users_id}:${deviceId}`;
       
       try {
-        const deviceData = await redis.get(deviceKey);
+        const deviceData = await redisClient.get(deviceKey);
         
         if (deviceData) {
           requireOtp = false;
           
           // Update last used timestamp
-          // deviceData dari Redis bisa berupa string atau object
           let parsedDeviceData;
           if (typeof deviceData === 'string') {
             parsedDeviceData = JSON.parse(deviceData);
@@ -83,7 +75,7 @@ export default async function handler(req, res) {
             parsedDeviceData = deviceData;
           }
           
-          await redis.setex(deviceKey, 2592000, JSON.stringify({
+          await redisClient.setex(deviceKey, 2592000, JSON.stringify({
             ...parsedDeviceData,
             lastUsed: new Date().toISOString()
           }));
@@ -98,7 +90,6 @@ export default async function handler(req, res) {
     // If device is recognized, return success without OTP
     if (!requireOtp) {
       // Return user data without password_hash
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password_hash, ...userWithoutPassword } = user;
       
       return res.status(200).json({

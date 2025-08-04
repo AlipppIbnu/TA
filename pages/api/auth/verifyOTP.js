@@ -1,130 +1,177 @@
-// pages/api/auth/generateOTP.js
-import { Redis } from "@upstash/redis";
+// pages/api/auth/verifyOTP.js - Verify OTP for both device verification and reset password
+import redisClient from "../../../lib/redis";
 import crypto from "crypto";
-import nodemailer from "nodemailer";
-
-// Initialize Upstash Redis
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN,
-});
 
 export default async function handler(req, res) {
-  console.log("🚀 Generate OTP API called");
-
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed", success: false });
   }
 
-  const { email, userId } = req.body;
-  console.log("📨 Request data:", { email, userId });
+  const { email, userId, otp, type = "device" } = req.body; // type: "device" or "reset_password"
 
-  if (!email || !userId) {
-    return res
-      .status(400)
-      .json({ message: "Email and userId are required", success: false });
+  // Debug logging
+  console.log("🔍 Verify OTP Request:", {
+    email,
+    userId,
+    otp,
+    type,
+    bodyReceived: req.body
+  });
+
+  if (!email || !otp) {
+    return res.status(400).json({
+      success: false,
+      message: "Email and OTP are required",
+    });
   }
 
-  // Check environment variables
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.error("❌ Email credentials missing");
-    return res.status(500).json({
+  // For device verification, userId is required
+  if (type === "device" && !userId) {
+    return res.status(400).json({
       success: false,
-      message: "Email configuration missing",
+      message: "UserId is required for device verification",
     });
   }
 
   try {
-    // Generate 6-digit OTP
-    const otp = crypto.randomInt(100000, 999999).toString();
-    console.log("🔢 Generated OTP:", otp);
+    let otpKey;
+    let storedData;
 
-    // Create OTP key with userId for security
-    const otpKey = `otp:${userId}:${email}`;
-    console.log("🔑 OTP Key:", otpKey);
+    if (type === "reset_password") {
+      // For reset password
+      otpKey = `reset_password_otp:${email}`;
+      console.log("🔑 Reset Password OTP Key:", otpKey);
+      
+      const storedOTPData = await redisClient.get(otpKey);
+      console.log("📦 Stored OTP Data:", storedOTPData);
+      
+      if (!storedOTPData) {
+        console.log("❌ No OTP found in Redis for key:", otpKey);
+        return res.status(400).json({
+          success: false,
+          message: "OTP expired atau tidak valid",
+        });
+      }
 
-    // Store OTP in Redis with 1 minutes expiration 
-    const redisResult = await redis.setex(otpKey, 60, otp);
-    console.log("💾 Redis storage result:", redisResult);
+      // Parse stored data
+      try {
+        storedData = typeof storedOTPData === 'string' 
+          ? JSON.parse(storedOTPData) 
+          : storedOTPData;
+      } catch (parseError) {
+        console.error("❌ Error parsing stored OTP data:", parseError);
+        return res.status(500).json({
+          success: false,
+          message: "Error processing OTP data",
+        });
+      }
 
-    // Configure Nodemailer
-    console.log("📬 Configuring email transporter...");
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
+      // Convert both to string for comparison
+      const storedOTPString = String(storedData.otp);
+      const receivedOTPString = String(otp);
+      
+      console.log("🔐 Comparing OTPs:", {
+        stored: storedData.otp,
+        storedType: typeof storedData.otp,
+        received: otp,
+        receivedType: typeof otp,
+        storedString: storedOTPString,
+        receivedString: receivedOTPString,
+        match: storedOTPString === receivedOTPString
+      });
 
-    // Verify transporter configuration
-    console.log("🔍 Verifying email configuration...");
-    await transporter.verify();
-    console.log("✅ Email transporter verified successfully");
+      if (storedOTPString !== receivedOTPString) {
+        return res.status(400).json({
+          success: false,
+          message: "OTP tidak valid",
+        });
+      }
 
-    // Email template
-    const emailHtml = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
-          <h1 style="color: white; margin: 0;">GPS Tracker</h1>
-          <p style="color: white; margin: 10px 0 0 0;">Vehicle Management System</p>
-        </div>
-        
-        <div style="background: #f8f9fa; padding: 30px;">
-          <h2 style="color: #333; margin-top: 0;">Kode Verifikasi OTP</h2>
-          <p style="color: #666; font-size: 16px; line-height: 1.5;">
-            Halo,<br><br>
-            Anda telah meminta untuk masuk ke akun GPS Tracker Anda. 
-            Gunakan kode OTP berikut untuk menyelesaikan proses login:
-          </p>
-          
-          <div style="background: white; border: 2px dashed #667eea; border-radius: 10px; padding: 20px; text-align: center; margin: 20px 0;">
-            <h1 style="color: #667eea; font-size: 32px; margin: 0; letter-spacing: 5px;">${otp}</h1>
-          </div>
-          
-          <p style="color: #666; font-size: 14px;">
-            <strong>Penting:</strong>
-          </p>
-          <ul style="color: #666; font-size: 14px;">
-            <li>Kode ini akan expired dalam <strong>5 menit</strong></li>
-            <li>Jangan bagikan kode ini kepada siapapun</li>
-            <li>Jika Anda tidak meminta kode ini, abaikan email ini</li>
-          </ul>
-        </div>
-        
-        <div style="background: #333; color: white; padding: 20px; text-align: center; font-size: 12px;">
-          <p style="margin: 0;">© 2024 GPS Tracker. All rights reserved.</p>
-        </div>
-      </div>
-    `;
+      // OTP valid, hapus dari Redis
+      await redisClient.del(otpKey);
+      console.log("🗑️ Deleted OTP from Redis");
 
-    console.log("📧 Sending email...");
+      // Reset attempt counter
+      const attemptKey = `reset_password_attempts:${email}`;
+      await redisClient.del(attemptKey);
 
-    // Send OTP email
-    const emailResult = await transporter.sendMail({
-      from: `VehiTrack <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: "Kode Verifikasi OTP - GPS Tracker",
-      html: emailHtml,
-      text: `Kode OTP Anda adalah: ${otp}. Kode ini akan expired dalam 5 menit.`,
-    });
+      // Generate temporary token for password reset
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const resetTokenKey = `reset_token:${resetToken}`;
+      
+      // Store reset token with user info (valid for 15 minutes)
+      await redisClient.setex(resetTokenKey, 900, JSON.stringify({
+        userId: storedData.userId,
+        email: email
+      }));
 
-    console.log("✅ Email sent successfully:", emailResult.messageId);
+      console.log("✅ Reset password OTP verified successfully");
 
-    return res.status(200).json({
-      success: true,
-      message: "OTP berhasil dikirim ke email Anda",
-      messageId: emailResult.messageId,
-    });
-  } catch (err) {
-    console.error("❌ Error in generateOTP:", err);
+      return res.status(200).json({
+        success: true,
+        message: "OTP berhasil diverifikasi",
+        resetToken: resetToken, // Client will use this to reset password
+      });
 
-    const message =
-      err instanceof Error ? err.message : "Unknown error saat mengirim OTP";
+    } else {
+      // For device verification
+      otpKey = `otp:${userId}:${email}`;
+      console.log("🔑 Device Verification OTP Key:", otpKey);
+      
+      const storedOTP = await redisClient.get(otpKey);
+      console.log("📦 Stored OTP:", storedOTP);
 
+      if (!storedOTP) {
+        console.log("❌ No OTP found in Redis for key:", otpKey);
+        return res.status(400).json({
+          success: false,
+          message: "OTP expired atau tidak valid",
+        });
+      }
+
+      // Convert both to string for comparison
+      const storedOTPString = String(storedOTP);
+      const receivedOTPString = String(otp);
+      
+      console.log("🔐 Comparing OTPs:", {
+        stored: storedOTP,
+        storedType: typeof storedOTP,
+        received: otp,
+        receivedType: typeof otp,
+        storedString: storedOTPString,
+        receivedString: receivedOTPString,
+        match: storedOTPString === receivedOTPString
+      });
+
+      if (storedOTPString !== receivedOTPString) {
+        return res.status(400).json({
+          success: false,
+          message: "OTP tidak valid",
+        });
+      }
+
+      // OTP valid, hapus dari Redis
+      await redisClient.del(otpKey);
+      console.log("🗑️ Deleted OTP from Redis");
+
+      // Reset attempt counter
+      const attemptKey = `otp_attempts:${userId}`;
+      await redisClient.del(attemptKey);
+
+      console.log("✅ Device OTP verified successfully");
+
+      return res.status(200).json({
+        success: true,
+        message: "OTP berhasil diverifikasi",
+      });
+    }
+
+  } catch (error) {
+    console.error("❌ OTP verification error:", error);
     return res.status(500).json({
       success: false,
-      message: `Gagal mengirim OTP: ${message}`,
+      message: "Gagal memverifikasi OTP",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined
     });
   }
 }
