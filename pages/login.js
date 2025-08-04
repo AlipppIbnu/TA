@@ -244,7 +244,7 @@ export default function Login() {
                     </div>
 
                     {/* Error Message */}
-                    {error && (
+                    {error && !showOtpStep && (
                       <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
                         <p className="text-red-600 text-sm text-center flex items-center justify-center">
                           <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
