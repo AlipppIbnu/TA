@@ -498,6 +498,16 @@ const SidebarComponent = ({
       return;
     }
 
+    // Cek kecepatan kendaraan
+    const speed = formatSpeedDisplay(selectedVehicle?.position?.speed);
+    if (speed > 0) {
+      showRelayNotif(
+        "Peringatan Keselamatan\n\nDemi keselamatan, mesin tidak dapat dimatikan saat kendaraan sedang bergerak.",
+        "error"
+      );
+      return;
+    }
+
     setRelayLoadingVehicleId(vehicleId);
     setRelayLoadingAction('OFF');
     setRelayLoadingVehicleName(selectedVehicle.name);
@@ -509,7 +519,6 @@ const SidebarComponent = ({
     setLoadingVehicles(prev => ({ ...prev, [vehicleId]: true }));
     try {
       const currentUser = getCurrentUser();
-      
       const response = await fetch(`/api/vehicles/${selectedVehicle.vehicle_id}/relay`, {
         method: 'PATCH',
         headers: {
@@ -520,9 +529,7 @@ const SidebarComponent = ({
           issued_by: currentUser?.userId || null
         }),
       });
-      
       const responseData = await response.json();
-      
       if (response.ok) {
         const updatedVehicle = { ...selectedVehicle, relay_status: 'OFF' };
         if (onSelectVehicle && selectedVehicleId === vehicleId) {
@@ -533,7 +540,6 @@ const SidebarComponent = ({
         }
       } else {
         setShowRelayLoadingModal(false);
-        
         if (responseData.details && responseData.details.includes('relay fisik')) {
           showRelayNotif(`Gagal menghubungi relay kendaraan. Silakan coba lagi`, "error");
         } else {
@@ -1345,28 +1351,54 @@ const SidebarComponent = ({
         document.body
       )}
 
-      {/* Modal notifikasi relay */}
+      {/* Modal notifikasi relay & peringatan keselamatan */}
       {showRelayNotification && createPortal(
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
-          <div className="bg-white p-6 rounded-md shadow-lg max-w-md">
-            <h3 className={`text-lg font-bold mb-4 ${
-              relayNotifStatus === 'success' ? 'text-green-600' : 'text-red-500'
-            }`}>
-              {relayNotifStatus === 'success' ? 'Berhasil' : 'Gagal'}
-            </h3>
-            <p className="mb-4 whitespace-pre-line">{relayMessage}</p>
-            <div className="flex justify-end mt-6">
-              <button 
-                onClick={() => setShowRelayNotification(false)}
-                className={`px-4 py-2 ${
-                  relayNotifStatus === 'success' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'
-                } text-white rounded-md transition-colors duration-200`}
-              >
-                OK
-              </button>
+        relayNotifStatus === 'error' && relayMessage?.includes('Peringatan Keselamatan') ? (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+            <div className="bg-white p-4 rounded-lg shadow-2xl max-w-xs w-full mx-4">
+              <div className="text-center">
+                <div className="mx-auto h-10 w-10 text-red-500 flex items-center justify-center mb-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-10 h-10">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-bold mb-3 text-gray-800">Peringatan Keselamatan</h3>
+                <div className="mb-4">
+                  <p className="text-gray-600 mb-2 text-sm">Demi keselamatan, mesin tidak dapat dimatikan saat kendaraan sedang bergerak.</p>
+                </div>
+                <div className="flex justify-center mt-2">
+                  <button 
+                    onClick={() => setShowRelayNotification(false)}
+                    className="px-4 py-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200 font-medium text-sm"
+                  >
+                    Tutup
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>,
+        ) : (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+            <div className="bg-white p-6 rounded-md shadow-lg max-w-md">
+              <h3 className={`text-lg font-bold mb-4 ${
+                relayNotifStatus === 'success' ? 'text-green-600' : 'text-red-500'
+              }`}>
+                {relayNotifStatus === 'success' ? 'Berhasil' : 'Gagal'}
+              </h3>
+              <p className="mb-4 whitespace-pre-line">{relayMessage}</p>
+              <div className="flex justify-end mt-6">
+                <button 
+                  onClick={() => setShowRelayNotification(false)}
+                  className={`px-4 py-2 ${
+                    relayNotifStatus === 'success' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'
+                  } text-white rounded-md transition-colors duration-200`}
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        ),
         document.body
       )}
 
